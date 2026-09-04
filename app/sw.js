@@ -17,7 +17,7 @@
    bir artır (v1 -> v2 -> ...). Aksi halde bazı kullanıcılar çevrimdışı
    önbellekte eski bir sürümde takılı kalabilir.
    ========================================================= */
-const CACHE_VERSION = 'fullbudget-v5';
+const CACHE_VERSION = 'fullbudget-v6';
 const PRECACHE_URLS = ['manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (event) => {
