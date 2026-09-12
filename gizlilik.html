@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="tr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gizlilik Politikası — FullBudget</title>
+<meta name="description" content="Finansal kayıtların cihazında kalır, bir veritabanında saklanmaz. AI Finans Koçu kullanıldığında sunucumuz üzerinden OpenAI'a ne gittiği burada ayrıntılı anlatılıyor.">
+<meta name="theme-color" content="#0B0D10">
+<link rel="icon" href="ikon/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="ikon/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="stil.css">
+<meta property="og:title" content="Gizlilik Politikası — FullBudget">
+<meta property="og:description" content="Finansal kayıtların cihazında kalır, bir veritabanında saklanmaz. AI Finans Koçu kullanıldığında sunucumuz üzerinden OpenAI'a ne gittiği burada ayrıntılı anlatılıyor.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://fullbudget.app/gizlilik.html">
+</head><body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="index.html"><img src="ikon/mark.svg" alt="FullBudget logosu" width="27" height="27"><span><b>Full</b>Budget</span></a>
+  <nav>
+    <a href="index.html#ozellikler">Özellikler</a>
+    <a href="gizlilik.html">Gizlilik</a>
+    <a href="destek.html">Destek</a>
+  </nav>
+</div></header>
+<div class="wrap"><div class="doc"><div class="langswitch"><a href="gizlilik.html" class="on">Türkçe</a><a href="privacy.html" class="">English</a></div>
+<h1>Gizlilik Politikası</h1>
+<p class="updated">Son güncelleme: 12 Eylül 2026</p>
+
+<div class="callout">
+<p><strong>Özet:</strong> Hesap açmazsın. Gelir, gider, borç, varlık ve hedef kayıtların yalnızca
+kullandığın cihazda tutulur; bunları bir veritabanına kaydetmeyiz. FullBudget'ın AI Finans
+Koçu'nu <strong>kullanmayı seçtiğinde</strong> ise durum farklı: sorduğun soru ve o soruya cevap
+üretmek için gereken, sayılardan oluşan bir finansal özet, FullBudget'ın sunucusu üzerinden
+üçüncü taraf bir yapay zekâ sağlayıcısı olan OpenAI'a iletilir. Bu istek anlık işlenir; sunucumuz
+bu veriyi kalıcı bir veritabanında saklamaz. AI Finans Koçu'nu hiç kullanmazsan bu paylaşım hiç
+gerçekleşmez. Uygulama ayrıca döviz kuru, altın fiyatı, yazı tipi ve dosya okuma kütüphaneleri
+için birkaç dış servise daha bağlanır; hepsini aşağıda tek tek yazdık.</p>
+</div>
+
+<h2>1. Kim olduğumuz</h2>
+<p>FullBudget, kişisel bütçe takibi için geliştirilen bir uygulamadır.
+İletişim: <a href="mailto:info@fullbudget.app">info@fullbudget.app</a></p>
+
+<h2>2. Hangi verileri topluyoruz</h2>
+<p>FullBudget'ın kullanıcı hesabı yoktur. Kayıt ekranı yoktur; e-posta, telefon numarası, ad veya
+şifre istemiyoruz. Analitik, izleme pikseli, reklam kimliği ve çerez kullanmıyoruz.</p>
+<p>Normal kullanımda (gelir/gider/borç/varlık girişi, raporlar, hedefler) hiçbir verin bize
+gönderilmez — bunlar yalnızca cihazında tutulur, aşağıdaki 3. maddede anlatıldığı gibi.</p>
+<p>Tek istisna, <strong>kendi tercihinle</strong> kullandığın AI Finans Koçu'dur: bu özelliği
+kullandığında sorduğun soru ve gerekli finansal özet, cevabı üretmek için FullBudget'ın arka uç
+sunucusuna gider. Bu akış 4. maddede ayrıntılı anlatılmıştır.</p>
+
+<h2>3. Girdiğin veriler nerede duruyor</h2>
+<p>Gelirlerin, giderlerin, hesap bakiyelerin, borçların, kredi kartı bilgilerin, hedeflerin ve
+notların <strong>yalnızca kullandığın cihazda</strong>, tarayıcının kendi yerel deposunda
+(localStorage) saklanır. Bu veriler bize iletilmez ve bizim tarafımızdan görülemez.</p>
+<p>Bunun iki sonucu var, ikisini de bilmelisin:</p>
+<ul>
+<li>Tarayıcı verilerini temizlersen, uygulamayı silersen veya başka bir cihaza geçersen
+<strong>verilerin kaybolur</strong> ve bizim geri getirme imkânımız yoktur.</li>
+<li>Bu yüzden uygulama içinden düzenli olarak yedek dosyası indirmeni öneriyoruz. Yedek dosyası
+senin cihazına iner; bize gönderilmez.</li>
+</ul>
+
+<h2>4. Uygulamanın bağlandığı dış servisler</h2>
+<p>Uygulama tamamen çevrimdışı değildir. Aşağıdaki servislere bağlanır. İlk dört satırdaki
+servislere <strong>finansal verilerin gönderilmez</strong> (yalnızca her internet bağlantısında
+olduğu gibi IP adresin ve tarayıcı bilgin görülür). Son satır — AI Finans Koçu — bu kuralın
+bilinçli tek istisnasıdır ve yalnızca bu özelliği kullanmayı seçtiğinde devreye girer; ayrıntısı
+tablonun altında.</p>
+<div class="tblscroll"><table>
+<thead><tr><th>Servis</th><th>Ne için</th><th>Ne zaman</th></tr></thead>
+<tbody>
+<tr><td>open.er-api.com</td><td>Güncel USD/EUR kuru</td><td>Uygulama her açıldığında</td></tr>
+<tr><td>api.gold-api.com</td><td>Gram altın fiyatı</td><td>Uygulama her açıldığında</td></tr>
+<tr><td>fonts.googleapis.com<br>fonts.gstatic.com</td><td>Yazı tipleri (Google Fonts)</td><td>Uygulama her açıldığında</td></tr>
+<tr><td>cdnjs.cloudflare.com</td><td>PDF okuma ve fiş fotoğrafı tanıma kütüphaneleri</td><td>Yalnızca PDF ekstre yüklediğinde veya fiş fotoğrafı çektiğinde</td></tr>
+<tr><td>FullBudget arka uç sunucusu → OpenAI</td><td>AI Finans Koçu'nun cevap üretmesi</td><td>Yalnızca AI Finans Koçu'na bir soru sorduğunda</td></tr>
+</tbody></table></div>
+<p><strong>AI Finans Koçu'na sorduğunda ne gider:</strong> yazdığın soru metni ve gelir, gider,
+nakit akışı, borç kalemleri (kart adı/limit/bakiye — kart numarası veya son 4 hane DEĞİL),
+hedeflerin gibi yuvarlanmış sayısal bir finansal özet. Adın, e-postan, telefon numaran ya da
+hesap/kart numaraların bu isteğin içinde YER ALMAZ, çünkü uygulama bunları zaten hiç toplamaz.
+İstek önce FullBudget'ın kendi arka uç sunucusuna gelir; sunucu bu isteği <strong>OpenAI</strong>'a
+(üçüncü taraf bir yapay zekâ sağlayıcısı) iletip cevabı sana geri döner. OpenAI API anahtarı
+yalnızca sunucuda durur, tarayıcına hiçbir zaman gönderilmez. FullBudget sunucusu bu soru/cevap
+alışverişini kalıcı bir veritabanında saklamaz; istek işlendikten sonra sunucu tarafında elde
+tutulmaz. OpenAI'ın kendi veri işleme politikaları FullBudget'ın kontrolü dışındadır.</p>
+<p>İnternet bağlantısı olmadığında uygulama çalışmaya devam eder; kur bilgisi için uygulamaya
+gömülü son referans değerleri kullanılır ve bunu ekranda belirtir. AI Finans Koçu bağlantı
+olmadan ya da sunucuya ulaşılamadığında, kişiselleştirilmemiş, verini hiç kullanmayan bir
+şablon-cevap moduna döner.</p>
+
+<h2>5. Cihaz izinleri</h2>
+<ul>
+<li><strong>Mikrofon</strong> — yalnızca "sesle harcama ekle" özelliğini kullandığında ve yalnızca
+o an. Ses kaydı saklanmaz, bize gönderilmez; tanıma işlemini cihazının/tarayıcının kendi konuşma
+tanıma servisi yapar.</li>
+<li><strong>Kamera / fotoğraf</strong> — yalnızca fiş fotoğrafı okutmayı seçtiğinde. Görsel
+cihazında işlenir, bize gönderilmez.</li>
+<li><strong>Bildirimler</strong> — yalnızca sen açarsan, yaklaşan ödeme hatırlatmaları için.
+Bildirimler cihazında üretilir; bizim sunucumuzdan gönderilen bir bildirim yoktur.</li>
+</ul>
+
+<h2>6. Verilerini silme</h2>
+<p>Gelir, gider, borç, varlık ve hedef kayıtların bizde kalıcı olarak saklanmadığı için bunlar için
+silmemiz gereken bir şey yoktur. Kendi cihazındaki verileri silmek için tarayıcının site
+verilerini temizlemen veya uygulamayı kaldırman yeterlidir. Bu işlem geri alınamaz.</p>
+<p>AI Finans Koçu'na sorduğun sorular da sunucumuzda kalıcı olarak saklanmaz — istek işlenip
+cevap sana döndükten sonra sunucu tarafında elde tutulmaz; bu yüzden bu konuda da ayrıca "silme"
+talebinde bulunmana gerek yoktur.</p>
+
+<h2>7. Çocukların gizliliği</h2>
+<p>FullBudget 13 yaşın altındaki kullanıcılara yönelik değildir ve zaten hiç kimseden kişisel veri
+toplamamaktadır.</p>
+
+<h2>8. Yasal dayanak (KVKK / GDPR)</h2>
+<p>FullBudget kişisel veri işlemediği için 6698 sayılı KVKK anlamında bir <em>veri sorumlusu</em>
+sıfatıyla kayıt tutmamakta, veri aktarımı yapmamaktadır. Yukarıda sayılan dış servisler, kendi
+gizlilik politikaları kapsamında bağımsız birer veri sorumlusudur ve yalnızca teknik bağlantı
+bilgilerini (IP adresi gibi) görürler.</p>
+<p>İleride kullanıcı hesabı ve bulut yedekleme gibi özellikler eklenirse bu politika önceden
+güncellenecek ve bu özellikler <strong>isteğe bağlı</strong> olacaktır; hesap açmadan kullanım
+her zaman mümkün kalacaktır.</p>
+
+<h2>9. Bu politikadaki değişiklikler</h2>
+<p>Politika değişirse bu sayfadaki tarih güncellenir. Veri toplamaya başlamamızı gerektiren bir
+değişiklik olursa, bu uygulama içinde ayrıca duyurulur.</p>
+
+<h2>10. İletişim</h2>
+<p>Sorular için: <a href="mailto:info@fullbudget.app">info@fullbudget.app</a></p>
+</div></div><footer><div class="wrap">
+  <span>© 2026 FullBudget</span>
+  <nav>
+    <a href="gizlilik.html">Gizlilik</a>
+    <a href="privacy.html">Privacy (EN)</a>
+    <a href="destek.html">Destek</a>
+    <a href="mailto:info@fullbudget.app">info@fullbudget.app</a>
+  </nav>
+</div></footer>
+</body></html>
