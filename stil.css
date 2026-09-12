@@ -276,3 +276,79 @@ footer a{color:var(--muted);}
     padding-left:clamp(28px,3.5vw,44px);
     border-left:2px solid color-mix(in srgb, var(--brand) 45%, transparent);}
 }
+
+/* =========================================================
+   YENİ LANSMAN BÖLÜMLERİ (v5.0 landing) — yeni bileşenler, aynı marka
+   sistemi (renk/tipografi tokenları yukarıdan, yeniden icat edilmedi).
+   ========================================================= */
+
+/* --- Bu Ay Ne Yapmalısın?: uygulamanın kendi karar kartı dilinin
+   pazarlama sayfasındaki numaralı listesi. --- */
+.decision-list{display:grid; gap:1px; margin-top:8px; background:var(--line);
+  border:1px solid var(--line); border-radius:var(--r); overflow:hidden;}
+.decision-list > div{background:var(--surface); padding:22px 24px; display:grid;
+  grid-template-columns:44px 1fr; gap:16px; align-items:start;}
+.decision-list .dnum{font-family:'Space Grotesk',sans-serif; font-size:22px;
+  font-weight:700; color:var(--brand); font-variant-numeric:tabular-nums;}
+.decision-list h3{font-size:17px; margin:0 0 4px; letter-spacing:-.01em;}
+.decision-list p{margin:0; color:var(--muted); font-size:14.5px;}
+.decision-note{margin-top:16px; font-size:13.5px; color:var(--dim);}
+
+/* --- Finansal Sağlık / Zenginleşme Skoru --- */
+.score-panel{display:grid; grid-template-columns:minmax(170px,200px) 1fr;
+  gap:clamp(24px,4vw,48px); align-items:center; margin-top:8px;}
+@media (max-width:720px){.score-panel{grid-template-columns:1fr; justify-items:center; text-align:center;}}
+.score-ring{width:170px; height:170px; border-radius:50%; display:grid; place-items:center;
+  position:relative; background:conic-gradient(var(--brand) 0deg 252deg, var(--line) 252deg 360deg);
+  flex:none;}
+.score-ring::before{content:''; position:absolute; inset:13px; border-radius:50%; background:var(--bg);}
+.score-ring b{position:relative; font-family:'Space Grotesk',sans-serif; font-size:38px; color:var(--text); line-height:1;}
+.score-ring span{position:relative; font-size:10.5px; color:var(--muted); text-transform:uppercase;
+  letter-spacing:.08em; margin-top:4px;}
+.score-factors{display:grid; gap:0;}
+.score-factors > div{display:flex; justify-content:space-between; gap:12px; font-size:14.5px;
+  padding:11px 0; border-bottom:1px solid var(--line);}
+.score-factors > div:first-child{padding-top:0;}
+.score-factors b{color:var(--text); font-variant-numeric:tabular-nums; font-family:'Space Grotesk',sans-serif;}
+
+/* --- AI Finans Koçu: gerçek sohbet ekranının sadeleştirilmiş önizlemesi --- */
+.coach-panel{display:grid; grid-template-columns:1fr minmax(250px,310px);
+  gap:clamp(24px,4vw,48px); align-items:center; margin-top:8px;}
+@media (max-width:820px){.coach-panel{grid-template-columns:1fr;}}
+.coach-chat{background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  padding:20px; display:grid; gap:12px;}
+.coach-bubble{max-width:88%; padding:11px 15px; border-radius:14px; font-size:13.5px; line-height:1.5; margin:0;}
+.coach-bubble.user{justify-self:end; background:var(--brand); color:#04140F; border-bottom-right-radius:4px; font-weight:500;}
+.coach-bubble.ai{justify-self:start; background:var(--surface-2); color:var(--text);
+  border:1px solid var(--line); border-bottom-left-radius:4px;}
+.coach-arch{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--dim); margin-top:2px;}
+.coach-arch span{background:var(--surface-2); border:1px solid var(--line); border-radius:99px; padding:4px 10px;}
+.coach-arch i{color:var(--dim); font-style:normal;}
+
+/* --- Finansal Yol: zaman çizgisi --- */
+.path-timeline{display:grid; gap:0; border-left:2px solid var(--line); margin:12px 0 0 6px; padding-left:24px;}
+.path-timeline > div{position:relative; padding:0 0 24px;}
+.path-timeline > div:last-child{padding-bottom:0;}
+.path-timeline > div::before{content:''; position:absolute; left:-29px; top:4px; width:10px; height:10px;
+  border-radius:50%; background:var(--brand); border:2px solid var(--bg);}
+.path-timeline h3{font-size:15.5px; margin:0 0 4px; letter-spacing:-.01em;}
+.path-timeline p{margin:0; color:var(--muted); font-size:14px;}
+
+/* --- roadmap / yakında ızgarası: item 10, 13, 14 (yatırım genişletme, premium,
+   finansal ikiz/GPS vb.) — HİÇBİRİ production'da aktif değil, hepsi "yakında"
+   rozetiyle işaretli. Bu bölüm satış vaadi değil, dürüst bir yol haritasıdır. --- */
+.roadmap-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-top:8px;}
+.roadmap-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:18px;}
+.roadmap-card h3{font-size:15px; margin:0 0 6px; letter-spacing:-.01em;}
+.roadmap-card p{margin:0; color:var(--muted); font-size:13.5px;}
+.soon-badge{display:inline-block; font-size:10px; letter-spacing:.07em; text-transform:uppercase;
+  font-weight:700; color:var(--amber); background:color-mix(in srgb, var(--amber) 14%, transparent);
+  border:1px solid color-mix(in srgb, var(--amber) 36%, transparent); border-radius:99px;
+  padding:3px 9px; margin-bottom:10px;}
+
+/* --- çoklu cihaz: item 11, henüz aktif değil, "yakında" --- */
+.device-row{display:flex; align-items:center; justify-content:center; gap:18px; flex-wrap:wrap; margin:26px 0 6px;}
+.device-icon{width:60px; height:60px; border-radius:16px; background:var(--surface); border:1px solid var(--line);
+  display:grid; place-items:center; color:var(--brand); flex:none;}
+.device-icon svg{width:26px; height:26px;}
+.device-arrow{color:var(--dim); font-size:18px;}
