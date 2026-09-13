@@ -12087,12 +12087,11 @@ const aiCoachService = {
     let res;
     try{
       res = await fetch(url, {
-        method:'POST',
-        credentials:'include',        // oturum çerezi backend'de; istemci token TAŞIMAZ
-        headers:{'Content-Type':'application/json'},
-        body,
-        signal: ctrl ? ctrl.signal : undefined,
-      });
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body,
+  signal: ctrl ? ctrl.signal : undefined
+});
     }catch(err){
       if(timer) clearTimeout(timer);
       const aborted = err && (err.name==='AbortError' || String(err).indexOf('abort')>=0);
