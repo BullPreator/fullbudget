@@ -3338,7 +3338,27 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <div id="goalAffordPanel" style="display:none;">
     <button class="afford-back-btn" id="goalAffordBackBtn" type="button">← <span data-i18n="goal-afford-geri">Hedeflere dön</span></button>
     <div id="goalAffordTitle" class="afford-form-title" style="margin:10px 0 14px;"></div>
+
+    <!-- Decision Engine V1 - ad-hoc (kalıcı hedef OLUŞTURMAYAN) satın alma girdisi.
+         openGoalAfford (gerçek hedef) akışında GİZLİ kalır; sadece openAdHocAffordEntry
+         tarafından gösterilir. -->
+    <div id="adHocAffordForm" class="card" style="display:none;">
+      <p class="section-title"><span data-i18n="adhoc-baslik">Ne almayı düşünüyorsun?</span></p>
+      <div class="form-row" style="margin:6px 0;"><input id="adHocPrice" class="money-input" type="text" inputmode="decimal" placeholder="Fiyat"></div>
+      <div class="form-row" style="margin:6px 0;"><input id="adHocDownPayment" class="money-input" type="text" inputmode="decimal" placeholder="Peşinat (opsiyonel)"></div>
+      <label style="display:flex;align-items:center;gap:6px;margin:6px 0;font-size:var(--fs-sm);color:var(--muted);">
+        <input id="adHocFinancingToggle" type="checkbox"> <span data-i18n="adhoc-taksit">Taksitle almayı düşünüyorum</span>
+      </label>
+      <div id="adHocFinancingFields" style="display:none;">
+        <div class="form-row" style="margin:6px 0;"><input id="adHocMonths" type="number" inputmode="numeric" min="1" max="120" placeholder="Taksit sayısı (ay)"></div>
+        <div class="form-row" style="margin:6px 0;"><input id="adHocRatePct" type="number" inputmode="decimal" step="0.1" min="0" placeholder="Aylık faiz % (opsiyonel)"></div>
+      </div>
+      <div class="form-row" style="margin:6px 0;"><input id="adHocRecurringCost" class="money-input" type="text" inputmode="decimal" placeholder="Aylık ek maliyet (opsiyonel, ör. sigorta/bakım)"></div>
+      <button class="add-btn" id="adHocSubmitBtn" type="button" data-i18n="adhoc-hesapla">Hesapla</button>
+    </div>
+
     <div id="affordDecisionCard" class="afford-decision-card"></div>
+    <div id="decisionCategoryBadge"></div>
 
     <div class="card" id="affordRouteCard">
       <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polygon points="15.5 8.5 13.2 13.2 8.5 15.5 10.8 10.8" fill="currentColor" stroke="none"/></svg></span><span data-i18n="afford-rota">Bu Hedefe Giden Finansal Rota</span></p>
@@ -11068,6 +11088,10 @@ function renderAffordTeaser(){
   if(!box) return;
   const en = currentLang==='en';
   const primary = pickPrimaryGoal();
+  // Ad-hoc "Sor" (kullanıcı düzeltmesi: HER ZAMAN görünür olmalı — var olan hedef
+  // olsa da olmasa da — çünkü "Bu arabayı/evi/tatili karşılayabilir miyim?" sorusu
+  // her zaman sorulabilmeli. Kalıcı hedef OLUŞTURMAZ; sadece openAdHocAffordEntry()'yi
+  // tetikler (ad-hoc akışın kendisi değişmedi).
   if(primary){
     const {g} = primary;
     const type = GOAL_TYPES.find(tp=>tp.key===g.typeKey)||GOAL_TYPES[0];
@@ -11077,23 +11101,43 @@ function renderAffordTeaser(){
           <div class="afford-teaser-title">${goalDisplayNameHtml(g)}</div>
           <div class="afford-teaser-sub">${en ? 'See if you can already afford it, based on your current pace.' : 'Mevcut tempona göre buna gücünün yetip yetmediğini gör.'}</div>
         </div>
-        <button type="button" class="mini-btn afford-teaser-btn" id="homeAffordBtn">${en ? 'Check' : 'Analiz Et'}</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="mini-btn afford-teaser-btn" id="homeAffordBtn">${en ? 'Check' : 'Analiz Et'}</button>
+          <button type="button" class="mini-btn afford-teaser-btn" id="homeAffordAdHocBtn">${en ? 'Ask' : 'Sor'}</button>
+        </div>
       </div>`;
       const btn = document.getElementById('homeAffordBtn');
       if(btn) btn.addEventListener('click', ()=>{
         setTab('goals');
         setTimeout(()=>openGoalAfford(g.id), 120);
       });
+      const adHocBtn = document.getElementById('homeAffordAdHocBtn');
+      if(adHocBtn) adHocBtn.addEventListener('click', ()=>{
+        setTab('goals');
+        setTimeout(()=>openAdHocAffordEntry(), 120);
+      });
       return;
     }
   }
+  // Var olan hedef yokken: "hedef ekle" seçeneğinin YANINA, kalıcı bir hedef oluşturmadan
+  // tek seferlik bir soru sorulabilecek ad-hoc Decision Engine girişi eklenir (kullanıcı
+  // zorunlu düzeltmesi #1/#3 - mevcut Ana Sayfa "Alabilir miyim?" girişi BİRİNCİL giriş
+  // noktası olarak kullanılıyor, yeni bir bölüm İCAT EDİLMEDİ).
   box.innerHTML = `<div class="afford-teaser-row">
     <div class="afford-teaser-text">
       <div class="afford-teaser-title">${en ? 'Can I afford it?' : 'Alabilir miyim?'}</div>
-      <div class="afford-teaser-sub">${en ? 'Add a goal (car, home, computer…) to see if you can afford it and when.' : 'Bir hedef ekle (araba, ev, bilgisayar…) — buna gücünün yetip yetmediğini ve ne zaman yeteceğini gör.'}</div>
+      <div class="afford-teaser-sub">${en ? 'Ask about a specific purchase, or add a goal (car, home, computer…) to track it over time.' : 'Belirli bir satın alma hakkında sor, ya da zaman içinde takip etmek için bir hedef ekle (araba, ev, bilgisayar…).'}</div>
     </div>
-    <button type="button" class="mini-btn afford-teaser-btn" id="homeAffordGoToGoalsBtn">${en ? 'Add Goal' : 'Hedef Ekle'}</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" class="mini-btn afford-teaser-btn" id="homeAffordAdHocBtn">${en ? 'Ask' : 'Sor'}</button>
+      <button type="button" class="mini-btn afford-teaser-btn" id="homeAffordGoToGoalsBtn">${en ? 'Add Goal' : 'Hedef Ekle'}</button>
+    </div>
   </div>`;
+  const adHocBtn = document.getElementById('homeAffordAdHocBtn');
+  if(adHocBtn) adHocBtn.addEventListener('click', ()=>{
+    setTab('goals');
+    setTimeout(()=>openAdHocAffordEntry(), 120);
+  });
   const goBtn = document.getElementById('homeAffordGoToGoalsBtn');
   if(goBtn) goBtn.addEventListener('click', ()=>executeQuickAction({tab:'goals'}));
 }
@@ -12260,7 +12304,10 @@ function renderAdvice(monthlyCashFlow, totalDebt, interestCost, netWorth, debtRa
 
    VAR OLMAYAN VERİ UYDURULMAZ: yatırım getirisi, kredi skoru, net varlık projeksiyonu, gelecek
    gelir tahmini gibi FullBudget'ın hesaplamadığı hiçbir alan bu objede yoktur. */
-const AI_CONTEXT_VERSION = 1;
+// v2 (2026-09-17): buildAICoachPrecomputed artık afford-niyetli sorularda Decision Engine'in
+// (bkz. DECISION-ENGINE-START/END) tam DecisionResult'ını da precomputed.decision olarak
+// ekliyor - şema değişikliği olduğu için sürüm yükseltildi (bkz. mimari denetim §14).
+const AI_CONTEXT_VERSION = 2;
 
 function buildAICoachContext(){
   const cap = getAffordCapacityInfo(); // P0-1 ile AYNI kaynak - kapasite burada farklı bir formülle YENİDEN hesaplanmıyor
@@ -12557,6 +12604,14 @@ function buildAICoachPrecomputed(question){
         reason: affordReasonText(r, en),                      // P0-1'in kendi gerekçesi
       };
     }catch(e){ /* motor bir nedenle cevap veremezse precomputed'a hiç eklenmez - uydurma yapılmaz */ }
+    // Decision Engine (V1) - AYNI algılanan tutarla, AYNI "ad-hoc" (kalıcı hedef OLUŞTURMAYAN)
+    // satın alma sorgusu. AI bu DecisionResult'ı SADECE açıklar; kendi hesabını yapmaz
+    // (bkz. DECISION-ENGINE-START/END, runDecisionEngine). computeAffordability çağrısıyla
+    // aynı motoru (getAffordCapacityInfo) paylaştığı için iki farklı sonuç riski yoktur.
+    try{
+      const dr = runDecisionEngine({type:'purchase', purchase:{category:'diger', price:amount}});
+      if(dr && !dr.missingData && !dr.unsupportedRequestType) out.decision = dr;
+    }catch(e){ /* Decision Engine cevap veremezse precomputed'a hiç eklenmez - uydurma yapılmaz */ }
   }
   /* Şablon koçun bu soruya verdiği gerçek cevap. Bu metin zaten gerçek motorlardan
      (computeAffordability, allDebts, computeGoalInfo, getFinancialAlerts...) üretiliyor.
@@ -15540,6 +15595,419 @@ function calculatePurchaseScenario(opts){
   return {missingData:false, cap, price, now, cash, installment, waitList, goalImpact, verdict: now.safety.level};
 }
 
+/* DECISION-ENGINE-START =====================================================
+   "SONUÇTA ALABİLİR MİYİM?" KARAR MOTORU (V1)
+   -----------------------------------------------------------------------
+   Bu blok YENİ bir finansal hesaplama motoru DEĞİLDİR. Var olan Finance-Core /
+   Affordability / Debt / Goal motorlarını (yukarıda tanımlı computeCashFlowSummary,
+   computeNetWorth, getAffordCapacityInfo, computeAffordability, allDebts,
+   monthlyDebtPayments, totalDebtTL, loanPrincipal, simulatePayoff, simulateDebtStrategy,
+   computeGoalInfo, computeGoalScenarios, calculateCashPurchase, calculateInstallmentPurchase,
+   calculateFuturePurchase, calculateFinancialSafety, calculateGoalImpact, getFinancialAlerts,
+   mevduatAylikBilesikNet) SIRAYLA ÇAĞIRAN ince bir orkestrasyon katmanıdır.
+
+   Boru hattı: DecisionRequest -> girdi normalizasyonu -> finans anlık görüntüsü
+   (getAffordCapacityInfo, tekrar hesaplanmıyor) -> kısıt çıkarımı (adlandırılmış
+   güvenlik kuralları) -> senaryo üretici (now/cash/installment/wait-N veya borç/
+   hedef zaman çizelgesi) -> karar sınıflandırıcı (5 sabit kategori) -> DecisionResult.
+   Bundan SONRA (bu blokta değil): AI Coach bu SONUCU salt-okunur alır, kendi
+   hesaplama YAPMAZ (bkz. buildAICoachContext/buildAICoachPrecomputed).
+
+   ÖNEMLİ SINIRLAR (V1):
+   - Gelecekteki maaş artışı/gider azalması/terfi/yatırım getirisi İCAT EDİLMEZ;
+     wait-N projeksiyonu SADECE mevcut aylık nakit akışının sabit kaldığını varsayar
+     (calculateFuturePurchase'ın zaten yaptığı gibi - bkz. o fonksiyonun yorumu).
+   - Acil fon hedefi sabit 3 ay (getAffordCapacityInfo/cap.emergencyTarget3) -
+     acilFonDurumu()'nun uyarlanabilir 3/6/9 ay önerisi BİLİNÇLİ OLARAK kullanılmıyor
+     (bkz. mimari denetim raporu, madde 3 - ayrı bir Finance-Core kararı gerektirir).
+   - "Borç mu Yatırım mı" karşılaştırması answerDebtOrInvest() ile AYNI referans
+     getiriyi (mevduatAylikBilesikNet()) kullanır - ikinci bir "gerçekçi getiri"
+     sabiti İCAT EDİLMEDİ.
+   - _planCache/computePriorityPlan bu blok tarafından ASLA çağrılmaz/mutasyona
+     UĞRATILMAZ (Money Task'a enjeksiyon V2 kapsamı).
+   ============================================================================= */
+
+const DECISION_ENGINE_VERSION = 1;
+
+// ---- Adlandırılmış, izlenebilir güvenlik kuralları (mimari denetim §13) ----
+// Her kural saf bir fonksiyondur; girdi olarak zaten hesaplanmış (calculateFinancialSafety
+// dahil) değerleri alır, YENİ bir formül İCAT ETMEZ. `ctx` alanları opsiyoneldir; bir
+// istek türü (ör. borç-yatırım karşılaştırması) ilgisiz alanları boş bırakabilir.
+function decisionSafetyRules(ctx){
+  const fired = [];
+  const safety = ctx.safety || {};
+  if(safety.postCashFlow!=null && safety.postCashFlow<0){
+    fired.push({code:'NEGATIVE_CASH_FLOW', severity:'critical', params:{postCashFlow: safety.postCashFlow}});
+  }
+  if(safety.postEmergencyMonths!=null){
+    if(safety.postEmergencyMonths<1){
+      fired.push({code:'EMERGENCY_FUND_BREACH_HARD', severity:'critical', params:{postEmergencyMonths: safety.postEmergencyMonths}});
+    } else if(safety.postEmergencyMonths<3){
+      fired.push({code:'EMERGENCY_FUND_BREACH_SOFT', severity:'warning', params:{postEmergencyMonths: safety.postEmergencyMonths}});
+    }
+  }
+  if(safety.criticalAlerts && safety.criticalAlerts.length){
+    fired.push({code:'CRITICAL_ALERT_ACTIVE', severity:'critical', params:{count: safety.criticalAlerts.length}});
+  }
+  if(ctx.cashOutlayExceedsLiquid){
+    fired.push({code:'DOWNPAYMENT_EXCEEDS_LIQUID', severity:'critical', params:{cashOutlay: ctx.cashOutlay, liquid: ctx.cap ? ctx.cap.liquid : null}});
+  }
+  if(ctx.noProgressAtChosenPace){
+    fired.push({code:'NO_PROGRESS_AT_PACE', severity:'critical'});
+  }
+  if(ctx.monthlyImpact!=null && ctx.cap && ctx.monthlyImpact > ctx.cap.safeMonthlyCapacity){
+    fired.push({code:'EXCEEDS_SAFE_CAPACITY', severity:'warning', params:{monthlyImpact: ctx.monthlyImpact, safeMonthlyCapacity: ctx.cap.safeMonthlyCapacity}});
+  }
+  if(ctx.cashOutlay!=null && ctx.cap && (ctx.cap.liquid - ctx.cashOutlay) < ctx.cap.emergencyTarget3*0.5){
+    fired.push({code:'DOWNPAYMENT_EATS_EMERGENCY_RESERVE', severity:'warning'});
+  }
+  if(ctx.delaysOtherGoals){
+    fired.push({code:'DELAYS_OTHER_GOALS', severity:'warning', params:{otherGoalsRequiredMonthly: ctx.otherGoalsRequiredMonthly||0}});
+  }
+  return fired;
+}
+function decisionHasCriticalRule(rules){ return rules.some(r=>r.severity==='critical'); }
+function decisionHasWarningRule(rules){ return rules.some(r=>r.severity==='warning'); }
+
+// ---- Girdi normalizasyonu ----
+function normalizeDecisionRequest(req){
+  req = req || {};
+  const out = {
+    type: req.type,
+    waitMonths: (Array.isArray(req.waitMonths) && req.waitMonths.length) ? req.waitMonths.slice() : [0,1,2,3,6,12,24],
+    excludeGoalId: req.excludeGoalId || null,
+  };
+  if(out.type==='purchase'){
+    const p = req.purchase || {};
+    const price = Math.max(0, Number(p.price)||0);
+    out.purchase = {
+      category: p.category || 'diger',
+      price,
+      downPayment: Math.max(0, Number(p.downPayment)||0),
+      currentSaved: Math.max(0, Number(p.currentSaved)||0),
+      financing: (p.financing && Number(p.financing.months)>0)
+        ? {months: Math.max(1, Math.round(Number(p.financing.months))), ratePct: Math.max(0, Number(p.financing.ratePct)||0)}
+        : null,
+      recurringMonthlyCost: Math.max(0, Number(p.recurringMonthlyCost)||0),
+      targetDateStr: p.targetDateStr || null,
+      goalId: p.goalId || null,
+    };
+  } else if(out.type==='debt_payoff_timing'){
+    const d = req.debt || {};
+    out.debt = {debtId: d.debtId||null, extraMonthly: Math.max(0, Number(d.extraMonthly)||0)};
+  } else if(out.type==='debt_vs_invest'){
+    const c = req.compare || {};
+    out.compare = {debtId: c.debtId||null, investAmount: Math.max(0, Number(c.investAmount)||0)};
+  } else if(out.type==='goal_timeline'){
+    out.goalId = req.goalId||null;
+  }
+  return out;
+}
+
+// ---- Karar sınıflandırıcı (mimari denetim §4) ----
+// Girdi: bir "şimdi" değerlendirmesi (evalNow), varsa bir "tarih arama" sonucu
+// (dateSearch: {found:bool, months:number|null, structurallyImpossible:bool}) ve
+// güvenlik kural listesi. HER ZAMAN 5 sabit kategoriden birini döndürür; asla
+// belirsiz bir "evet/hayır" ile "daha spesifik bir kategori matematiksel olarak
+// mevcutken" yetinmez (mimari denetim §4, kullanıcı düzeltmesi §6).
+function classifyDecision(evalNow, dateSearch, rules){
+  const criticalFired = decisionHasCriticalRule(rules);
+  const warningFired = decisionHasWarningRule(rules);
+  const delaysGoals = rules.some(r=>r.code==='DELAYS_OTHER_GOALS');
+
+  // DÜZELTME (kullanıcı zorunlu düzeltmesi #1): "yes_today" SADECE evalNow'un TAM güvenlik
+  // sınıflandırıcısından (calculateFinancialSafety tabanlı `rules`) YEŞİL çıkmasıyla verilir.
+  // "Para yetiyor" (financedAmount<=0 vb.) TEK BAŞINA yeterli DEĞİLDİR.
+  if(!criticalFired && !warningFired){
+    return {answerCategory:'yes_today', safe:true, verdict:'green', affordabilityDate:null};
+  }
+  if(!criticalFired && warningFired){
+    // Kritik yok ama uyarı var: "delays_goals" başka bir yellow nedeni yokken TEK başına
+    // ateşlendiyse yes_delays_goals; aksi halde (kapasite aşımı, acil fon yumuşak ihlali,
+    // peşinat acil fonu yiyor) yes_with_condition - koşul rules[] içinde zaten kodlu.
+    const onlyDelay = delaysGoals && rules.filter(r=>r.severity==='warning').every(r=>r.code==='DELAYS_OTHER_GOALS');
+    if(onlyDelay){
+      return {answerCategory:'yes_delays_goals', safe:true, verdict:'yellow', affordabilityDate:null};
+    }
+    return {answerCategory:'yes_with_condition', safe:true, verdict:'yellow', affordabilityDate:null};
+  }
+  // Kritik ateşlendi: bir tarih araması, ufkun içinde GÜVENLİ bir gelecek noktası bulduysa
+  // asla düz "hayır" verilmez - "yes_on_date" tercih edilir (kullanıcı zorunlu düzeltmesi #6).
+  if(dateSearch && dateSearch.found){
+    return {answerCategory:'yes_on_date', safe:false, verdict:'yellow', affordabilityDate: dateSearch.dateStr};
+  }
+  return {answerCategory:'no_unsafe', safe:false, verdict:'red', affordabilityDate:null};
+}
+
+// wait-N ufkunda ilk GÜVENLİ (kritik kural ateşlemeyen) noktayı arar. Varsayılan liste
+// [0,1,2,3,6,12,24] yetmezse, sabit bir tavan ay sayısına (DECISION_WAIT_HORIZON_MONTHS)
+// kadar AYLIK olarak uzatır (mimari denetim §5/§11 - ufuk keyfi değil, adlandırılmış sabit).
+const DECISION_WAIT_HORIZON_MONTHS = 60;
+function decisionSearchSafeDate(evaluateAtMonth, waitMonthsList){
+  const tried = new Set();
+  const attempt = (m)=>{
+    if(tried.has(m)) return null;
+    tried.add(m);
+    const {rules} = evaluateAtMonth(m);
+    return decisionHasCriticalRule(rules) ? null : m;
+  };
+  for(const m of waitMonthsList){
+    const ok = attempt(m);
+    if(ok!=null) return {found:true, months:ok};
+  }
+  const lastTried = waitMonthsList.length ? Math.max(...waitMonthsList) : 0;
+  for(let m=lastTried+1; m<=DECISION_WAIT_HORIZON_MONTHS; m++){
+    const ok = attempt(m);
+    if(ok!=null) return {found:true, months:ok};
+  }
+  return {found:false, months:null};
+}
+
+// ---- 'purchase' istek türü ----
+// calculateFuturePurchase'ın İÇİNDEKİ likit-projeksiyon formülünü ("liquid + cashFlow*ay")
+// burada TEKRAR üretmek zorunda kalıyoruz çünkü o fonksiyon projeksiyonu dışa açık bir
+// yardımcıya ayırmadan doğrudan kendi içinde uyguluyor; recurringMonthlyCost'u güvenlik
+// hesabına katabilmek için AYNI cap'i (projected liquid ile) kendimiz de üretmemiz gerekiyor.
+// Formül calculateFuturePurchase (§ "Senaryo: Bekleyerek al") ile BİREBİR AYNI tutulmalı.
+function decisionProjectCapAt(cap, months){
+  if(!(months>0)) return cap;
+  const projectedLiquid = Math.max(0, cap.liquid + cap.monthlyCashFlow*months);
+  return Object.assign({}, cap, {liquid: projectedLiquid});
+}
+function decisionEvaluatePurchaseAt(p, cap, months, excludeGoalId){
+  const capAtMonth = decisionProjectCapAt(cap, months);
+  const opts = {
+    price: p.price,
+    downPayment: Math.min(p.price, p.downPayment + p.currentSaved),
+    months: p.financing ? p.financing.months : 0,
+    ratePct: p.financing ? p.financing.ratePct : 0,
+  };
+  // now/cash/installment seçimi TAMAMEN var olan calculatePurchaseNow'a devredilir.
+  const scenario = calculatePurchaseNow(opts, capAtMonth);
+  const cashOutlay = scenario.kind==='cash' ? scenario.price : scenario.downPayment;
+  const monthlyImpact = (scenario.monthlyBurden||0) + p.recurringMonthlyCost;
+  // recurringMonthlyCost, calculateFinancialSafety'nin ZATEN yaptığı hesaba (postCashFlow,
+  // postEmergencyMonths, kritik uyarılar) dahil olsun diye güvenlik TEKRAR (aynı fonksiyonla,
+  // yeni formülle DEĞİL) hesaplanıyor - scenario.safety recurringMonthlyCost'u bilmiyordu.
+  const safety = calculateFinancialSafety(monthlyImpact, cashOutlay, capAtMonth);
+  // NOT (bug düzeltmesi): NO_PROGRESS_AT_PACE, computeAffordability'de "financedAmount>0 &&
+  // requiredPace<=0" anlamına gelir - yani bir HEDEF TARİHİ verilmiş ama o tarihe ulaşmak için
+  // aylık pay SIFIR/negatif çıkmış demektir. calculatePurchaseNow tabanlı bu değerlendirmede
+  // (fiyat/peşinat/finansman/bekleme - tarih hedefi YOK) salt nakit alımların monthlyBurden'i
+  // zaten 0'dır (peşin ödeme taksitli değildir) - bunu "ilerleme yok" saymak, likit varlığın
+  // aylık nakit akışıyla BÜYÜYEREK zamanla fiyatı karşılamasını (=gerçek ilerleme) yanlışlıkla
+  // her ay "kritik" işaretleyip yes_on_date aramasını sonsuza dek engelliyordu. Bu istek
+  // türünde (targetDateStr kullanılmıyor) bu kural İLGİLİ DEĞİL - sadece finansman seçilip de
+  // hesaplanan taksit tutarı pozitif olmayan (yapılandırma hatası) dejenere durum için ayrılır.
+  const noProgressAtChosenPace = !!(p.financing && !(scenario.monthlyBurden>0) && opts.downPayment<p.price);
+  const cashOutlayExceedsLiquid = cashOutlay > capAtMonth.liquid;
+  const goalImpact = calculateGoalImpact(monthlyImpact, excludeGoalId || p.goalId, capAtMonth);
+  // DELAYS_OTHER_GOALS: calculateGoalImpact()'in KENDİ `delayed` alanı yerine, computeAffordability()'nin
+  // KENDİSİ zaten bu amaç için kullandığı formül aynen tekrar kullanılıyor: "bu satın alma
+  // sonrası kalan aylık nakit akışı, diğer hedeflerin toplam aylık ihtiyacını karşılamaya
+  // yetmiyor mu?" calculateGoalImpact.delayed bunun yerine "bu taahhüt tek başına güvenli
+  // kapasiteyi aşıyor mu"yu sorar - ki bu her zaman EXCEEDS_SAFE_CAPACITY ile ÇAKIŞIR ve
+  // yes_delays_goals kategorisinin asla tek başına (izole) tetiklenememesine yol açardı.
+  // Yeni formül YENİ bir hesaplama İCAT ETMİYOR - computeAffordability'nin (satır ~15303)
+  // "delaysOtherGoals = otherGoalsMonthlyNeed>0 && remainingCashFlowAfterPurchase < otherGoalsMonthlyNeed"
+  // formülünün BİREBİR aynısı; yalnızca calculateGoalImpact'in zaten hesapladığı
+  // otherGoalsRequiredMonthly toplamı üzerinden.
+  const delaysOtherGoals = goalImpact.otherGoalsRequiredMonthly>0
+    && (capAtMonth.monthlyCashFlow - monthlyImpact) < goalImpact.otherGoalsRequiredMonthly;
+  const rules = decisionSafetyRules({
+    safety, cap: capAtMonth, monthlyImpact, cashOutlay, cashOutlayExceedsLiquid,
+    noProgressAtChosenPace, delaysOtherGoals, otherGoalsRequiredMonthly: goalImpact.otherGoalsRequiredMonthly,
+  });
+  return {scenario, cap: capAtMonth, cashOutlay, monthlyImpact, safety, rules, goalImpact, months};
+}
+function decisionEvaluatePurchase(reqPurchase, cap, waitMonthsList, excludeGoalId){
+  const evalAtMonth = (m)=>decisionEvaluatePurchaseAt(reqPurchase, cap, m, excludeGoalId);
+  const now0 = evalAtMonth(0);
+  const dateSearchRaw = decisionSearchSafeDate(evalAtMonth, waitMonthsList.filter(m=>m>0));
+  let dateSearch = {found:false, dateStr:null};
+  if(dateSearchRaw.found){
+    dateSearch = {found:true, dateStr: addMonths(now, dateSearchRaw.months).toISOString().slice(0,10)};
+  }
+  const classification = classifyDecision(now0, dateSearch, now0.rules);
+  const evalAtAnswerDate = dateSearch.found ? evalAtMonth(dateSearchRaw.months) : now0;
+  return {now0, dateSearch, classification, evalAtAnswerDate};
+}
+
+// ---- 'debt_payoff_timing' istek türü ----
+function decisionEvaluateDebtPayoffTiming(reqDebt, cap){
+  const debts = allDebts();
+  const target = reqDebt.debtId ? debts.find(d=>(d.kind+':'+d.id)===reqDebt.debtId || d.id===reqDebt.debtId) : null;
+  if(!target){
+    return {classification:{answerCategory:'no_unsafe', safe:false, verdict:'red', affordabilityDate:null},
+      rules:[{code:'DEBT_NOT_FOUND', severity:'critical'}], payoff:null, target:null};
+  }
+  const payment = (target.minPaymentTL||0) + (target.extraPaymentTL||0) + (reqDebt.extraMonthly||0);
+  const payoff = simulatePayoff(target.balanceTL, payment, target.rate);
+  const monthlyImpact = reqDebt.extraMonthly; // ek ödeme, kararın nakit akışına eklediği yük
+  const safety = calculateFinancialSafety(monthlyImpact, 0, cap);
+  const rules = decisionSafetyRules({safety, cap, monthlyImpact});
+  let classification;
+  if(payoff.status==='ok'){
+    const dateStr = addMonths(now, payoff.months).toISOString().slice(0,10);
+    classification = decisionHasCriticalRule(rules)
+      ? {answerCategory:'no_unsafe', safe:false, verdict:'red', affordabilityDate:null}
+      : {answerCategory:'yes_on_date', safe:true, verdict: decisionHasWarningRule(rules)?'yellow':'green', affordabilityDate: dateStr};
+  } else {
+    rules.push({code: payoff.status==='never' ? 'PAYMENT_BELOW_INTEREST' : 'NO_PAYMENT_SET', severity:'critical'});
+    classification = {answerCategory:'no_unsafe', safe:false, verdict:'red', affordabilityDate:null};
+  }
+  return {classification, rules, payoff, target, monthlyImpact, safety};
+}
+
+// ---- 'debt_vs_invest' istek türü ----
+// answerDebtOrInvest() ile AYNI referans getiriyi (mevduatAylikBilesikNet) ve AYNI
+// "en pahalı uygun borç" seçim mantığını (rate>referans && interestBaseTL>0) kullanır -
+// ikinci bir "gerçekçi getiri" sabiti İCAT EDİLMEDİ (kullanıcı zorunlu düzeltmesi #4).
+function decisionEvaluateDebtVsInvest(reqCompare, cap){
+  const rate = mevduatAylikBilesikNet();
+  const debts = allDebts();
+  const target = reqCompare.debtId
+    ? debts.find(d=>(d.kind+':'+d.id)===reqCompare.debtId || d.id===reqCompare.debtId)
+    : debts.filter(d=>d.rate>rate && d.interestBaseTL>0).sort((a,b)=>b.rate-a.rate)[0];
+  const investAmount = reqCompare.investAmount||0;
+  const cashOutlayExceedsLiquid = investAmount>0 && investAmount>cap.liquid;
+  const rules = decisionSafetyRules({cap, cashOutlay: investAmount, cashOutlayExceedsLiquid});
+  const recommendPayDebt = !!(target && target.rate>rate);
+  let classification;
+  if(cashOutlayExceedsLiquid){
+    classification = {answerCategory:'no_unsafe', safe:false, verdict:'red', affordabilityDate:null};
+  } else {
+    classification = {answerCategory:'yes_today', safe:true, verdict: decisionHasWarningRule(rules)?'yellow':'green', affordabilityDate:null};
+  }
+  return {classification, rules, target, referenceRatePct: rate, recommendPayDebt, investAmount};
+}
+
+// ---- 'goal_timeline' istek türü ----
+// computeGoalInfo/computeGoalScenarios'u AYNEN kullanır, yeni bir hedef-ilerleme formülü
+// İCAT ETMEZ. "gelirartir" hedefleri kesinlikle bir tasarruf hedefi gibi işlenmez -
+// classifyGoalPace() ve computePriorityPlan()'daki YERLEŞİK istisna deseni burada da
+// birebir uygulanır (kullanıcı zorunlu düzeltmesi #11).
+function decisionEvaluateGoalTimeline(goalId, cap){
+  const g = (persistent.goals||[]).find(x=>x.id===goalId);
+  if(!g){
+    return {classification:{answerCategory:'no_unsafe', safe:false, verdict:'red', affordabilityDate:null},
+      rules:[{code:'GOAL_NOT_FOUND', severity:'critical'}], info:null, unsupportedGoalType:false};
+  }
+  if(g.typeKey==='gelirartir'){
+    // "Gelirimi Artır" bir birikim hedefi değil - zaman çizelgesi hesaplaması anlamsız.
+    return {classification:{answerCategory:'no_unsafe', safe:false, verdict:'red', affordabilityDate:null},
+      rules:[{code:'UNSUPPORTED_GOAL_TYPE_INCOME_TARGET', severity:'critical'}], info:null, unsupportedGoalType:true, goal:g};
+  }
+  const info = computeGoalInfo(g);
+  const scenarios = computeGoalScenarios(info);
+  let classification;
+  const rules = [];
+  if(info.dateExpired){
+    // classifyGoalPace()'in 'critical' dalı bu durumda ERİŞİLEMEZ (monthsLeft==null guard'ı
+    // önce döner - bkz. mimari denetim §10 bilinen ölü kod notu); bu yüzden info.dateExpired
+    // DOĞRUDAN okunuyor, classifyGoalPace'in dönüş değerine güvenilmiyor.
+    rules.push({code:'GOAL_TARGET_DATE_EXPIRED', severity:'critical'});
+    classification = {answerCategory:'no_unsafe', safe:false, verdict:'red', affordabilityDate:null};
+  } else if(info.gap<=0){
+    classification = {answerCategory:'yes_today', safe:true, verdict:'green', affordabilityDate:null};
+  } else if(info.monthlyCashFlow<=0 || info.projectedMonths===Infinity){
+    rules.push({code:'NO_PROGRESS_AT_PACE', severity:'critical'});
+    classification = {answerCategory:'no_unsafe', safe:false, verdict:'red', affordabilityDate:null};
+  } else {
+    const dateStr = addMonths(now, info.projectedMonths).toISOString().slice(0,10);
+    classification = {answerCategory:'yes_on_date', safe:true, verdict:'green', affordabilityDate: dateStr};
+  }
+  return {classification, rules, info, scenarios, unsupportedGoalType:false, goal:g};
+}
+
+// ---- Çıktı derleyici (mimari denetim §3) ----
+// `headline` her zaman bir şablon anahtarı + parametredir - LLM'in "gerçek" olarak
+// sunacağı serbest metin İCAT ETMESİNE asla izin verilmez (kullanıcı zorunlu düzeltmesi #12).
+function decisionHeadlineFor(req, evalResult){
+  const cat = evalResult.classification.answerCategory;
+  return {key: `decision.${req.type}.${cat}`, params: {affordabilityDate: evalResult.classification.affordabilityDate||null}};
+}
+function decisionAssembleResult(req, cap, evalResult, extra){
+  extra = extra || {};
+  const c = evalResult.classification;
+  const rules = evalResult.rules || [];
+  return Object.assign({
+    requestType: req.type,
+    answerCategory: c.answerCategory,
+    safe: c.safe,
+    verdict: c.verdict,
+    headline: decisionHeadlineFor(req, evalResult),
+    affordabilityDate: c.affordabilityDate,
+    constraints: rules,
+    monthlyImpact: evalResult.monthlyImpact!=null ? evalResult.monthlyImpact : null,
+    cashFlowAfterDecision: (evalResult.safety && evalResult.safety.postCashFlow!=null) ? evalResult.safety.postCashFlow : null,
+    remainingSafetyBuffer: (evalResult.monthlyImpact!=null) ? (cap.safeMonthlyCapacity - evalResult.monthlyImpact) : null,
+    emergencyFundImpact: (evalResult.safety && evalResult.safety.postEmergencyMonths!=null) ? {
+      before: cap.monthlyEssential>0 ? cap.liquid/cap.monthlyEssential : null,
+      after: evalResult.safety.postEmergencyMonths,
+    } : null,
+    debtImpact: null,
+    goalImpact: (evalResult.goalImpact && evalResult.goalImpact.allComputable!=null) ? [{
+      goalId: req.excludeGoalId || (req.purchase && req.purchase.goalId) || null,
+      requiredMonthlyBefore: null,
+      requiredMonthlyAfter: evalResult.goalImpact.otherGoalsRequiredMonthly,
+      delayedMonths: null, // V1: kesin "N ay gecikir" rakamı üretilmez (bkz. calculateGoalImpact yorumu + mimari denetim §12 V2)
+    }] : [],
+    opportunityCost: null,
+    scenarios: [],
+    recommendedAction: null, // V1: yalnızca bilgilendirici, Money Task'a enjekte edilmez (§15/§18)
+    sourceEngineVersion: DECISION_ENGINE_VERSION,
+  }, extra);
+}
+
+// ---- Tek giriş noktası ----
+// UI/AI Coach BU fonksiyonu çağırır; başka hiçbir yerden hesaplama ÇAĞRILMAZ.
+// _planCache/computePriorityPlan'a HİÇBİR ŞEKİLDE dokunmaz (getFinancialAlerts hariç -
+// o zaten salt-okunur, memoized bir global durum, plan değil).
+function runDecisionEngine(rawRequest){
+  const req = normalizeDecisionRequest(rawRequest);
+  if(!affordHasMinimumData()){
+    return {missingData:true, requestType:req.type, sourceEngineVersion:DECISION_ENGINE_VERSION};
+  }
+  const cap = getAffordCapacityInfo();
+
+  if(req.type==='purchase'){
+    const evalResult = decisionEvaluatePurchase(req.purchase, cap, req.waitMonths, req.excludeGoalId);
+    const chosen = evalResult.evalAtAnswerDate;
+    const result = decisionAssembleResult(req, cap, Object.assign({}, chosen, {classification: evalResult.classification}), {
+      scenarios: [{id:'now', kind: evalResult.now0.scenario.kind, monthlyBurden: evalResult.now0.monthlyImpact,
+          cashSpentNow: evalResult.now0.cashOutlay, verdict: decisionHasCriticalRule(evalResult.now0.rules)?'red':(decisionHasWarningRule(evalResult.now0.rules)?'yellow':'green'),
+          resultingCashFlow: evalResult.now0.safety.postCashFlow, resultingLiquid: evalResult.now0.safety.postLiquid}],
+      debtImpact: req.purchase.financing ? {newMonthlyDebtPayments: evalResult.now0.scenario.monthlyBurden||0,
+        payoffDate: req.purchase.financing ? addMonths(now, req.purchase.financing.months).toISOString().slice(0,10) : null,
+        totalInterest: (evalResult.now0.scenario.totalCost!=null && evalResult.now0.scenario.principal!=null) ? Math.max(0, evalResult.now0.scenario.totalCost - evalResult.now0.scenario.downPayment - evalResult.now0.scenario.principal) : null} : null,
+    });
+    return result;
+  }
+  if(req.type==='debt_payoff_timing'){
+    const evalResult = decisionEvaluateDebtPayoffTiming(req.debt, cap);
+    return decisionAssembleResult(req, cap, evalResult, {
+      debtImpact: evalResult.payoff ? {newMonthlyDebtPayments: (evalResult.target?evalResult.target.paymentTL:0)+req.debt.extraMonthly,
+        payoffDate: evalResult.classification.affordabilityDate, totalInterest: evalResult.payoff.totalInterest!=null?evalResult.payoff.totalInterest:null} : null,
+    });
+  }
+  if(req.type==='debt_vs_invest'){
+    const evalResult = decisionEvaluateDebtVsInvest(req.compare, cap);
+    return decisionAssembleResult(req, cap, Object.assign({monthlyImpact:0, safety:{postCashFlow:cap.monthlyCashFlow, postEmergencyMonths:null}}, evalResult), {
+      opportunityCost: {investAlternativeFV: evalResult.investAmount>0 ? evalResult.investAmount*Math.pow(1+evalResult.referenceRatePct/100, 12) : 0, assumedReturnPct: evalResult.referenceRatePct},
+      recommendedAction: {code: evalResult.recommendPayDebt ? 'PAY_DOWN_DEBT_FIRST' : 'INVEST_AVAILABLE', params: {debtId: evalResult.target?evalResult.target.id:null}},
+    });
+  }
+  if(req.type==='goal_timeline'){
+    const evalResult = decisionEvaluateGoalTimeline(req.goalId, cap);
+    return decisionAssembleResult(req, cap, Object.assign({monthlyImpact: evalResult.info?evalResult.info.monthlyCashFlow:null, safety:{postCashFlow:cap.monthlyCashFlow, postEmergencyMonths:null}}, evalResult), {
+      scenarios: evalResult.scenarios ? evalResult.scenarios.map(s=>({id:s.key, kind:s.key, monthlyBurden:s.pace, cashSpentNow:0, verdict: s.months!=null && isFinite(s.months) ? 'green':'yellow', resultingCashFlow:null, resultingLiquid:null})) : [],
+    });
+  }
+  return {missingData:false, unsupportedRequestType:true, requestType:req.type, sourceEngineVersion:DECISION_ENGINE_VERSION};
+}
+/* DECISION-ENGINE-END ======================================================= */
+
 /* =========================================================
    🔗 HEDEF <-> "ALABİLİR MİYİM?" KÖPRÜSÜ
    Ayrı bir form yerine, kullanıcının Hedefler'de zaten girdiği veriyi
@@ -15575,10 +16043,24 @@ function openGoalAfford(goalId){
 
   const result = computeAffordability(affordOptsFromGoal(g, info));
   result.category = affordCategoryFromGoal(g, type);
+  // Decision Engine V1 (kullanıcı zorunlu düzeltmesi #8): gerçek hedefe bağlı akış da
+  // AYNI runDecisionEngine giriş noktasını, AYNI affordOptsFromGoal eşlemesini kullanır -
+  // böylece ad-hoc ve hedef-bağlı akışların DecisionResult'ı hiçbir zaman farklı bir
+  // formülden gelmez (computeAffordability ile Decision Engine'in ikisi de AYNI
+  // getAffordCapacityInfo() temelini paylaşır).
+  try{
+    const opts = affordOptsFromGoal(g, info);
+    result.decision = runDecisionEngine({type:'purchase', purchase:{
+      category: g.typeKey, price: opts.targetPrice, downPayment: opts.downPayment, currentSaved: opts.currentSaved,
+      financing: null, recurringMonthlyCost: 0, targetDateStr: g.targetDate||null, goalId: g.id,
+    }, excludeGoalId: g.id});
+  }catch(e){ result.decision = null; }
   affordLastResult = result;
   affordLastGoalId = goalId;
   affordScenarioAmounts = null;
   affordScenarioInput = null;
+  const adHocForm = document.getElementById('adHocAffordForm');
+  if(adHocForm) adHocForm.style.display = 'none'; // gerçek hedef akışında ad-hoc girdi formu gösterilmez
   renderAffordResult(result);
 
   const affordTitleName = (g.typeKey==='diger' && g.customName) ? g.customName : catLabel(type.label);
@@ -15587,9 +16069,144 @@ function openGoalAfford(goalId){
   document.getElementById('goalAffordPanel').style.display = 'block';
   window.scrollTo(0,0);
 }
+// AD-HOC GİRİŞ NOKTASI (kullanıcı zorunlu düzeltmesi #1/#3): Ana Sayfa "Alabilir miyim?"
+// kartından (renderAffordTeaser) çağrılır - var olan hedef YOKKEN tek seferlik bir soru
+// sormayı sağlar. persistent.goals'a HİÇBİR ŞEY yazmaz (madde #5).
+function openAdHocAffordEntry(){
+  const en = currentLang==='en';
+  affordLastResult = null;
+  affordLastGoalId = null;
+  const titleEl = document.getElementById('goalAffordTitle');
+  if(titleEl) titleEl.innerHTML = `<span class="afford-form-icon">🧮</span> ${en?'Ask a purchase question':'Bir satın alma sorusu sor'}`;
+  const goalsMainCard = document.getElementById('goalsMainCard');
+  const panel = document.getElementById('goalAffordPanel');
+  if(goalsMainCard) goalsMainCard.style.display = 'none';
+  if(panel) panel.style.display = 'block';
+  const form = document.getElementById('adHocAffordForm');
+  if(form) form.style.display = 'block';
+  const dc = document.getElementById('affordDecisionCard');
+  if(dc){ dc.className = 'afford-decision-card'; dc.innerHTML = `<p class="empty">${en?'Enter a price above and press Calculate.':"Yukarıya bir fiyat gir ve Hesapla'ya bas."}</p>`; }
+  ['affordRouteList','affordScenarioBox','affordFinanceBox','affordAiBox','affordShareBox','decisionCategoryBadge'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.innerHTML = '';
+  });
+  renderAdHocAffordForm();
+  window.scrollTo(0,0);
+}
+// Ad-hoc form alanlarını (parseFormattedNumber ile - Hızlı Ekle ve senaryo formuyla AYNI
+// ayrıştırıcı, yeni bir ayrıştırıcı YAZILMADI) okuyup openAdHocPurchaseDecision'ı çağırır.
+function renderAdHocAffordForm(){
+  const toggle = document.getElementById('adHocFinancingToggle');
+  const fields = document.getElementById('adHocFinancingFields');
+  if(toggle && fields){
+    toggle.onchange = ()=>{ fields.style.display = toggle.checked ? 'block' : 'none'; };
+  }
+  const btn = document.getElementById('adHocSubmitBtn');
+  if(btn){
+    btn.onclick = ()=>{
+      const priceEl = document.getElementById('adHocPrice');
+      const price = parseFormattedNumber(priceEl ? priceEl.value : '')||0;
+      if(price<=0){ if(priceEl) priceEl.focus(); return; }
+      const downPayment = parseFormattedNumber(document.getElementById('adHocDownPayment').value)||0;
+      const financingOn = document.getElementById('adHocFinancingToggle').checked;
+      const months = financingOn ? Math.max(1, parseInt(document.getElementById('adHocMonths').value,10)||0) : 0;
+      const ratePct = financingOn ? Math.max(0, parseFloat(document.getElementById('adHocRatePct').value)||0) : 0;
+      const recurringMonthlyCost = parseFormattedNumber(document.getElementById('adHocRecurringCost').value)||0;
+      openAdHocPurchaseDecision({
+        category:'diger', price, downPayment,
+        financing: (financingOn && months>0) ? {months, ratePct} : null,
+        recurringMonthlyCost,
+        label: currentLang==='en' ? 'Ad-hoc Decision' : 'Ad-hoc Karar',
+      });
+    };
+  }
+}
+// 5 sabit karar kategorisini (mimari denetim §4, kullanıcı zorunlu düzeltmesi #7) kullanıcıya
+// gösterilecek TEK CÜMLELİK, şablon tabanlı bir etikete çevirir - serbest metin İCAT ETMEZ,
+// yalnızca DecisionResult.answerCategory + affordabilityDate alanlarını okur.
+function decisionCategoryLabel(category, dateStr, en){
+  const dateLabel = dateStr ? formatMonthYear(new Date(dateStr)) : '';
+  switch(category){
+    case 'yes_today': return en ? 'You can buy this today.' : 'Bugün alabilirsin.';
+    case 'yes_on_date': return en ? `You can't afford this today, but you can by ${dateLabel}.` : `Bugün alamazsın ama ${dateLabel} tarihinde alabilirsin.`;
+    case 'yes_with_condition': return en ? 'You can afford this, but only under a condition.' : 'Alabilirsin ama şu koşulla.';
+    case 'yes_delays_goals': return en ? 'You can afford this, but it will delay your other goals.' : 'Alabilirsin ama bu, mevcut hedeflerini geciktirir.';
+    case 'no_unsafe': default: return en ? 'This is not financially safe right now.' : 'Bu şu an güvenli değil.';
+  }
+}
+function decisionCategoryClass(category){
+  if(category==='yes_today') return 'good';
+  if(category==='no_unsafe') return 'danger';
+  return 'warn';
+}
+// renderAffordResult()'un YANINA eklenir - onun İÇİNDEKİ hesaplamayı DEĞİŞTİRMEZ, sadece
+// r.decision doluysa (hem gerçek hedef hem ad-hoc akışında dolu) 5-kategorili özeti gösterir.
+function renderDecisionCategoryBadge(r){
+  const el = document.getElementById('decisionCategoryBadge');
+  if(!el) return;
+  if(!r || !r.decision){ el.innerHTML=''; return; }
+  const en = currentLang==='en';
+  const d = r.decision;
+  const cls = decisionCategoryClass(d.answerCategory);
+  el.innerHTML = `<div class="afford-decision-card ${cls}" style="margin-top:10px;">
+    <div class="afford-decision-title">${escapeHtml(decisionCategoryLabel(d.answerCategory, d.affordabilityDate, en))}</div>
+  </div>`;
+}
+// AD-HOC KARAR (Decision Engine V1 UI entegrasyonu, kullanıcı zorunlu düzeltmesi #16):
+// openGoalAfford ile AYNI panel/DOM elemanlarını, AYNI computeAffordability()/renderAffordResult()
+// akışını kullanır - yeni bir ekran/panel İCAT EDİLMEDİ. TEK fark: bir persistent.goals kaydına
+// bağlı değildir (goalId=null) - kullanıcının "kalıcı hedef oluşturmadan" tek seferlik bir soru
+// sorması (ör. AI Coach sohbetinden veya ileride eklenecek bir "Ad-hoc Sor" butonundan) için.
+// Kalıcı hedef modeli (persistent.goals) BURADA DA değiştirilmiyor/genişletilmiyor.
+function openAdHocPurchaseDecision(purchaseOpts){
+  purchaseOpts = purchaseOpts || {};
+  const price = Math.max(0, Number(purchaseOpts.price)||0);
+  if(price<=0) return null;
+  const affordOpts = {
+    targetPrice: price,
+    downPayment: Math.max(0, Number(purchaseOpts.downPayment)||0),
+    currentSaved: Math.max(0, Number(purchaseOpts.currentSaved)||0),
+    maxMonthly: purchaseOpts.maxMonthly!=null ? purchaseOpts.maxMonthly : null,
+    targetDateStr: purchaseOpts.targetDateStr||null,
+    excludeGoalId: null, // ad-hoc soru gerçek bir hedef değil, dışlanacak bir goalId yok
+  };
+  const result = computeAffordability(affordOpts); // VAR OLAN motor, yeniden yazılmadı
+  result.category = {key: purchaseOpts.category||'diger', icon: '🧮',
+    tr: purchaseOpts.label || 'Ad-hoc Karar', en: purchaseOpts.label || 'Ad-hoc Decision'};
+  // Decision Engine'in 5-kategorili sınıflandırması EK bir alan olarak iliştirilir - var olan
+  // afford panel render kodu (renderAffordResult) bu alana dokunmaz/bağımlı değildir, sadece
+  // taşınır; ileride bu alanı okuyacak bir UI eklemek panel render'ını bozmaz.
+  try{
+    result.decision = runDecisionEngine({type:'purchase', purchase:{
+      category: purchaseOpts.category||'diger', price,
+      downPayment: affordOpts.downPayment, currentSaved: affordOpts.currentSaved,
+      financing: purchaseOpts.financing||null, recurringMonthlyCost: purchaseOpts.recurringMonthlyCost||0,
+      targetDateStr: affordOpts.targetDateStr, goalId: null,
+    }});
+  }catch(e){ result.decision = null; }
+
+  affordLastResult = result;
+  affordLastGoalId = null; // ad-hoc: gerçek bir hedefe bağlı değil
+  affordScenarioAmounts = null;
+  affordScenarioInput = null;
+  renderAffordResult(result); // VAR OLAN render fonksiyonu - yeniden yazılmadı
+
+  const titleEl = document.getElementById('goalAffordTitle');
+  if(titleEl){
+    const label = purchaseOpts.label || (currentLang==='en' ? 'Ad-hoc Decision' : 'Ad-hoc Karar');
+    titleEl.innerHTML = `<span class="afford-form-icon">🧮</span> ${escapeHtml(label)}`;
+  }
+  const goalsMainCard = document.getElementById('goalsMainCard');
+  const panel = document.getElementById('goalAffordPanel');
+  if(goalsMainCard) goalsMainCard.style.display = 'none';
+  if(panel) panel.style.display = 'block';
+  window.scrollTo(0,0);
+  return result;
+}
 function closeGoalAffordPanel(){
   document.getElementById('goalAffordPanel').style.display = 'none';
   document.getElementById('goalsMainCard').style.display = '';
+  const adHocForm = document.getElementById('adHocAffordForm');
+  if(adHocForm) adHocForm.style.display = 'none';
   window.scrollTo(0,0);
 }
 
@@ -15617,6 +16234,7 @@ function renderAffordResult(r){
   renderAffordFinancing(r);
   renderAffordAi(r);
   renderAffordShare(r);
+  renderDecisionCategoryBadge(r); // Decision Engine V1 - r.decision doluysa 5-kategorili özet
 }
 
 function affordLockedCardHtml(previewHtml, lockText, en){
