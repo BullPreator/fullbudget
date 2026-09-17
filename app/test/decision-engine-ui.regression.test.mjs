@@ -296,3 +296,122 @@ test('closing the afford panel hides the ad-hoc form so it does not linger for t
   await page.close();
   assert.equal(visible, 'none');
 });
+
+// =======================================================================
+// REAL UI TEST FIX REGRESSION — first real user-flow test found 4 display bugs
+// for this exact scenario: price=2,000,000, downPayment=500,000, liquid=0,
+// safeMonthlyCapacity=0 (income===expenses, no accounts). DecisionResult must be
+// `no_unsafe`. None of the UI surfaces may contradict that.
+// =======================================================================
+test('REAL SCENARIO (price=2M, downPayment=500k, liquid=0, safeMonthlyCapacity=0): DecisionResult is no_unsafe and nothing on screen contradicts it', async () => {
+  const { page, pageErrors } = await newSession({ income: 50000, expenses: 50000, assets: 0, goals: [] });
+  const check = await page.evaluate(() => {
+    const cap = getAffordCapacityInfo();
+    openAdHocAffordEntry();
+    document.getElementById('adHocPrice').value = '2000000';
+    document.getElementById('adHocDownPayment').value = '500000';
+    document.getElementById('adHocSubmitBtn').click();
+    const r = affordLastResult;
+
+    // Fix #1: capture every fillText() call made while drawing the share card,
+    // so we can prove the canvas itself never renders the contradictory string —
+    // not just that the underlying data would support the right one.
+    const shareTexts = [];
+    const proto = CanvasRenderingContext2D.prototype;
+    const origFillText = proto.fillText;
+    proto.fillText = function(text, ...args) { shareTexts.push(text); return origFillText.apply(this, [text, ...args]); };
+    try { drawAffordShareCard(r, false); } finally { proto.fillText = origFillText; }
+
+    return {
+      safeMonthlyCapacity: cap.safeMonthlyCapacity,
+      liquid: cap.liquid,
+      financedAmount: r.financedAmount,
+      decisionCategory: r.decision ? r.decision.answerCategory : null,
+      etaState: affordEtaState(r, false),
+      decisionCardHtml: document.getElementById('affordDecisionCard').innerHTML,
+      financeBoxHtml: document.getElementById('affordFinanceBox').innerHTML,
+      shareTexts,
+    };
+  });
+  await page.close();
+
+  assert.equal(check.safeMonthlyCapacity, 0);
+  assert.equal(check.liquid, 0);
+  assert.equal(check.financedAmount, 1500000);
+  // DecisionResult must remain unsafe for this scenario
+  assert.equal(check.decisionCategory, 'no_unsafe');
+
+  // Fix #1: never "Already there" / "Zaten yeterli" when the deterministic decision is unsafe
+  assert.notEqual(check.etaState.text, 'Zaten yeterli');
+  assert.notEqual(check.etaState.text, 'Already there');
+  assert.ok(!/Zaten yeterli/i.test(check.decisionCardHtml), 'stat card must not show "Zaten yeterli" for an unsafe decision');
+  assert.ok(!check.shareTexts.includes('Zaten yeterli'), 'share card canvas must not draw "Zaten yeterli" for an unsafe decision');
+  assert.ok(!check.shareTexts.includes('Already there'));
+
+  // Fix #3: financing card must use explicit, non-contradictory terminology
+  assert.ok(/Satın alma fiyatı/.test(check.financeBoxHtml), 'own-savings card must show the purchase price explicitly');
+  assert.ok(/Kalan tutar/.test(check.financeBoxHtml), 'own-savings card must label the remaining amount "Kalan tutar", not "Tahmini toplam maliyet"');
+  assert.ok(/Finansman ödeme toplamı/.test(check.financeBoxHtml), 'bank/org financing cards must distinguish financing-only total from full purchase cost');
+  assert.ok(/Peşinat dahil toplam nakit çıkışı/.test(check.financeBoxHtml), 'a total-cash-outlay-including-down-payment figure must be shown');
+
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('REAL SCENARIO: "Bu alım için aylık taahhüt" is never a bare, unexplained ₺0 when no monthly pace has been set', async () => {
+  const { page, pageErrors } = await newSession({ income: 50000, expenses: 50000, assets: 0, goals: [] });
+  const html = await page.evaluate(() => {
+    openAdHocAffordEntry();
+    document.getElementById('adHocPrice').value = '2000000';
+    document.getElementById('adHocDownPayment').value = '500000';
+    document.getElementById('adHocSubmitBtn').click();
+    return document.getElementById('affordDecisionCard').innerHTML;
+  });
+  await page.close();
+  assert.ok(/Bu alım için aylık taahhüt/.test(html), 'the label must be renamed away from the ambiguous "gereken" (needed) wording');
+  assert.ok(/hiç aylık pay ayrılmadı/.test(html), 'the ₺0 value must be explained, not shown bare');
+  assert.ok(/Finansal güvenlik sonucu/.test(html), 'safe capacity, monthly commitment and the safety result must be three distinct, explicitly labeled rows');
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+// ---------------------------------------------------------------------
+// Fix #4 — the "Tasarruf Finansmanı" (savings organization financing) default
+// must never default to an absurd ₺1/month payment for a large financed amount,
+// which previously produced a 1,680,000-month "duration". This tests the
+// PARAMETER MAPPING fix (the default value source), not a UI clamp.
+// ---------------------------------------------------------------------
+test('Savings-organization financing default payment is never an absurd ₺1, and never yields a nonsensical multi-hundred-thousand-month duration', async () => {
+  const { page, pageErrors } = await newSession({ income: 50000, expenses: 50000, assets: 0, goals: [] });
+  const check = await page.evaluate(() => {
+    openAdHocAffordEntry();
+    document.getElementById('adHocPrice').value = '2000000';
+    document.getElementById('adHocDownPayment').value = '500000';
+    document.getElementById('adHocSubmitBtn').click();
+    const defaultMonthly = parseFormattedNumber(document.getElementById('affordOrgMonthly').value);
+    const resultHtml = document.getElementById('affordOrgResult').innerHTML;
+    // pull the rendered duration (e.g. "27 ay") back out to sanity-check it directly too
+    const durationMatch = resultHtml.match(/(\d+)\s*ay/);
+    return { defaultMonthly, resultHtml, durationMonths: durationMatch ? parseInt(durationMatch[1], 10) : null };
+  });
+  await page.close();
+
+  // root cause was defaulting to Math.max(1, Math.round(r.maxMonthly)) === ₺1 when safeMonthlyCapacity is 0
+  assert.ok(check.defaultMonthly > 1000, `default monthly payment must not collapse to a trivial amount like ₺1 (got ${check.defaultMonthly})`);
+  assert.ok(check.durationMonths !== null, 'a duration must be rendered for the default inputs');
+  // reasonable testable cap for a normal financing scenario — a sane default term must never run into hundreds of thousands of months
+  assert.ok(check.durationMonths < 600, `duration must not be a nonsensical value like 1,680,000 months (got ${check.durationMonths})`);
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('existing Decision Engine answer categories remain unchanged for a straightforward affordable case (regression guard)', async () => {
+  const { page, pageErrors } = await newSession({ income: 100000, expenses: 20000, assets: 500000, goals: [] });
+  const category = await page.evaluate(() => {
+    openAdHocAffordEntry();
+    document.getElementById('adHocPrice').value = '2000';
+    document.getElementById('adHocDownPayment').value = '2000';
+    document.getElementById('adHocSubmitBtn').click();
+    return affordLastResult.decision.answerCategory;
+  });
+  await page.close();
+  assert.equal(category, 'yes_today');
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
