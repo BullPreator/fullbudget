@@ -16120,7 +16120,9 @@ function renderAdHocAffordForm(){
         category:'diger', price, downPayment,
         financing: (financingOn && months>0) ? {months, ratePct} : null,
         recurringMonthlyCost,
-        label: currentLang==='en' ? 'Ad-hoc Decision' : 'Ad-hoc Karar',
+        // UI sertleştirme #1: "Ad-hoc Karar" geliştirici terimiydi, kullanıcıya gösteriliyordu.
+        // Ürün-yüzü terim: birincil özellik adıyla AYNI - "Alabilir miyim?".
+        label: currentLang==='en' ? 'Can I afford it?' : 'Alabilir miyim?',
       });
     };
   }
@@ -16175,8 +16177,10 @@ function openAdHocPurchaseDecision(purchaseOpts){
     excludeGoalId: null, // ad-hoc soru gerçek bir hedef değil, dışlanacak bir goalId yok
   };
   const result = computeAffordability(affordOpts); // VAR OLAN motor, yeniden yazılmadı
+  // UI sertleştirme #1: varsayılan etiket artık "Ad-hoc Karar"/"Ad-hoc Decision" (geliştirici
+  // terimi) DEĞİL - çağıran özel bir etiket vermezse ürün-yüzü varsayılan "Alabilir miyim?".
   result.category = {key: purchaseOpts.category||'diger', icon: '🧮',
-    tr: purchaseOpts.label || 'Ad-hoc Karar', en: purchaseOpts.label || 'Ad-hoc Decision'};
+    tr: purchaseOpts.label || 'Alabilir miyim?', en: purchaseOpts.label || 'Can I afford it?'};
   // Decision Engine'in 5-kategorili sınıflandırması EK bir alan olarak iliştirilir - var olan
   // afford panel render kodu (renderAffordResult) bu alana dokunmaz/bağımlı değildir, sadece
   // taşınır; ileride bu alanı okuyacak bir UI eklemek panel render'ını bozmaz.
@@ -16197,7 +16201,9 @@ function openAdHocPurchaseDecision(purchaseOpts){
 
   const titleEl = document.getElementById('goalAffordTitle');
   if(titleEl){
-    const label = purchaseOpts.label || (currentLang==='en' ? 'Ad-hoc Decision' : 'Ad-hoc Karar');
+    // UI sertleştirme #1: sayfa başlığı artık "Ad-hoc Karar"/"Ad-hoc Decision" DEĞİL -
+    // birincil özellik adıyla AYNI ürün-yüzü metni: "Alabilir miyim?" / "Can I afford it?".
+    const label = purchaseOpts.label || (currentLang==='en' ? 'Can I afford it?' : 'Alabilir miyim?');
     titleEl.innerHTML = `<span class="afford-form-icon">🧮</span> ${escapeHtml(label)}`;
   }
   const goalsMainCard = document.getElementById('goalsMainCard');
@@ -16512,7 +16518,10 @@ function renderAffordShare(r){
   box.innerHTML = `<div class="afford-share-preview-wrap"><canvas id="affordShareCanvas" width="1080" height="1920"></canvas></div>
     <button class="mini-btn" id="affordShareDownloadBtn" type="button" style="width:100%;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M12 3.5v12"/><polyline points="8 11.5 12 15.5 16 11.5"/><path d="M4.5 19.5h15"/></svg>${en?'Download image':'Görseli indir'}</button>
     <p class="afford-hint" style="margin-top:8px;text-align:center;">${en?'Your amounts stay private — only the category, verdict and estimated duration are shown.':'Tutarların gizli kalır — sadece kategori, karar ve tahmini süre gösterilir.'}</p>`;
-  drawAffordShareCard(r, en);
+  drawAffordShareCard(r, en); // ilk çizim - logo henüz yüklenmemişse o kare çizim onu atlar
+  // Logo yüklenir yüklenmez kartı YENİDEN çiz - kullanıcı hâlâ AYNI sonuca bakıyorsa
+  // (affordLastResult değişmediyse), gerçek marka logosuyla tamamlanmış hâli görünsün.
+  ensureAffordShareLogoLoaded().then(()=>{ if(affordLastResult===r) drawAffordShareCard(r, en); });
   document.getElementById('affordShareDownloadBtn').addEventListener('click', ()=>{
     const canvas = document.getElementById('affordShareCanvas');
     canvas.toBlob(blob=>{
@@ -16535,6 +16544,82 @@ function renderAffordShare(r){
 /* Uygulama adı tek yerden. HTML'deki statik başlıklar (title, meta, splash) script'ten önce
    çalıştığı için oralarda düz metin duruyor — ad değişirse ikisi birlikte güncellenmeli. */
 const BRAND_NAME = 'FullBudget';
+
+/* UI sertleştirme (#2 - paylaşım kartı): "Alabilir miyim?" paylaşım kartının en üstünde
+   önceden bir kategori emojisi (ör. ad-hoc akışta 🧮 - bir hesap makinesi ikonu) "logo" gibi
+   gösteriliyordu. Bu GERÇEK marka logosu DEĞİLDİR. Yeni bir logo İCAT ETMİYORUZ/yeniden
+   ÇİZMİYORUZ - uygulamanın splash/onboarding/auth ekranlarında ZATEN gömülü olan AYNI base64
+   PNG varlığını (bkz. .splash-logo-img / .auth-logo / .brand-mark-img) DOM'dan okuyup bir
+   Image nesnesine yüklüyoruz. Sonuç tek bir yerde (bu Promise) önbelleğe alınır, böylece
+   ikinci bir paylaşım kartı isteğinde tekrar yüklenmez. */
+let _affordShareLogoImg = null;
+let _affordShareLogoPromise = null;
+function ensureAffordShareLogoLoaded(){
+  if(_affordShareLogoImg) return Promise.resolve(_affordShareLogoImg);
+  if(_affordShareLogoPromise) return _affordShareLogoPromise;
+  _affordShareLogoPromise = new Promise(resolve=>{
+    const srcEl = document.querySelector('.splash-logo-img, .auth-logo, .brand-mark-img, .settings-brand-logo');
+    if(!srcEl || !srcEl.src){ resolve(null); return; }
+    const img = new Image();
+    img.onload = ()=>{ _affordShareLogoImg = img; resolve(img); };
+    img.onerror = ()=>{ resolve(null); };
+    img.src = srcEl.src;
+  });
+  return _affordShareLogoPromise;
+}
+
+/* UI sertleştirme (#3 - metin taşması): paylaşım kartındaki uzun metinler (tahmini süre
+   durumu, hedef adı vb.) önceden TEK satırda sabit bir font boyutuyla çiziliyordu ve kartın
+   kenarlarından TAŞABİLİYORDU. Bu yardımcı fonksiyon YENİ bir finansal/karar mantığı İÇERMEZ -
+   sadece VERİLEN metni verilen maksimum genişliğe göre kelime kelime satırlara böler; satır
+   sayısı maxLines'ı aşarsa (ör. tek bir çok uzun kelime/isim), okunmaz olmayacak bir alt sınıra
+   (minFontPx) kadar fontu kademeli olarak küçültür. */
+function affordWrapCanvasText(ctx, text, maxWidth, opts){
+  opts = opts || {};
+  const fontFamily = opts.fontFamily || '"Space Grotesk", sans-serif';
+  const weight = opts.weight || 700;
+  const maxFontPx = opts.maxFontPx || 84;
+  const minFontPx = opts.minFontPx || 44;
+  const lineHeightRatio = opts.lineHeightRatio || 1.18;
+  const maxLines = opts.maxLines || 3;
+  const words = String(text==null?'':text).split(/\s+/).filter(Boolean);
+
+  const wrapAt = (fontPx)=>{
+    ctx.font = `${weight} ${fontPx}px ${fontFamily}`;
+    const ls = [];
+    let cur = '';
+    for(const w of words){
+      const test = cur ? cur+' '+w : w;
+      if(!cur || ctx.measureText(test).width<=maxWidth){
+        cur = test;
+      } else {
+        ls.push(cur);
+        cur = w;
+      }
+    }
+    if(cur) ls.push(cur);
+    return ls;
+  };
+
+  let fontPx = maxFontPx;
+  let lines = wrapAt(fontPx);
+  // fontPx, minFontPx'in ALTINA yalnızca aşağıdaki son çare durumunda iner (bkz. altta) -
+  // yalnızca satır sayısı maxLines'ı aştığı için burada asla minFontPx'in altına inmez
+  // (önceki sürümdeki kapanış-döngüsü kayması (off-by-one) düzeltildi: fontPx artık HER ZAMAN
+  // en son ÖLÇÜLEN satırlarla eşleşiyor).
+  while(lines.length>maxLines && fontPx>minFontPx){
+    fontPx -= 4;
+    lines = wrapAt(fontPx);
+  }
+  // Son çare: minFontPx'te bile TEK BİR SATIR maxWidth'i aşıyorsa (ör. çok uzun bir isim/kelime),
+  // taşmayı önlemek için (satır SAYISI değil, gerçek TAŞMA yüzünden) fontu daha da küçült.
+  while(fontPx>24 && lines.some(l=>ctx.measureText(l).width>maxWidth)){
+    fontPx -= 4;
+    lines = wrapAt(fontPx);
+  }
+  return {lines, fontPx, lineHeight: Math.round(fontPx*lineHeightRatio)};
+}
+
 function drawFounderShareCard(canvas, en){
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -16624,39 +16709,78 @@ function drawAffordShareCard(r, en){
   const grad = ctx.createLinearGradient(0,0,0,H);
   grad.addColorStop(0,'#06100E'); grad.addColorStop(1,'#0B1714');
   ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+
+  // UI sertleştirme #3: kartın kenarlarından metin taşmasını önlemek için tüm dinamik
+  // metinler bu güvenli genişliğe göre sarmalanır (bkz. affordWrapCanvasText).
+  const contentMaxWidth = W - 160;
+  let y = 150;
+
+  // UI sertleştirme #2: kartın en üstünde artık bir kategori emojisi (ör. ad-hoc akışta
+  // hesap makinesi 🧮) "logo" gibi gösterilmiyor - bu YANLIŞ/JENERİK bir ikondu. Uygulamanın
+  // GERÇEK marka logosu (splash/onboarding/auth ile AYNI varlık) çizilir; henüz yüklenmemişse
+  // bu kare onu atlar ve renderAffordShare, logo hazır olduğunda kartı otomatik yeniden çizer.
+  const logoImg = _affordShareLogoImg;
+  if(logoImg){
+    const logoSize = 170;
+    ctx.drawImage(logoImg, W/2-logoSize/2, y-40, logoSize, logoSize);
+    y += 210;
+  } else {
+    y += 40;
+  }
+
+  ctx.fillStyle='#8FA39C'; ctx.font='600 34px Inter, sans-serif';
+  ctx.fillText(en?'MY FINANCIAL DECISION ANALYSIS':'FİNANSAL KARAR ANALİZİ', W/2, y);
+  y += 90;
+
+  // UI sertleştirme #1/#4: ad-hoc (kalıcı hedef OLUŞTURMAYAN) akışta artık "Hedef: Ad-hoc
+  // Karar" YAZMIYOR - hem geliştirici terimini ("Ad-hoc") kullanıcıya sızdırıyordu hem de
+  // anlamsal olarak yanlıştı (bu bir "hedef" değil, tek seferlik bir satın alma kararı).
+  // affordLastGoalId, openGoalAfford/openAdHocPurchaseDecision tarafından bu fonksiyon
+  // çağrılmadan HEMEN ÖNCE senkron olarak set edildiği için burada güvenle okunabilir.
+  // Gerçek, kalıcı hedefler (affordLastGoalId doluysa) İÇİN BU SATIR DEĞİŞMEDİ - hâlâ
+  // "Hedef: <hedef adı>" gösterir.
+  const isAdHoc = !affordLastGoalId;
+  const contextLine = isAdHoc ? (en?'Purchase Decision':'Satın Alma Kararı') : (en?'Goal: ':'Hedef: ')+affordCatLabel(r.category);
+  const contextWrap = affordWrapCanvasText(ctx, contextLine, contentMaxWidth, {maxFontPx:52, minFontPx:34, maxLines:2, weight:700});
+  ctx.fillStyle='#F5F7F6';
+  ctx.font = `700 ${contextWrap.fontPx}px "Space Grotesk", sans-serif`;
+  contextWrap.lines.forEach((line,i)=>{ ctx.fillText(line, W/2, y + i*contextWrap.lineHeight); });
+  y += (contextWrap.lines.length-1)*contextWrap.lineHeight + 110;
 
   const verdictColor = r.verdict==='green' ? '#00D9A0' : (r.verdict==='yellow' ? '#E8A23D' : '#E5644F');
   const verdictIcon = r.verdict==='green' ? '🟢' : (r.verdict==='yellow' ? '🟡' : '🔴');
   const verdictLabel = r.verdict==='green' ? (en?'FEASIBLE':'UYGUN') : (r.verdict==='yellow' ? (en?'CAUTION':'DİKKATLİ OL') : (en?'RISKY':'RİSKLİ'));
-
-  ctx.textAlign='center';
-  ctx.fillStyle='#8FA39C'; ctx.font='600 34px Inter, sans-serif';
-  ctx.fillText(en?'MY FINANCIAL GOAL ANALYSIS':'FİNANSAL HEDEF ANALİZİM', W/2, 220);
-
-  ctx.font='140px "Apple Color Emoji","Segoe UI Emoji",sans-serif';
-  ctx.fillText(r.category.icon, W/2, 440);
-
-  ctx.fillStyle='#F5F7F6'; ctx.font='700 52px "Space Grotesk", sans-serif';
-  ctx.fillText((en?'Goal: ':'Hedef: ')+affordCatLabel(r.category), W/2, 560);
-
-  affordRoundRectPath(ctx, W/2-280, 650, 560, 150, 28);
+  const boxTop = y, boxHeight = 150;
+  affordRoundRectPath(ctx, W/2-280, boxTop, 560, boxHeight, 28);
   ctx.fillStyle = verdictColor+'22'; ctx.fill();
   ctx.lineWidth=3; ctx.strokeStyle = verdictColor; ctx.stroke();
   ctx.fillStyle = verdictColor; ctx.font='700 40px "Space Grotesk", sans-serif';
-  ctx.fillText(en?'FINANCIAL FEASIBILITY':'FİNANSAL UYGUNLUK', W/2, 715);
+  ctx.fillText(en?'FINANCIAL FEASIBILITY':'FİNANSAL UYGUNLUK', W/2, boxTop+65);
   ctx.font='60px "Apple Color Emoji","Segoe UI Emoji",sans-serif';
-  ctx.fillText(verdictIcon+'  '+verdictLabel, W/2, 780);
+  ctx.fillText(verdictIcon+'  '+verdictLabel, W/2, boxTop+130);
+  y = boxTop + boxHeight + 140;
 
   ctx.fillStyle='#8FA39C'; ctx.font='600 32px Inter, sans-serif';
-  ctx.fillText(en?'ESTIMATED TIME TO GOAL':'TAHMİNİ HEDEF SÜRESİ', W/2, 970);
-  ctx.fillStyle='#F5F7F6'; ctx.font='700 84px "Space Grotesk", sans-serif';
-  // UI test bulgusu #1 düzeltmesi: bu kart artık renderAffordResult ile AYNI affordEtaState()
-  // kaynağını okur - eskiden burada AYRI, eksik bir ternary vardı (financedAmount>0 AMA ay
-  // sayısı sonsuz olduğunda yanlışlıkla "Zaten yeterli" gösteriyordu; bkz. affordEtaState).
-  ctx.fillText(affordEtaState(r, en).text, W/2, 1075);
+  ctx.fillText(en?'ESTIMATED TIME TO GOAL':'TAHMİNİ HEDEF SÜRESİ', W/2, y);
+  y += 100;
 
+  // Bu kart AYNI affordEtaState() kaynağını okur - görünür stat kartıyla (renderAffordResult)
+  // asla çelişmez (kullanıcı UI testi bulgusu #1/#5 - tek bir karar-durumu kaynağı).
+  // UI sertleştirme #3: bu metin artık sabit boyutlu TEK satırda ÇİZİLMİYOR - kart dışına
+  // taşabiliyordu (ör. "Mevcut tempoda ulaşılamıyor"). affordWrapCanvasText ile sarmalanır,
+  // gerekirse fontu okunabilir bir alt sınıra kadar kademeli küçültür.
+  const etaWrap = affordWrapCanvasText(ctx, affordEtaState(r, en).text, contentMaxWidth, {maxFontPx:84, minFontPx:44, maxLines:3, weight:700});
+  ctx.fillStyle='#F5F7F6';
+  ctx.font = `700 ${etaWrap.fontPx}px "Space Grotesk", sans-serif`;
+  etaWrap.lines.forEach((line,i)=>{ ctx.fillText(line, W/2, y + i*etaWrap.lineHeight); });
+
+  // Alt bilgi kartın en altına SABİT kalır - yukarıdaki bölümler dinamik olarak yer açtığı
+  // için (logo/bağlam satırı/ETA satır sayısına göre) buraya asla taşmaz.
   ctx.fillStyle='#4C5F58'; ctx.font='600 36px "Space Grotesk", sans-serif';
-  ctx.fillText('🧭 ' + BRAND_NAME, W/2, H-110);
+  ctx.fillText(BRAND_NAME, W/2, H-160);
+  ctx.fillStyle='#8FA39C'; ctx.font='500 30px Inter, sans-serif';
+  ctx.fillText(en?'What should you do with your money today?':'Bugün paran için ne yapmalısın?', W/2, H-100);
 }
 
 function unlockAffordPremium(){
@@ -17371,14 +17495,27 @@ function aktifYaprak(){
   return p ? p.dataset.tab : 'home';
 }
 
+// UNIFICATION FIX (sol navigasyon "Alabilir miyim?" ile Ana Sayfa "Sor" TEK ürün): bu fonksiyon
+// iki gerçek hatayı barındırıyordu. (1) `primary.type` HİÇBİR ZAMAN var olmayan bir alandı -
+// pickPrimaryGoal() {g, info} döndürür, {g, info, type} DEĞİL - yani isAffordableGoalType(undefined)
+// her zaman false dönüyor ve gerçek bir hedef olsa bile ASLA gerçek-hedef dalına girilmiyordu.
+// (2) Uygun bir hedef yokken bu fonksiyon sadece setTab('goals') yapıp kullanıcıyı çıplak Hedefler
+// listesinde bırakıyordu - Ana Sayfa'nın "Sor" düğmesinin açtığı ad-hoc Decision Engine formuna
+// (openAdHocAffordEntry) HİÇ giden bir yol yoktu. Düzeltme, renderAffordTeaser()'daki (Ana Sayfa
+// "Sor"/"Analiz Et") AYNI mantığı birebir kullanır - yeni bir hesaplama/akış İCAT EDİLMEDİ, sadece
+// iki giriş noktası artık AYNI iki fonksiyona (openGoalAfford / openAdHocAffordEntry) yönleniyor.
 function navAlabilirMiAc(){
   const primary = pickPrimaryGoal();
-  if(primary && isAffordableGoalType(primary.type)){
-    setTab('goals');
-    setTimeout(()=>openGoalAfford(primary.g.id), 120);
-    return;
+  if(primary){
+    const type = GOAL_TYPES.find(tp=>tp.key===primary.g.typeKey)||GOAL_TYPES[0];
+    if(isAffordableGoalType(type)){
+      setTab('goals');
+      setTimeout(()=>openGoalAfford(primary.g.id), 120);
+      return;
+    }
   }
   setTab('goals');
+  setTimeout(()=>openAdHocAffordEntry(), 120);
 }
 
 function openDrawer(){
