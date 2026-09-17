@@ -315,6 +315,39 @@ h1{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-3xl);margin:0;font-
 .section-title.featured{color:var(--brand);}
 .section-title.featured::before{background:var(--brand);width:20px;opacity:1;}
 
+/* =========================================================
+   BUGÜNÜN PARA GÖREVİ — ana sayfaya eklenen günlük tek-aksiyon kartı.
+   Ürün amacı: FullBudget kullanıcıya sadece finansal durumunu göstermemeli,
+   her gün tamamlayabileceği TEK ve SOMUT bir finansal aksiyon vermeli.
+   Sayılar BURADA ÜRETİLMEZ — computePriorityPlan()'ın (Bu Ay Ne Yapmalısın?
+   ile AYNI motor) ürettiği adımlardan türetilir (bkz. JS: ensureTodaysMoneyTask/
+   renderMoneyTaskCard). Görsel dil .card-featured ile AYNI - yeni bir tasarım
+   dili icat edilmedi. */
+.money-task-card{display:flex; flex-direction:column; gap:12px;}
+.money-task-top{display:flex; align-items:flex-start; gap:10px;}
+.money-task-icon{flex:none; display:flex; margin-top:2px;}
+.money-task-icon svg{width:19px; height:19px; fill:none; stroke:var(--brand); stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+.money-task-card.kritik .money-task-icon svg{stroke:var(--coral);}
+.money-task-body{display:flex; flex-direction:column; gap:4px; min-width:0;}
+.money-task-title{font-size:var(--fs-lg); font-weight:700; color:var(--text); overflow-wrap:break-word;}
+.money-task-amount{color:var(--gold); font-variant-numeric:tabular-nums; margin-left:6px;}
+.money-task-desc{font-size:var(--fs-sm); color:var(--muted); line-height:1.5;}
+.money-task-chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;}
+.money-task-chip{font-size:var(--fs-xs); letter-spacing:.03em; padding:3px 9px; border-radius:var(--r-pill); font-weight:650; background:var(--surface); border:1px solid var(--line); color:var(--muted);}
+.money-task-chip.pri-critical{color:var(--coral); border-color:var(--coral);}
+.money-task-chip.pri-medium{color:var(--amber); border-color:var(--amber);}
+.money-task-impact{font-size:var(--fs-sm); color:var(--text); background:var(--brand-soft); border-radius:var(--r-md); padding:10px 12px; line-height:1.5;}
+.money-task-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:2px;}
+.money-task-btn-primary{flex:1; min-width:160px; background:var(--brand); color:#FFFFFF; border:none; border-radius:var(--r-md); padding:12px 16px; font-weight:700; font-size:var(--fs-md); cursor:pointer; font-family:'Inter',sans-serif; min-height:44px;}
+.money-task-btn-secondary{background:none; border:none; color:var(--muted); font-size:var(--fs-sm); text-decoration:underline; cursor:pointer; font-family:'Inter',sans-serif; min-height:44px; padding:0 4px;}
+.money-task-done{display:flex; align-items:flex-start; gap:10px;}
+.money-task-done svg{flex:none; width:20px; height:20px; stroke:var(--brand); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; margin-top:2px;}
+.money-task-done-text{display:flex; flex-direction:column; gap:2px;}
+.money-task-done-title{font-weight:700; color:var(--text);}
+.money-task-done-progress{font-size:var(--fs-sm); color:var(--brand);}
+.money-task-undo{align-self:flex-start; background:none; border:none; color:var(--muted); font-size:var(--fs-xs); text-decoration:underline; cursor:pointer; margin-top:2px; padding:0;}
+.money-task-fallback-note{font-size:var(--fs-xs); color:var(--muted); font-style:italic;}
+
 /* Brief'in 9 maddelik zorunlu hiyerarşisinde yer almayan ama silinmeyen ikincil bölümler
    (hızlı ekle / ek istatistik / kategori dağılımı / yolculuk teaser'ı) — fonksiyonellik aynı,
    sadece görsel ağırlığı hafifçe azaltıldı ki ana hiyerarşiyle yarışmasınlar. */
@@ -2618,6 +2651,17 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   </div>
   </div>
 
+  <!-- BUGÜNÜN PARA GÖREVİ — brief: "kullanıcıya sadece finansal durumunu göstermemeli, her gün
+       tamamlayabileceği TEK ve SOMUT bir finansal aksiyon vermeli". Veri kaynağı computePriorityPlan
+       (Bu Ay Ne Yapmalısın? ile AYNI motor) - burada yeni bir hesaplama motoru YOK, yalnızca o
+       motorun ilk (en öncelikli) adımı günlük bir görev olarak sarmalanıp sunuluyor; tamamlanma/
+       atlama durumu persistent.dailyMoneyTask içinde kalıcı tutuluyor (bkz. JS: ensureTodaysMoneyTask/
+       renderMoneyTaskCard, computePriorityPlan()'ın hemen altında tanımlı). -->
+  <div class="reorder-section" data-section="bugunun-gorevi"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
+  <p class="section-title featured"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-14h-7z" fill="currentColor" stroke="none"/></svg></span><span data-i18n="gorev-baslik">Bugünün Para Görevi</span></p>
+  <div class="card card-featured"><div id="moneyTaskBox"></div></div>
+  </div>
+
   <!-- AŞAMA 1 hiyerarşisi (1b) net varlığın günlük arkadaşı: bugün güvenle harcanabilecek tutar.
        Brief'in 9 maddesinde ayrı bir madde olarak yok ama silinmedi — net varlıkla aynı soruya
        (finansal durumum nasıl?) farklı zaman ölçeğinde cevap verdiği için hemen altına, ona
@@ -4231,6 +4275,31 @@ const TRANSLATIONS = {
   'btn-yeni-hesap': {tr:'+ Yeni Hesap', en:'+ New Account'},
   'btn-olustur': {tr:'Oluştur', en:'Create'},
 
+  /* BUGÜNÜN PARA GÖREVİ — bkz. ensureTodaysMoneyTask/renderMoneyTaskCard. Suçluluk hissettiren
+     dil YOK (brief madde 4): "atladın", "kaçırdın", "yapmalıydın" gibi ifadeler kasıtlı olarak
+     kullanılmadı - nötr/destekleyici bir ton tercih edildi. */
+  'gorev-baslik': {tr:'Bugünün Para Görevi', en:"Today's Money Task"},
+  'gorev-btn-tamamla': {tr:'Görevi Tamamladım', en:'I Completed This'},
+  'gorev-btn-atla': {tr:'Bugün yapamıyorum', en:"I can't today"},
+  'gorev-tamamlandi-baslik': {tr:'Bu görev tamamlandı.', en:'This task is complete.'},
+  'gorev-ilerleme': {tr:'Bu ayki finansal ilerlemen', en:'Your financial progress this month'},
+  'gorev-geri-al': {tr:'Geri al', en:'Undo'},
+  'gorev-fallback-not': {tr:'Sorun değil — küçük bir adım da işe yarar:', en:'No worries — a smaller step still counts:'},
+  'gorev-hepsi-tamam': {tr:'Bugün için finansal görevini tamamladın.', en:"You've completed your financial task for today."},
+  'gorev-kat-borc': {tr:'Borç', en:'Debt'},
+  'gorev-kat-harcama': {tr:'Harcama', en:'Spending'},
+  'gorev-kat-tasarruf': {tr:'Tasarruf', en:'Savings'},
+  'gorev-kat-hedef': {tr:'Hedef', en:'Goal'},
+  'gorev-kat-acilfon': {tr:'Acil Fon', en:'Emergency Fund'},
+  'gorev-kat-yatirim': {tr:'Yatırım', en:'Investing'},
+  'gorev-kat-kurulum': {tr:'Kurulum', en:'Setup'},
+  'gorev-kat-diger': {tr:'Genel', en:'General'},
+  'gorev-oncelik-critical': {tr:'Öncelikli', en:'Priority'},
+  'gorev-oncelik-medium': {tr:'Orta', en:'Medium'},
+  'gorev-oncelik-low': {tr:'Düşük', en:'Low'},
+  'gorev-fallback-baslik': {tr:'Bugünkü harcamalarını gözden geçir', en:"Review today's spending"},
+  'gorev-fallback-aciklama': {tr:'Büyük bir karar gerekmiyor — sadece bugün nereye harcadığına bir göz at.', en:'No big decision needed — just take a look at where today’s spending went.'},
+  'gorev-fallback-etki': {tr:'Küçük bir farkındalık bile yarının kararlarını iyileştirir.', en:"Even a little awareness improves tomorrow's decisions."},
 };
 
 let currentLang = 'tr';
@@ -4970,7 +5039,12 @@ function yzd(n){ return currentLang==='en' ? (n + '%') : ('%' + n); }
    persistent: kalıcı bilanço verisi (hesaplar/varlıklar/borçlar) - ay değişse de kalır
    ========================================================= */
 let month = { incomes: [], expenses: [], goal: {type:'save', amount:0} };
-let persistent = { accounts: [], assets: [], debts: [], usdRate: 0, goals: [], goalMarketData: [], goalInflationOverride: null, recurringIncomes: [], recurringExpenses: [], lastAutoMonth: '', categoryBudgets: {}, reminders: [], notes: [], sectionOrder: {}, creditCards: [], importedTransactions: [], merchantCategoryOverrides: {}, subscriptionOverrides: {}, isPremium: false };
+let persistent = { accounts: [], assets: [], debts: [], usdRate: 0, goals: [], goalMarketData: [], goalInflationOverride: null, recurringIncomes: [], recurringExpenses: [], lastAutoMonth: '', categoryBudgets: {}, reminders: [], notes: [], sectionOrder: {}, creditCards: [], importedTransactions: [], merchantCategoryOverrides: {}, subscriptionOverrides: {}, isPremium: false,
+  // Bugünün Para Görevi (bkz. ensureTodaysMoneyTask): günün görevi + o gün için
+  // tamamlanmış/atlanmış adım imzaları. moneyTaskStats: "bu ayki finansal ilerlemen"
+  // rozeti için ay-bazlı tamamlama sayacı - schemaVersion gerektirmeyecek kadar basit,
+  // additive bir alan (eski kayıtlarda yok => loadState() içinde null/varsayılana düşer).
+  dailyMoneyTask: null, moneyTaskStats: { monthKey: '', completedCount: 0 } };
 let history = [];
 
 /* =========================================================
@@ -5461,6 +5535,114 @@ function addMonths(date, n){ const d = new Date(date); d.setMonth(d.getMonth()+n
 function formatMonthYear(date){ const names = currentLang==='en' ? monthNamesEn : monthNames; return `${names[date.getMonth()]} ${date.getFullYear()}`; }
 
 /* =========================================================
+   CANONICAL FİNANSAL STATE NORMALİZASYONU (P0 düzeltmesi, 2026-09-15)
+   ---------------------------------------------------------
+   KÖK NEDEN: loadState() persistent/month'u DB'den okuyup Number()
+   dönüşümünden geçiriyordu, ama window'daki 'storage' event dinleyicisi
+   (bkz. aşağıda, ~6000. satır civarı) başka bir sekmenin/eski bir
+   sürümün/elle düzenlenmiş bir yedeğin yazdığı JSON'u JSON.parse()'tan
+   sonra DOĞRUDAN persistent/month'a atıyordu — bu normalizasyondan HİÇ
+   geçmiyordu. Sonuç: amount alanı "110000" gibi bir STRING olarak
+   gelirse, totalIncome()/totalSpent() içindeki `reduce((s,x)=>s+x.amount,0)`
+   JavaScript'in `+` operatörü sayısal toplama değil STRING BİRLEŞTİRME
+   yapıyor ("50000"+"60000" -> "50006000") ve bu bozuk değer
+   monthlyCashFlow, savingsRate, safeDailySpend, computePriorityPlan,
+   Bugünün Para Görevi ve AI Coach context'ine kadar sızıyordu.
+
+   ÇÖZÜM: Number/NaN/Infinity güvenliği sağlayan TEK bir normalizasyon
+   fonksiyonu seti burada tanımlanıyor. loadState() DE, 'storage' event
+   dinleyicisi DE — persistent/month'u ele geçiren HER iki yol da — artık
+   AYNI bu fonksiyonları çağırıyor. Böylece ikisi arasında "biri
+   normalize ediyor biri etmiyor" diye bir ayrım artık MİMARİ OLARAK
+   mümkün değil (yeni bir üçüncü yol eklenirse o da bunları çağırmalı).
+
+   guvenliSayi() kullanılıyor (düz Number(x)||0 DEĞİL): bu, NaN'ı
+   YAKALADIĞI GİBİ Infinity/-Infinity'yi de yakalıyor — Number(x)||0
+   Infinity için Infinity döner (Infinity waar/truthy olduğu için ||0
+   devreye girmez), guvenliSayi ise Number.isFinite kontrolüyle bunu da
+   0'a düşürüyor. Ayrıca TUTAR_UST_SINIR (1e12) üzerindeki anlamsız
+   büyüklükteki bozuk veriyi de eler.
+
+   BİLEREK YAPILMAYAN: persistent.assets -> persistent.accounts göçü ve
+   goalMarketData varsayılanlarının doldurulması gibi TEK SEFERLİK,
+   yan etkili (persistPersistent() tetikleyen) migrasyon adımları burada
+   TEKRARLANMIYOR — bunlar M1'in kapsamı dışında, sayısal tip güvenliğiyle
+   ilgisiz ve her 'storage' event'inde gereksiz yere tekrar çalıştırılması
+   ayrı bir risk olurdu. migratePersistentData() (schemaVersion/updatedAt
+   damgası) ise saf ve idempotent olduğu için dahil edildi. */
+/* STATE-NORMALIZATION-START */
+function normalizeMonthFinancialFields(m){
+  if(!m || typeof m!=='object') return { incomes:[], expenses:[], goal:{type:'save', amount:0} };
+  return {
+    ...m,
+    incomes: (Array.isArray(m.incomes) ? m.incomes : []).map(i=>({
+      id: i.id||uid(), category: i.category||'Diğer', amount: guvenliSayi(i.amount),
+      note: i.note||'', recurring: !!i.recurring, accountId: i.accountId||'',
+    })),
+    expenses: (Array.isArray(m.expenses) ? m.expenses : []).map(e=>({
+      id: e.id||uid(), category: e.category||'Diğer', subcategory: e.subcategory||'',
+      amount: guvenliSayi(e.amount), note: e.note||'', date: e.date||'', fixed: !!e.fixed,
+      recurring: !!e.recurring, accountId: e.accountId||'', cardId: e.cardId||'',
+      installment: e.installment||null, sourceType: e.sourceType||'manual',
+      catConfidence: (typeof e.catConfidence==='number') ? e.catConfidence : null,
+    })),
+    goal: (m.goal && typeof m.goal==='object') ? { type: m.goal.type||'save', amount: guvenliSayi(m.goal.amount) } : {type:'save', amount:0},
+  };
+}
+function normalizePersistentFinancialFields(data){
+  if(!data || typeof data!=='object') return data;
+  data = migratePersistentData(data); // saf/idempotent: yalnızca schemaVersion/updatedAt damgalar
+  data.accounts = (Array.isArray(data.accounts) ? data.accounts : []).map(a=>({
+    id: a.id, name: a.name||'', type: a.type||'Diğer',
+    balance: guvenliSayi(a.balance), currency: a.currency || 'TRY',
+  }));
+  data.debts = (Array.isArray(data.debts) ? data.debts : []).map(migrateDebt); // migrateDebt zaten guvenliSayi kullanıyor
+  data.usdRate = guvenliSayi(data.usdRate);
+  data.eurRate = guvenliSayi(data.eurRate);
+  data.goldRate = guvenliSayi(data.goldRate);
+  data.goals = (Array.isArray(data.goals) ? data.goals : []).map(g=>({
+    id: g.id||uid(), typeKey: g.typeKey||'ev', note: g.note||'', customName: g.customName||'',
+    referenceId: g.referenceId||'custom',
+    targetAmount: guvenliSayi(g.targetAmount), currentSaved: guvenliSayi(g.currentSaved),
+    targetDate: g.targetDate||'', useLoan: !!g.useLoan,
+    downPaymentPct: g.downPaymentPct!=null ? guvenliSayi(g.downPaymentPct, 30) : 30,
+    fullPriceInsteadOfDownPayment: !!g.fullPriceInsteadOfDownPayment,
+    existingCarValue: guvenliSayi(g.existingCarValue), downPayment: guvenliSayi(g.downPayment),
+    includeExtraCosts: !!g.includeExtraCosts,
+    priceInflationPct: g.priceInflationPct!=null ? guvenliSayi(g.priceInflationPct) : null,
+  }));
+  data.recurringIncomes = (Array.isArray(data.recurringIncomes) ? data.recurringIncomes : []).map(r=>({
+    id: r.id||uid(), category: r.category||'Diğer', amount: guvenliSayi(r.amount), note: r.note||'', accountId: r.accountId||'',
+  }));
+  data.recurringExpenses = (Array.isArray(data.recurringExpenses) ? data.recurringExpenses : []).map(r=>({
+    id: r.id||uid(), category: r.category||'Diğer', amount: guvenliSayi(r.amount), note: r.note||'',
+    fixed: !!r.fixed, accountId: r.accountId||'', cardId: r.cardId||'',
+  }));
+  data.creditCards = (Array.isArray(data.creditCards) ? data.creditCards : []).map(c=>({
+    id: c.id || uid(), name: c.name||'', bankName: c.bankName||'', last4: c.last4||'',
+    limit: guvenliSayi(c.limit), statementDay: Math.round(guvenliSayi(c.statementDay, 1))||1,
+    dueDay: Math.round(guvenliSayi(c.dueDay, 1))||1,
+    statementBalance: guvenliSayi(c.statementBalance), statementSettledCycle: c.statementSettledCycle || '',
+    currentBalance: guvenliSayi(c.currentBalance), minPayment: guvenliSayi(c.minPayment),
+    rate: guvenliSayi(c.rate), currency: c.currency||'TRY', note: c.note||'',
+  }));
+  // M1 multi-tab E2E testinde bulundu: bu fonksiyon "storage" event yolunda
+  // persistent'i TAMAMEN DEĞİŞTİRİYOR (persistent = normalizePersistentFinancialFields(loaded)).
+  // categoryBudgets alanı eskiden yalnızca loadState() içinde (satır ~5713) varsayılana
+  // bağlanıyordu; senkron/eski/eksik bir JSON'da bu alan yoksa render()->renderCategoryBudgets()
+  // "persistent.categoryBudgets[cat.name]" satırında undefined'a erişip TypeError ile
+  // çöküyordu (M1'in kendi düzelttiği kod yolunda yeni bir çökme riski). loadState()'teki
+  // aynı garanti burada da veriliyor - yeni bir özellik değil, aynı normalizasyon
+  // sözleşmesinin (her zaman kullanılabilir bir persistent şekli) tamamlanması.
+  data.categoryBudgets = (data.categoryBudgets && typeof data.categoryBudgets === 'object' && !Array.isArray(data.categoryBudgets)) ? data.categoryBudgets : {};
+  return data;
+}
+/* STATE-NORMALIZATION-END */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Object.assign(module.exports || {}, { normalizeMonthFinancialFields, normalizePersistentFinancialFields });
+}
+
+/* =========================================================
    YÜKLEME / KAYDETME / MIGRASYON
    ========================================================= */
 async function loadState(){
@@ -5470,9 +5652,8 @@ async function loadState(){
     const loaded = await FullBudgetDataService.loadPersistent();
     if(loaded) persistent = loaded;
   }catch(e){ /* yok say */ }
-  // schemaVersion/updatedAt garantisi - yeni kullanıcıda (varsayılan obje) da, eski kullanıcıda
-  // (alan hiç yok) da, zaten güncel kullanıcıda (dokunulmadan geçer) da idempotent çalışır.
-  persistent = migratePersistentData(persistent);
+  // schemaVersion/updatedAt garantisi artık normalizePersistentFinancialFields() içinde
+  // (migratePersistentData çağrısı üzerinden) veriliyor — aşağıdaki tek normalize çağrısına taşındı.
 
   // Eski (v1) formatta debts/assets/usdRate doğrudan aylık kayıt içindeydi.
   // Kalıcı kayıt hiç yoksa, bu ayın eski-format kaydından bir kerelik taşı.
@@ -5496,8 +5677,7 @@ async function loadState(){
       }
     }catch(e){ /* yok say */ }
   }
-  persistent.accounts = (persistent.accounts||[]).map(a=>({id:a.id, name:a.name||'', type:a.type||'Diğer',
-    balance:Number(a.balance)||0, currency:a.currency || 'TRY'}));
+  persistent.accounts = Array.isArray(persistent.accounts) ? persistent.accounts : [];
   /* Eski persistent.assets kayıtlarını hesaplara taşı (bir kez). Tutar ve para birimi aynen
      korunuyor, sadece yer değiştiriyor: kategori -> tür, not -> ad. Böylece toplamlar
      değişmiyor, kullanıcı hiçbir veri kaybetmiyor. Taşınan liste boşaltılıyor ki
@@ -5516,21 +5696,15 @@ async function loadState(){
     persistent.assets = [];
     persistPersistent();
   }
-  persistent.debts = (persistent.debts||[]).map(migrateDebt);
-  persistent.usdRate = persistent.usdRate || 0;
-  persistent.eurRate = persistent.eurRate || 0;
-  persistent.goldRate = persistent.goldRate || 0;
-  persistent.goals = (persistent.goals||[]).map(g=>({
-    id:g.id||uid(), typeKey:g.typeKey||'ev', note:g.note||'', customName:g.customName||'',
-    referenceId:g.referenceId||'custom',
-    targetAmount:Number(g.targetAmount)||0, currentSaved:Number(g.currentSaved)||0,
-    targetDate:g.targetDate||'', useLoan:!!g.useLoan,
-    downPaymentPct:g.downPaymentPct!=null?Number(g.downPaymentPct):30,
-    fullPriceInsteadOfDownPayment:!!g.fullPriceInsteadOfDownPayment,
-    existingCarValue:Number(g.existingCarValue)||0, downPayment:Number(g.downPayment)||0,
-    includeExtraCosts:!!g.includeExtraCosts,
-    priceInflationPct: g.priceInflationPct!=null ? Number(g.priceInflationPct) : null, // null => MARKET_DATA varsayılanı kullan
-  }));
+  // CANONICAL NORMALİZASYON (P0 - M1 kök neden düzeltmesi, bkz. ~5537. satırdaki
+  // STATE-NORMALIZATION bloğu): accounts/debts/usdRate-eurRate-goldRate/goals/
+  // recurringIncomes/recurringExpenses/creditCards alanlarının Number-güvenli hâle
+  // getirilmesi ARTIK TEK bu çağrıdan geçiyor. 'storage' event dinleyicisi de AYNI
+  // fonksiyonu çağırıyor - iki yol arasında "biri normalize ediyor biri etmiyor" farkı
+  // (M1'in kök nedeni) artık yapısal olarak mümkün değil. (migratePersistentData da
+  // bu çağrının içinde - üstteki eski ayrı çağrı kaldırıldı, idempotent olduğu için
+  // burada bir kez daha çalışması zararsız.)
+  persistent = normalizePersistentFinancialFields(persistent);
   // Hedef piyasa referans verisi: yoksa varsayılanlardan başlat (kullanıcı sonra düzenleyebilir)
   if(!persistent.goalMarketData || !persistent.goalMarketData.length){
     persistent.goalMarketData = GOAL_MARKET_DATA_DEFAULTS.map(d=>({...d}));
@@ -5542,16 +5716,17 @@ async function loadState(){
   if(persistent.goalInflationOverride!=null && !isNaN(persistent.goalInflationOverride)){
     MARKET_DATA.goalPriceInflationYillik = persistent.goalInflationOverride;
   }
-  persistent.recurringIncomes = (persistent.recurringIncomes||[]).map(r=>({
-    id:r.id||uid(), category:r.category||'Diğer', amount:Number(r.amount)||0, note:r.note||'', accountId:r.accountId||''
-  }));
-  persistent.recurringExpenses = (persistent.recurringExpenses||[]).map(r=>({
-    id:r.id||uid(), category:r.category||'Diğer', amount:Number(r.amount)||0, note:r.note||'', fixed:!!r.fixed, accountId:r.accountId||'', cardId:r.cardId||''
-  }));
+  // recurringIncomes/recurringExpenses artık normalizePersistentFinancialFields() içinde
+  // normalize ediliyor (yukarıda) - burada tekrar edilmiyor.
   persistent.lastAutoMonth = persistent.lastAutoMonth || '';
   persistent.categoryBudgets = persistent.categoryBudgets || {};
   persistent.subscriptionOverrides = persistent.subscriptionOverrides || {};
   persistent.sectionOrder = persistent.sectionOrder || {};
+  // Bugünün Para Görevi: eski kayıtlarda bu alan hiç yok - null/varsayılana düş.
+  // Şema alanı gerektirmez, ensureTodaysMoneyTask() zaten her okumadan önce
+  // .date'i bugünle karşılaştırıp gerekiyorsa yeni bir kayıt kurar.
+  if(!persistent.dailyMoneyTask || typeof persistent.dailyMoneyTask!=='object') persistent.dailyMoneyTask = null;
+  if(!persistent.moneyTaskStats || typeof persistent.moneyTaskStats!=='object') persistent.moneyTaskStats = { monthKey:'', completedCount:0 };
   // Kurucu ödülü için "ilk kullanım" tarihi. Mevcut kullanıcılarda alan yoksa bugüne kurulur —
   // yani geriye dönük bir hak iddia edilemez, sayaç herkes için ileriye doğru işler.
   persistent.firstUseDate = persistent.firstUseDate || yerelGunAnahtari();
@@ -5566,23 +5741,7 @@ async function loadState(){
   // Kapanan borçların kimlikleri: bir borç sıfıra indiği ANDA buraya yazılır. Kullanıcı borcu
   // sonradan silse bile kayıt kalır (silince kanıt kaybolurdu) ve aynı borç iki kez sayılmaz.
   persistent.settledDebtIds = Array.isArray(persistent.settledDebtIds) ? persistent.settledDebtIds : [];
-  persistent.creditCards = (persistent.creditCards||[]).map(c=>({
-    id: c.id || uid(),
-    name: c.name||'',
-    bankName: c.bankName||'',
-    last4: c.last4||'',
-    limit: Number(c.limit)||0,
-    statementDay: Number(c.statementDay)||1,
-    dueDay: Number(c.dueDay)||1,
-    // Yeni Finansal Model Alanları:
-    statementBalance: Number(c.statementBalance) || 0, // Kesilmiş ekstre borcu
-    statementSettledCycle: c.statementSettledCycle || '', // ekstresi hangi dönemde tam kapatıldı
-    currentBalance: Number(c.currentBalance)||0,       // Kesilmemiş güncel harcamalar dahil toplam borç
-    minPayment: Number(c.minPayment)||0,
-    rate: Number(c.rate)||0, // Aylık faiz oranı (%) — korunuyor; yoksa her yeniden yüklemede mevcut kartlarda sessizce sıfırlanırdı
-    currency: c.currency||'TRY',
-    note: c.note||'',
-  }));
+  // creditCards artık normalizePersistentFinancialFields() içinde normalize ediliyor (yukarıda).
   persistent.importedTransactions = persistent.importedTransactions || [];
   persistent.merchantCategoryOverrides = persistent.merchantCategoryOverrides || {};
   // DÜZELTME: learnMerchantCategory eskiden anahtarı normalizeTurkish() değil düz .toLowerCase() ile
@@ -5616,9 +5775,10 @@ async function loadState(){
       }
     }
   }catch(e){ /* yok say */ }
-  month.incomes = (month.incomes||[]).map(i=>({id:i.id||uid(), category:i.category||'Diğer', amount:Number(i.amount)||0, note:i.note||'', recurring:!!i.recurring, accountId:i.accountId||''}));
-  month.expenses = (month.expenses||[]).map(e=>({id:e.id||uid(), category:e.category||'Diğer', subcategory:e.subcategory||'', amount:Number(e.amount)||0, note:e.note||'', date:e.date||'', fixed:!!e.fixed, recurring:!!e.recurring, accountId:e.accountId||'', cardId:e.cardId||'', installment:e.installment||null, sourceType:e.sourceType||'manual', catConfidence:(typeof e.catConfidence==='number')?e.catConfidence:null}));
-  month.goal = month.goal || {type:'save', amount:0};
+  // CANONICAL NORMALİZASYON (P0 - M1 kök neden düzeltmesi): incomes/expenses/goal artık
+  // TEK bu çağrıdan geçiyor - 'storage' event dinleyicisi de AYNI fonksiyonu çağırıyor
+  // (bkz. ~5537. satırdaki STATE-NORMALIZATION bloğu).
+  month = normalizeMonthFinancialFields(month);
 
   // 3) Geçmiş
   try{
@@ -5898,19 +6058,29 @@ window.addEventListener('storage', (e)=>{
   if(!e.key) return; // localStorage.clear() gibi genel bir olay - ilgilenmiyoruz
   if(typeof window !== 'undefined' && window.storage && typeof window.storage.set === 'function') return; // host köprüsü varsa native storage event anlamsız
 
+  // P0 DÜZELTMESİ (M1, 2026-09-15): burası eskiden JSON.parse çıktısını persistent/month'a
+  // DOĞRUDAN atıyordu - loadState()'in yaptığı Number-tip normalizasyonundan hiç geçmeden.
+  // Başka bir sekmenin/eski bir sürümün/elle düzenlenmiş bir yedeğin amount alanlarını STRING
+  // yazmış olması yeterliydi: totalIncome() gibi reduce((s,x)=>s+x.amount,0) çağrıları JS'in
+  // `+` operatörüyle SAYISAL TOPLAMA değil STRİNG BİRLEŞTİRME yapıyordu ("50000"+"60000" ->
+  // "50006000"), bu da monthlyCashFlow/savingsRate/safeDailySpend/computePriorityPlan/
+  // Bugünün Para Görevi/AI Coach context'ine kadar sessizce sızıyordu. Artık aynı JSON,
+  // loadState()'in kullandığı TAM O İKİ fonksiyondan (normalizePersistentFinancialFields /
+  // normalizeMonthFinancialFields) geçiyor - iki yol arasında normalizasyon farkı yapısal
+  // olarak artık mümkün değil.
   let changed = false;
   if(e.key === PERSIST_KEY){
     if(!_persistentDirty && e.newValue){
       try{
         const loaded = JSON.parse(e.newValue);
-        if(loaded && typeof loaded === 'object'){ persistent = loaded; changed = true; }
+        if(loaded && typeof loaded === 'object'){ persistent = normalizePersistentFinancialFields(loaded); changed = true; }
       }catch(err){ /* bozuk JSON - yok say, mevcut in-memory state korunur */ }
     }
   } else if(e.key === `budget:${monthKey}`){
     if(!_monthDirty && e.newValue){
       try{
         const loaded = JSON.parse(e.newValue);
-        if(loaded && typeof loaded === 'object'){ month = loaded; changed = true; }
+        if(loaded && typeof loaded === 'object'){ month = normalizeMonthFinancialFields(loaded); changed = true; }
       }catch(err){ /* bozuk JSON - yok say */ }
     }
   } else {
@@ -8531,6 +8701,61 @@ function simulatePayoff(balance, payment, ratePct){
 }
 
 /* =========================================================
+   FINANCE-CORE: AYLIK NAKİT AKIŞI vs NET VARLIK — KESİN AYRIM
+   (2026-09-15 düzeltmesi — kullanıcı raporu üzerine)
+   ---------------------------------------------------------
+   Rapor: "500.000 TL varlık" gibi bir BİLANÇO (stok) kaleminin "aylık
+   kalan / tasarruf oranı / günlük güvenli harcama" gibi AKIŞ (flow)
+   hesaplarına karışması riski. Mevcut render() kodu incelendi: aşağıdaki
+   monthlyCashFlow/savingsRate/safeDaily hesapları zaten yalnızca income,
+   cashOutSpent() (=totalSpent() - kartla finanse edilen kısım) ve
+   monthlyDebtPayments()'tan besleniyordu — totalAssets() bu hesaplara
+   hiç girmiyordu. Yine de ayrımı KOD SEVİYESİNDE görünür, test edilebilir
+   ve gelecekte bozulmaya kapalı hâle getirmek için hesap iki ayrı SAF
+   (pure) fonksiyona çıkarıldı:
+
+     computeCashFlowSummary(...) → SADECE akış. İmzasında "assets"/
+                                    "netWorth" parametresi YOKTUR — bir
+                                    varlık tutarını yanlışlıkla bu
+                                    fonksiyona geçirmek bile mümkün değil.
+     computeNetWorth(...)        → SADECE bilanço (varlık - borç).
+                                    İmzasında income/expense/gün
+                                    parametresi YOKTUR.
+
+   Bu iki fonksiyon app/test/finance-core.test.mjs tarafından, bu satırlar
+   arasındaki kaynak metin çıkarılıp gerçek bir Node ortamında çalıştırılarak
+   otomatik test ediliyor (bkz. o dosyadaki senaryo: income=110000,
+   expenses=44067, debtPayments=0, remainingDays=16, assets=500000).
+
+   Likidite notu: "kullanılabilir nakit/banka bakiyesi" tipi bir varlığın
+   ayrıca likidite analizinde kullanılması gerektiğinde bunun için zaten
+   ayrı bir fonksiyon var: totalLiquidAssets() (yukarıda tanımlı). O da
+   nakit akışı hesabına KARIŞTIRILMADAN, ayrı bir girdi olarak (ör.
+   ileride bir "likidite tamponu kaç gün yeter" göstergesi) kullanılabilir;
+   mimari buna zaten uygun.
+   ========================================================= */
+/* FINANCE-CORE-START */
+function computeCashFlowSummary({ income, expenses, debtPayments, remainingDays, remainingFixedEstimate = 0 }){
+  income = Number(income) || 0;
+  expenses = Number(expenses) || 0;
+  debtPayments = Number(debtPayments) || 0;
+  remainingDays = Number(remainingDays) || 0;
+  remainingFixedEstimate = Number(remainingFixedEstimate) || 0;
+  const remaining = income - expenses - debtPayments;
+  const savingsRate = income > 0 ? (remaining / income) * 100 : 0;
+  const safeRemaining = income - expenses - remainingFixedEstimate - debtPayments;
+  const safeDailySpend = (remainingDays > 0 && safeRemaining > 0) ? safeRemaining / remainingDays : 0;
+  return { remaining, savingsRate, safeDailySpend, safeRemaining };
+}
+function computeNetWorth({ assets, totalDebt }){
+  return (Number(assets) || 0) - (Number(totalDebt) || 0);
+}
+/* FINANCE-CORE-END */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { computeCashFlowSummary, computeNetWorth };
+}
+
+/* =========================================================
    ANA RENDER
    ========================================================= */
 function render(){
@@ -8543,7 +8768,9 @@ function render(){
   const debtPay = monthlyDebtPayments();
   const totalDebt = totalDebtTL();
   const interestCost = monthlyInterestCost();
-  const netWorth = assets - totalDebt;
+  // Net varlık SADECE bilanço fonksiyonundan gelir (computeNetWorth) — bu fonksiyonun
+  // imzasında income/expense/gün parametresi yok, dolayısıyla akış hesabıyla karışamaz.
+  const netWorth = computeNetWorth({ assets, totalDebt });
 
   /* Borç kilometre taşları için iki kalıcı iz. İkisi de allDebts() üzerinden geldiği için
      kredi kartı borcu da sayılır — daha önce ikisi de yalnızca persistent.debts'e bakıyordu:
@@ -8558,8 +8785,11 @@ function render(){
 
   // Aylık nakit akışı: gelir - gider - borç ÖDEMELERİ (anapara+faiz karışık taksit). Borç anaparası
   // ayrı bir bilanço kalemidir (netWorth'te), burada tekrar düşülmez -> çift sayım yok.
-  const monthlyCashFlow = income - cashOutSpent() - debtPay;
-  const savingsRate = income>0 ? (monthlyCashFlow/income)*100 : 0;
+  // computeCashFlowSummary'nin imzasında "assets" YOKTUR — varlık bu hesaba giremez (bkz. yukarıdaki
+  // FINANCE-CORE bloğu ve app/test/finance-core.test.mjs).
+  const _cfBase = computeCashFlowSummary({ income, expenses: cashOutSpent(), debtPayments: debtPay, remainingDays: daysLeft });
+  const monthlyCashFlow = _cfBase.remaining;
+  const savingsRate = _cfBase.savingsRate;
   const debtRatio = income>0 ? (debtPay/income)*100 : 0;
   _cashFlowCache = monthlyCashFlow;
   _netWorthCache = netWorth;
@@ -8571,8 +8801,10 @@ function render(){
   // 11. Güvenli günlük harcama: gerçekleşen gider + kalan tahmini zorunlu gider + borç ödemelerini düş
   const lastMonthFixed = history.length ? history[history.length-1].fixedExpense||0 : 0;
   const remainingFixedEstimate = Math.max(0, lastMonthFixed - fixedSpent);
-  const safeRemaining = income - cashOutSpent() - remainingFixedEstimate - debtPay; // kartla finanse edilen harcama burada da düşülmez (bkz. cashOutSpent)
-  const safeDaily = safeRemaining > 0 ? safeRemaining / daysLeft : 0;
+  // Aynı saf fonksiyon, bu kez "kalan tahmini zorunlu gider" dahil çağrılıyor — assets burada da yok.
+  const _cfSafe = computeCashFlowSummary({ income, expenses: cashOutSpent(), debtPayments: debtPay, remainingDays: daysLeft, remainingFixedEstimate });
+  const safeRemaining = _cfSafe.safeRemaining; // kartla finanse edilen harcama burada da düşülmez (bkz. cashOutSpent)
+  const safeDaily = _cfSafe.safeDailySpend;
 
   /* ---- Ana finansal özet ---- */
   document.getElementById('sumAssets').textContent = `${CUR}${fmt(assets)}`;
@@ -8790,6 +9022,8 @@ function render(){
   const priorityResult = _planCache;   // yukarıda bir kez kuruldu, ikinci kez hesaplanmaz
   renderPriorityPlan(priorityResult, monthlyCashFlow);
   guncelleKararOzeti(priorityResult, safeDaily, income);
+  // Bugünün Para Görevi: AYNI priorityResult'tan besleniyor, ikinci bir hesaplama yok.
+  renderMoneyTaskCard(ensureTodaysMoneyTask(priorityResult));
   renderAllocation(priorityResult ? priorityResult.investable : monthlyCashFlow);
   renderAdvice(monthlyCashFlow, totalDebt, interestCost, netWorth, debtRatio);
   renderSubscriptions();
@@ -11634,6 +11868,259 @@ function renderPriorityPlan(plan, monthlyCashFlow){
 }
 
 /* =========================================================
+   16b. BUGÜNÜN PARA GÖREVİ
+
+   Ürün amacı: FullBudget kullanıcıya sadece finansal durumunu göstermemeli;
+   her gün tamamlayabileceği TEK ve SOMUT bir finansal aksiyon vermeli
+   ("Bugün paran için ne yapmalısın?"). BURADA YENİ BİR HESAPLAMA MOTORU
+   YOK: tüm rakamlar computePriorityPlan()'dan (Bu Ay Ne Yapmalısın? ile
+   AYNI kaynak, _planCache) geliyor - bu modül yalnızca o motorun ürettiği
+   adımlardan İLK ele alınmamışını günlük, kalıcı bir "görev" nesnesine
+   sarıyor. AI hiçbir yerde ÇAĞRILMIYOR - açıklama/impact metinleri de
+   deterministik şablonlardan (adımın kendi 'reason'ı + adımın 'amount'ı)
+   üretiliyor (brief madde 6).
+
+   Kalıcılık: persistent.dailyMoneyTask = { date, handledSignatures, task }.
+   - date: görevin ait olduğu gün (YYYY-MM-DD, uygulamanın geri kalanındaki
+     "bugün" anahtarlarıyla AYNI biçim - bkz. bt_notified_ anahtarı).
+   - handledSignatures: bugün tamamlanmış/atlanmış adımların imzaları -
+     aynı adımın aynı gün tekrar gösterilmemesini garanti eder (madde 8).
+   - task: o an kullanıcıya gösterilen TEK görev.
+   Günde bir kez oluşturulur, sayfa yenilendiğinde kaybolmaz (madde 9);
+   yalnızca kullanıcı "Tamamladım"/"Yapamıyorum" dediğinde değişir.
+
+   BİLİNEN SINIRLAMA (kasıtlı, brief'in kapsamı dışında): task.title/
+   description/impact oluşturma anındaki dile göre metin olarak saklanır.
+   Kullanıcı AYNI GÜN İÇİNDE dil değiştirirse görev metni bir sonraki güne
+   kadar o dilde kalır - tıpkı kullanıcının o gün için zaten girdiği diğer
+   serbest metinler gibi. Bu, mevcut computePriorityPlan çıktısını (kendisi
+   de anlık dile göre üretiliyor) yeniden yazmadan elde edilebilecek en basit
+   ve güvenli davranış; gereksiz bir refactor gerektirmiyor. */
+
+/* Adımın "kimliği" - aynı gün içinde tekrar gösterilmemesi gereken adımı
+   ayırt etmek için. ik+label yeterli: computePriorityPlan aynı ik/label
+   kombinasyonunu farklı anlamda iki kez üretmez. */
+function moneyTaskSignature(step){
+  return (step && step.ik ? step.ik : 'x') + '::' + String((step && step.label) || '').slice(0, 80);
+}
+
+/* Kategori: kullanıcının istediği taksonomiye (borç/harcama/tasarruf/hedef/
+   acil fon/yatırım/kurulum) computePriorityPlan'ın ik alanı + adım metni
+   üzerinden en iyi çaba (best-effort) ile eşlenir. Motorun kendisi
+   DEĞİŞMEDİ - bu salt bir SUNUM sınıflandırması. */
+function moneyTaskCategoryFromStep(step){
+  if(!step) return 'diger';
+  const label = String(step.label || '').toLowerCase();
+  if(step.ik === 'hedef') return 'hedef';
+  if(step.ik === 'nakit') return 'borc'; // döviz borcuna ayırma
+  if(/kredi kart|kart kullan|card usage|credit card/.test(label)) return 'borc';
+  if(/borc|borç|debt|kredi|loan/.test(label)) return 'borc';
+  if(step.ik === 'orta') return 'borc';
+  if(step.ik === 'iyi' && /acil|emergency/.test(label)) return 'acil_fon';
+  if(step.ik === 'artis') return /yatır|invest/.test(label) ? 'yatirim' : 'harcama';
+  if(step.ik === 'banka' || step.ik === 'para' || step.ik === 'fis') return 'kurulum';
+  if(step.ik === 'iyi') return 'tasarruf';
+  return 'diger';
+}
+
+/* Öncelik: ADIM_IKON'un zaten kurduğu ağırlıklandırmayı (kritik/orta/iyi)
+   AYNEN yeniden kullanır - yeni bir öncelik sistemi icat edilmedi. */
+function moneyTaskPriorityFromStep(step){
+  const k = step && ADIM_IKON[step.ik];
+  const ton = k && k.ton;
+  if(ton === 'kritik') return 'critical';
+  if(ton === 'orta') return 'medium';
+  return 'low';
+}
+
+/* Anında finansal etki metni (madde 7) - AI DEĞİL, adımın kendi 'amount'ından
+   (deterministic finance engine çıktısı) türetilen sabit bir şablon. */
+function moneyTaskImpactText(step){
+  const en = currentLang === 'en';
+  if(step && step.amount > 0){
+    return en
+      ? `This can strengthen your net worth by about ${CUR}${fmt(step.amount)} this month.`
+      : `Bu adım bu ay net varlığını yaklaşık ${CUR}${fmt(step.amount)} güçlendirebilir.`;
+  }
+  return en
+    ? 'This step helps bring your financial picture into focus.'
+    : 'Bu adım finansal tablonun netleşmesine yardımcı olur.';
+}
+
+function buildMoneyTaskFromStep(step){
+  return {
+    id: uid(),
+    title: step.label,
+    description: step.reason || '',
+    impact: moneyTaskImpactText(step),
+    category: moneyTaskCategoryFromStep(step),
+    priority: moneyTaskPriorityFromStep(step),
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    completedAt: null,
+    amount: step.amount || 0,
+    ik: step.ik || null,
+    signature: moneyTaskSignature(step),
+  };
+}
+
+/* "Bugün yapamıyorum" sonrası TÜM adımlar tükenmişse (nadir - çok kısa
+   planlarda) gösterilecek, hiçbir rakam UYDURMAYAN, suçlulukSUZ mikro görev. */
+function buildFallbackMoneyTask(){
+  return {
+    id: uid(),
+    title: t('gorev-fallback-baslik'),
+    description: t('gorev-fallback-aciklama'),
+    impact: t('gorev-fallback-etki'),
+    category: 'diger',
+    priority: 'low',
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    completedAt: null,
+    amount: 0,
+    ik: null,
+    signature: 'fallback::' + new Date().toISOString().slice(0,10),
+  };
+}
+
+function pickUnhandledStep(steps, handledSignatures){
+  const handled = handledSignatures || [];
+  const list = (steps || []).filter(s => s && s.label);
+  for(const s of list){ if(!handled.includes(moneyTaskSignature(s))) return s; }
+  return null;
+}
+
+/* TEK GİRİŞ NOKTASI: her render()'da çağrılır. Yeni gün ise (ya da hiç kayıt
+   yoksa) planın ilk ele alınmamış adımından günün görevini kurar ve HEMEN
+   kalıcı hale getirir (madde 9 - kullanıcı hiçbir şeye dokunmasa bile sayfa
+   yenilendiğinde aynı görev durur). Aynı gün içinde tekrar tekrar
+   ÇAĞRILDIĞINDA (her render'da olduğu gibi) var olan görevi asla DEĞİŞTİRMEZ
+   - yalnızca completeMoneyTask/dismissMoneyTask bunu yapar. */
+function ensureTodaysMoneyTask(plan){
+  const today = new Date().toISOString().slice(0,10);
+  let rec = persistent.dailyMoneyTask;
+  let changed = false;
+  if(!rec || rec.date !== today){
+    rec = { date: today, handledSignatures: [] };
+    persistent.dailyMoneyTask = rec;
+    changed = true;
+  }
+  if(!rec.task){
+    const steps = (plan && plan.steps) || [];
+    const candidate = pickUnhandledStep(steps, rec.handledSignatures);
+    rec.task = candidate ? buildMoneyTaskFromStep(candidate) : buildFallbackMoneyTask();
+    changed = true;
+  }
+  if(changed) persistPersistent();
+  return rec;
+}
+
+function completeMoneyTask(){
+  const rec = persistent.dailyMoneyTask;
+  if(!rec || !rec.task || rec.task.status !== 'pending') return;
+  rec.task.status = 'completed';
+  rec.task.completedAt = new Date().toISOString();
+  rec.handledSignatures.push(rec.task.signature);
+  if(!persistent.moneyTaskStats || persistent.moneyTaskStats.monthKey !== monthKey){
+    persistent.moneyTaskStats = { monthKey, completedCount: 0 };
+  }
+  persistent.moneyTaskStats.completedCount += 1;
+  persistPersistent();
+  renderMoneyTaskCard(rec);
+}
+
+/* Yanlışlıkla "Tamamladım"a basılmasına karşı - AYNI GÜN içinde geri alınabilir.
+   Suçluluk hissettirmeyen bir "geri al" bağlantısı; brief bunu zorunlu kılmıyor
+   ama ekstra maliyeti neredeyse sıfır ve kaza tıklamalarını telafi ediyor. */
+function undoMoneyTaskCompletion(){
+  const rec = persistent.dailyMoneyTask;
+  if(!rec || !rec.task || rec.task.status !== 'completed') return;
+  rec.task.status = 'pending';
+  rec.task.completedAt = null;
+  rec.handledSignatures = rec.handledSignatures.filter(s => s !== rec.task.signature);
+  if(persistent.moneyTaskStats && persistent.moneyTaskStats.monthKey === monthKey && persistent.moneyTaskStats.completedCount > 0){
+    persistent.moneyTaskStats.completedCount -= 1;
+  }
+  persistPersistent();
+  renderMoneyTaskCard(rec);
+}
+
+/* "Bugün yapamıyorum" (madde 4): suçluluk YOK, ceza YOK - yalnızca bugünün
+   görevini planın bir sonraki (henüz ele alınmamış, dolayısıyla daha düşük
+   öncelikli => doğası gereği daha küçük) adımıyla değiştirir. Plan tükenmişse
+   rakam uydurmayan jenerik mikro görev gösterilir. */
+function dismissMoneyTask(){
+  const rec = persistent.dailyMoneyTask;
+  if(!rec || !rec.task || rec.task.status !== 'pending') return;
+  rec.handledSignatures.push(rec.task.signature);
+  const nextStep = pickUnhandledStep(_planCache ? _planCache.steps : [], rec.handledSignatures);
+  rec.task = nextStep ? buildMoneyTaskFromStep(nextStep) : buildFallbackMoneyTask();
+  rec.showedFallbackNote = true;
+  persistPersistent();
+  renderMoneyTaskCard(rec);
+}
+
+function moneyTaskIconSvg(ik){
+  const k = ADIM_IKON[ik];
+  const d = k ? k.d : '<circle cx="12" cy="12" r="8.6"/><path d="M8.4 12.3l2.4 2.4 4.8-5.2"/>';
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+}
+
+function renderMoneyTaskCard(rec){
+  const box = document.getElementById('moneyTaskBox');
+  if(!box) return;
+  if(!rec || !rec.task){ box.innerHTML = ''; return; }
+  const task = rec.task;
+
+  if(task.status === 'completed'){
+    const count = (persistent.moneyTaskStats && persistent.moneyTaskStats.monthKey === monthKey)
+      ? persistent.moneyTaskStats.completedCount : 1;
+    box.innerHTML = `<div class="money-task-card">
+        <div class="money-task-done">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M8 12.3l2.6 2.6 5.4-5.8"/></svg>
+          <div class="money-task-done-text">
+            <span class="money-task-done-title">${escapeHtml(task.title)}</span>
+            <span>${escapeHtml(t('gorev-tamamlandi-baslik'))}</span>
+            <span class="money-task-done-progress">${escapeHtml(t('gorev-ilerleme'))}: +${count}</span>
+          </div>
+        </div>
+        <button type="button" class="money-task-undo" id="moneyTaskUndoBtn">${escapeHtml(t('gorev-geri-al'))}</button>
+      </div>`;
+    document.getElementById('moneyTaskUndoBtn')?.addEventListener('click', undoMoneyTaskCompletion);
+    return;
+  }
+
+  // dismissMoneyTask() bir sonraki adımı HEMEN 'pending' olarak atadığı için
+  // burada gösterilen durum her zaman 'pending'dir (dismissed statüsü kalıcı
+  // olarak SAKLANMAZ - handledSignatures'a imza olarak geçer, o kadar).
+  const kritik = task.priority === 'critical';
+  const fallbackNote = rec.showedFallbackNote
+    ? `<p class="money-task-fallback-note">${escapeHtml(t('gorev-fallback-not'))}</p>` : '';
+  const amountHtml = task.amount ? ` <span class="money-task-amount">${CUR}${fmt(task.amount)}</span>` : '';
+  box.innerHTML = `<div class="money-task-card${kritik ? ' kritik' : ''}">
+      ${fallbackNote}
+      <div class="money-task-top">
+        <span class="money-task-icon">${moneyTaskIconSvg(task.ik)}</span>
+        <div class="money-task-body">
+          <div class="money-task-title">${escapeHtml(task.title)}${amountHtml}</div>
+          <div class="money-task-desc">${escapeHtml(task.description)}</div>
+          <div class="money-task-chips">
+            <span class="money-task-chip">${escapeHtml(t('gorev-kat-' + task.category))}</span>
+            <span class="money-task-chip pri-${task.priority}">${escapeHtml(t('gorev-oncelik-' + task.priority))}</span>
+          </div>
+        </div>
+      </div>
+      <div class="money-task-impact">${escapeHtml(task.impact)}</div>
+      <div class="money-task-actions">
+        <button type="button" class="money-task-btn-primary" id="moneyTaskCompleteBtn">${escapeHtml(t('gorev-btn-tamamla'))}</button>
+        <button type="button" class="money-task-btn-secondary" id="moneyTaskSkipBtn">${escapeHtml(t('gorev-btn-atla'))}</button>
+      </div>
+    </div>`;
+  document.getElementById('moneyTaskCompleteBtn')?.addEventListener('click', completeMoneyTask);
+  document.getElementById('moneyTaskSkipBtn')?.addEventListener('click', dismissMoneyTask);
+}
+
+/* =========================================================
    17. YATIRIM DAĞILIM ANALİZİ
    ========================================================= */
 function computeAllocation(investable, profileKey){
@@ -14474,12 +14961,22 @@ document.getElementById('importBackupInput').addEventListener('change', (e)=>{
       persistent.goldRate = p.goldRate || 0;
       persistent.isPremium = !!p.isPremium;
 
+      // P0 DÜZELTMESİ (M1, 2026-09-15): yedek dosyası da "başka bir persistence yolu" -
+      // yukarıdaki alanların çoğu (recurringIncomes/recurringExpenses/creditCards gibi)
+      // dosyadan HAM olarak okunuyordu, sayısal tip garantisi yoktu. Sayfa 1200ms sonra
+      // yenilenip loadState() zaten normalize edecek olsa da, yazma başarısız olursa render()
+      // BU normalize edilmemiş state ile çağrılıyordu (aşağıda). Aynı canonical fonksiyon
+      // burada da çağrılarak bu pencere kapatılıyor - davranış aynı, yalnızca tip güvenli.
+      persistent = normalizePersistentFinancialFields(persistent);
+
       if(Array.isArray(data.history)) history = data.history;
 
       if(sameMonth && data.month){
-        month.incomes = data.month.incomes || [];
-        month.expenses = data.month.expenses || [];
-        month.goal = data.month.goal || {type:'save', amount:0};
+        month = normalizeMonthFinancialFields({
+          incomes: data.month.incomes || [],
+          expenses: data.month.expenses || [],
+          goal: data.month.goal || {type:'save', amount:0},
+        });
       }
 
       if(data.theme){
@@ -16564,7 +17061,7 @@ const DEFAULT_SECTION_ORDER = {
      o kazanır; bu yalnızca varsayılan. */
   /* AŞAMA 3 (brief §13): Aylık Gelir+Gider, "bugün ne kadar harcayabilirim" halkasının
      ÜSTÜNE alındı — kullanıcı önce ayın tablosunu, sonra günün payını görüyor. */
-  home:  ['networth','ay-defteri','ring','bu-ay-plan','bugun-bilmen-gerekenler','afford-teaser',
+  home:  ['networth','bugunun-gorevi','ay-defteri','ring','bu-ay-plan','bugun-bilmen-gerekenler','afford-teaser',
           'yaklasan-odemeler','activegoal','son-islemler','hizli-ekle','top5','expense-donut','journey-teaser'],
   /* Kullanıcı isteği: Finans Koçu en üste alındı — Aylık Rapor'un önüne geçti. */
   coach: ['ai-koc-baslik','aylik-rapor','zenginleseme-skoru','net-durum','acil-fon','finansal-yol',
