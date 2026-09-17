@@ -11652,7 +11652,13 @@ function _planKur(monthlyCashFlow){
   /* Borç ve acil fondan SONRA hedeflere gerçekten kalan para. Hedef kartları ve
      "hepsine birden yetişir misin" kontrolü artık toplam nakit akışını değil bunu okuyor. */
   const hedefeAyrilabilir = Math.max(0, remaining);
-  const activeGoals = persistent.goals||[];
+  // P1 DÜZELTMESİ (2026-09-17): "Gelirimi Artır" bir tasarruf/yatırım hedefi DEĞİL - gerçek bir
+  // birikim mekanizması yok (kenara para ayırarak "ulaşılacak" bir hedef değil). Bu yüzden borç
+  // ödemesi / acil fon / gerçek tasarruf hedefleri ile aylık nakit akışı için YARIŞMAMALI ve
+  // "şu kadar ayır" adımı üretmemeli. classifyGoalPace() (L~7148) zaten aynı istisnayı
+  // uyguluyor (g.typeKey==='gelirartir' ise pace hesaplamıyor) - burada da AYNI, zaten var olan
+  // sınıflandırma tekrar kullanıldı; yeni bir finansal mekanizma icat edilmedi.
+  const activeGoals = (persistent.goals||[]).filter(g=>g.typeKey!=='gelirartir');
   if(activeGoals.length && remaining>0){
     const infos = activeGoals.map(g=>({g, info:computeGoalInfo(g)})).filter(x=>x.info && x.info.requiredMonthly>0);
     if(infos.length){
@@ -12260,7 +12266,16 @@ function buildAICoachContext(){
   const cap = getAffordCapacityInfo(); // P0-1 ile AYNI kaynak - kapasite burada farklı bir formülle YENİDEN hesaplanmıyor
   const monthlyIncome = totalIncome();
   const monthlyExpenses = totalSpent();
-  const monthlyCashFlow = monthlyIncome - cashOutSpent() - monthlyDebtPayments(); // getAffordCapacityInfo() ile aynı formül
+  // P0 DÜZELTMESİ (finans denetimi, 2026-09-17): burası eskiden kendi inline formülünü
+  // ("monthlyIncome - cashOutSpent() - monthlyDebtPayments()") kullanıyordu - render()'ın
+  // kullandığı FINANCE-CORE fonksiyonundan AYRI bir kopya. Sonuç matematiksel olarak aynı
+  // çıksa da, tek bir yerden (computeCashFlowSummary) geçmediği için AI'a giden
+  // financialSnapshot.monthlyCashFlow ile aşağıdaki currentMonth.balance birbirinden farklı
+  // formüllerle üretiliyordu (currentMonth.balance borç ödemesini hiç düşmüyordu) - AI'a AYNI
+  // ay için birbiriyle ÇELİŞEN iki rakam gidiyordu. Artık TEK canonical kaynaktan okunuyor.
+  const monthlyCashFlow = computeCashFlowSummary({
+    income: monthlyIncome, expenses: cashOutSpent(), debtPayments: monthlyDebtPayments(), remainingDays: daysLeft,
+  }).remaining;
 
   const debtItems = allDebts();
   // Kredi kartları ayrı bölümde raporlanıyor; burada yalnızca gerçek borç kalemleri (kredi, nakit avans,
@@ -12363,7 +12378,14 @@ function buildAICoachContext(){
     currentMonth: {
       income: Math.round(monthlyIncome),
       expenses: Math.round(monthlyExpenses),
-      balance: Math.round(monthlyIncome - monthlyExpenses),
+      // P0 DÜZELTMESİ (2026-09-17): "balance" artık financialSnapshot.monthlyCashFlow ile
+      // BİREBİR AYNI canonical değeri kullanıyor (borç ödemesi dahil). Eskiden sadece
+      // income-expenses farkını veriyordu ve borç ödemesi olan aylarda AI'a financialSnapshot
+      // ile ÇELİŞEN iki farklı "kalan para" rakamı gidiyordu (ör. cashFlow=-20000 iken
+      // balance=+10000). income/expenses alanları kasıtlı olarak brüt kalıyor - bunlar ayrı
+      // kavramlar (toplam gelir / toplam gider); yalnızca "kalan para"yı temsil eden balance
+      // canonical değere bağlandı.
+      balance: Math.round(monthlyCashFlow),
     },
 
     // P0-1'in ZATEN hesapladığı gerçek kapasite - burada farklı bir formülle tekrar
@@ -15192,7 +15214,12 @@ function getAffordCapacityInfo(){
   const income = totalIncome();
   const spent = totalSpent();
   const debtPay = monthlyDebtPayments();
-  const monthlyCashFlow = income - cashOutSpent() - debtPay; // render()'daki ile aynı formül
+  // SINGLE-SOURCE-OF-TRUTH (2026-09-17): eskiden render()'daki formülün BAĞIMSIZ bir kopyasıydı
+  // (matematiksel olarak aynı ama ayrı bir yerden bakımı gerekiyordu). Artık aynı canonical
+  // FINANCE-CORE fonksiyonunu çağırıyor; davranış/sonuç DEĞİŞMEDİ, sadece tek kaynağa bağlandı.
+  const monthlyCashFlow = computeCashFlowSummary({
+    income, expenses: cashOutSpent(), debtPayments: debtPay, remainingDays: daysLeft,
+  }).remaining;
   const essentialInfo = estimateMonthlyEssential(); // acil fon bölümüyle TEK kaynak
   const monthlyEssential = essentialInfo.value;
   const emergencyTarget3 = monthlyEssential*3;
