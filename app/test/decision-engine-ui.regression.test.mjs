@@ -415,3 +415,291 @@ test('existing Decision Engine answer categories remain unchanged for a straight
   assert.equal(category, 'yes_today');
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
+
+// =======================================================================
+// PRODUCTION UI REVIEW FIX REGRESSION — "Ad-hoc Karar" was leaking developer
+// terminology into user-visible text, and the share card had a wrong/generic
+// icon, text overflow and a semantically wrong "Hedef: Ad-hoc Karar" line.
+// =======================================================================
+
+test('no user-visible "Ad-hoc Karar" / "Ad-hoc Decision" remains anywhere in the ad-hoc purchase flow', async () => {
+  const { page, pageErrors } = await newSession({ income: 80000, expenses: 30000, assets: 200000, goals: [] });
+  const visibleText = await page.evaluate(() => {
+    setTab('home'); render();
+    document.getElementById('homeAffordAdHocBtn').click();
+    document.getElementById('adHocPrice').value = '5000';
+    document.getElementById('adHocSubmitBtn').click();
+    return document.body.innerText;
+  });
+  await page.close();
+  assert.ok(!/Ad-hoc Karar/i.test(visibleText), 'no visible text may contain the developer term "Ad-hoc Karar"');
+  assert.ok(!/Ad-hoc Decision/i.test(visibleText), 'no visible text may contain the developer term "Ad-hoc Decision"');
+  assert.ok(/Alabilir miyim\?/.test(visibleText), 'the page title must use the product-facing name "Alabilir miyim?"');
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('share card uses the real FullBudget logo asset (same DOM asset as splash/auth), not a category emoji', async () => {
+  const { page, pageErrors } = await newSession({ income: 80000, expenses: 30000, assets: 200000, goals: [] });
+  const check = await page.evaluate(async () => {
+    openAdHocPurchaseDecision({ category: 'diger', price: 5000, downPayment: 0 });
+    const logoImg = await ensureAffordShareLogoLoaded();
+    const expectedSrc = document.querySelector('.splash-logo-img, .auth-logo, .brand-mark-img, .settings-brand-logo').src;
+
+    const drawImageCalls = [];
+    const proto = CanvasRenderingContext2D.prototype;
+    const origDrawImage = proto.drawImage;
+    proto.drawImage = function(img, ...args) { drawImageCalls.push(img && img.src); return origDrawImage.apply(this, [img, ...args]); };
+    try { drawAffordShareCard(affordLastResult, false); } finally { proto.drawImage = origDrawImage; }
+
+    return { logoLoaded: !!logoImg, expectedSrc, drawImageCalls };
+  });
+  await page.close();
+  assert.ok(check.logoLoaded, 'the real brand logo asset must load successfully');
+  assert.ok(check.drawImageCalls.length > 0, 'the share card must draw an image (the real logo), not skip straight to emoji text');
+  assert.ok(check.drawImageCalls.includes(check.expectedSrc), 'the drawn image must be the exact same asset used by the splash/auth screens, not a recreated logo');
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('share card contains "Satın Alma Kararı" for the ad-hoc flow, never "Hedef: Ad-hoc Karar"', async () => {
+  const { page, pageErrors } = await newSession({ income: 80000, expenses: 30000, assets: 200000, goals: [] });
+  const shareTexts = await page.evaluate(() => {
+    openAdHocPurchaseDecision({ category: 'diger', price: 5000, downPayment: 0 });
+    const calls = [];
+    const proto = CanvasRenderingContext2D.prototype;
+    const orig = proto.fillText;
+    proto.fillText = function(text, ...args) { calls.push(text); return orig.apply(this, [text, ...args]); };
+    try { drawAffordShareCard(affordLastResult, false); } finally { proto.fillText = orig; }
+    return calls;
+  });
+  await page.close();
+  assert.ok(shareTexts.includes('Satın Alma Kararı'), 'the share card must show "Satın Alma Kararı" for an ad-hoc decision');
+  assert.ok(!shareTexts.some(t => /Ad-hoc/i.test(t)), 'no drawn share-card text may contain "Ad-hoc"');
+  assert.ok(!shareTexts.some(t => /^Hedef:/.test(t)), 'the ad-hoc share card must not use "Hedef:" (goal) terminology');
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('long ETA / decision text wraps on the share card and never exceeds the canvas content width', async () => {
+  const { page, pageErrors } = await newSession({ income: 50000, expenses: 50000, assets: 0, goals: [] });
+  const check = await page.evaluate(() => {
+    // Kısıtlama testi: yardımcı fonksiyonun kendisi, gerçek metinlerden çok daha uzun,
+    // suni bir cümleyle bile taşma üretmediğini kanıtlar.
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080; canvas.height = 1920;
+    const ctx = canvas.getContext('2d');
+    const maxWidth = 920;
+    const veryLongText = 'Mevcut tempoda ulaşılamıyor çünkü bu satın alma için hiçbir aylık pay ayrılmamış ve bu çok daha uzun bir örnek açıklama cümlesi olarak devam ediyor';
+    const wrap = affordWrapCanvasText(ctx, veryLongText, maxWidth, {maxFontPx:84, minFontPx:44, maxLines:3, weight:700});
+    ctx.font = `700 ${wrap.fontPx}px "Space Grotesk", sans-serif`;
+    const widths = wrap.lines.map(l => ctx.measureText(l).width);
+
+    // Uçtan uca gerçek senaryo: bu tam olarak kullanıcı UI testinin gösterdiği metin.
+    openAdHocPurchaseDecision({ category: 'diger', price: 2000000, downPayment: 500000 });
+    const fillTextCalls = [];
+    const proto = CanvasRenderingContext2D.prototype;
+    const origFillText = proto.fillText;
+    proto.fillText = function(text, x, ...rest) { fillTextCalls.push({text, x, font: this.font}); return origFillText.apply(this, [text, x, ...rest]); };
+    try { drawAffordShareCard(affordLastResult, false); } finally { proto.fillText = origFillText; }
+    const realCanvas = document.getElementById('affordShareCanvas');
+    const realCtx = realCanvas.getContext('2d');
+    const overflowing = fillTextCalls.filter(c => {
+      realCtx.font = c.font;
+      const w = realCtx.measureText(c.text).width;
+      return w > realCanvas.width - 40; // kenarlardan en az 20px pay
+    });
+
+    return { widths, maxWidth, wrapFontPx: wrap.fontPx, overflowingCount: overflowing.length, overflowing: overflowing.map(o=>o.text) };
+  });
+  await page.close();
+  assert.ok(check.widths.every(w => w <= check.maxWidth + 1), `every wrapped line must fit within maxWidth (got widths ${JSON.stringify(check.widths)} vs maxWidth ${check.maxWidth})`);
+  assert.ok(check.wrapFontPx >= 44, 'font must not shrink below the readable minimum');
+  assert.equal(check.overflowingCount, 0, `no share-card text may exceed the canvas width: ${JSON.stringify(check.overflowing)}`);
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('share card and the visible Decision Engine UI show the exact same decision category (single source of truth)', async () => {
+  const { page, pageErrors } = await newSession({ income: 50000, expenses: 50000, assets: 0, goals: [] });
+  const check = await page.evaluate(() => {
+    openAdHocPurchaseDecision({ category: 'diger', price: 2000000, downPayment: 500000 });
+    const r = affordLastResult;
+    const visibleCategory = r.decision.answerCategory;
+    const visibleEta = affordEtaState(r, false).text;
+    const badgeHtml = document.getElementById('decisionCategoryBadge').innerHTML;
+
+    const shareTexts = [];
+    const proto = CanvasRenderingContext2D.prototype;
+    const orig = proto.fillText;
+    proto.fillText = function(text, ...args) { shareTexts.push(text); return orig.apply(this, [text, ...args]); };
+    try { drawAffordShareCard(r, false); } finally { proto.fillText = orig; }
+
+    return { visibleCategory, visibleEta, badgeHtml, shareTexts };
+  });
+  await page.close();
+  assert.equal(check.visibleCategory, 'no_unsafe');
+  assert.ok(check.badgeHtml.includes('güvenli değil'), 'visible category badge must reflect no_unsafe');
+  assert.ok(check.shareTexts.includes(check.visibleEta), 'share card ETA text must be the exact same string as the visible affordEtaState() result');
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('existing real-goal share cards are not broken by the terminology/logo changes', async () => {
+  const futureDate = new Date(Date.now() + 200 * 86400000).toISOString().slice(0, 10);
+  const { page, pageErrors } = await newSession({
+    income: 100000, expenses: 30000, assets: 300000,
+    goals: [{ id: 'g1', typeKey: 'diger', name: 'Bilgisayar', targetAmount: 40000, targetDate: futureDate }],
+  });
+  const check = await page.evaluate(() => {
+    openGoalAfford('g1');
+    const shareTexts = [];
+    const proto = CanvasRenderingContext2D.prototype;
+    const orig = proto.fillText;
+    let threw = null;
+    proto.fillText = function(text, ...args) { shareTexts.push(text); return orig.apply(this, [text, ...args]); };
+    try { drawAffordShareCard(affordLastResult, false); } catch (e) { threw = e.message; } finally { proto.fillText = orig; }
+    return { shareTexts, threw };
+  });
+  await page.close();
+  assert.equal(check.threw, null, `drawing a real-goal share card must not throw: ${check.threw}`);
+  assert.ok(check.shareTexts.some(t => t.startsWith('Hedef:')), 'a real, persisted goal must still show "Hedef: <name>" on its share card');
+  assert.ok(!check.shareTexts.includes('Satın Alma Kararı'), 'a real goal share card must not show the ad-hoc "Satın Alma Kararı" label');
+  assert.ok(check.shareTexts.includes('FullBudget'), 'the brand footer must still render');
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+// ---------------------------------------------------------------------
+// UNIFICATION — Home "Sor" and Left Navigation "Alabilir miyim?" must be
+// ONE product with ONE deterministic Decision Engine path. navAlabilirMiAc()
+// (the left-nav data-action="afford" handler) previously referenced a
+// non-existent `primary.type` field (pickPrimaryGoal() returns {g, info},
+// never `.type`) so its real-goal branch was permanently dead code, AND its
+// fallback branch never called openAdHocAffordEntry() — leaving a user with
+// no affordable goal stranded on the bare Goals tab with no path to the
+// ad-hoc form at all. These tests prove both entry points now converge on
+// the exact same functions/DOM/DecisionResult for identical input.
+// ---------------------------------------------------------------------
+
+// A/B/C/D. Left-nav "Alabilir miyim?" (no existing affordable goal) must open
+// the SAME ad-hoc Decision Engine form as Home's "Sor" button.
+test('Left navigation "Alabilir miyim?" opens the ad-hoc Decision Engine form when there is no affordable goal (was previously stranding the user on the bare Goals tab)', async () => {
+  const { page, pageErrors } = await newSession({ income: 80000, expenses: 30000, assets: 200000, goals: [] });
+  await page.evaluate(() => { setTab('home'); render(); });
+  const clicked = await page.evaluate(() => {
+    const btn = document.querySelector('#navDrawer [data-action="afford"]');
+    if (!btn) return false;
+    btn.click();
+    return true;
+  });
+  assert.equal(clicked, true, '#navDrawer [data-action="afford"] must exist in the DOM (rendered by navExtraMenuHtml via renderNav)');
+  await page.waitForTimeout(300);
+  const state = await page.evaluate(() => ({
+    panelVisible: document.getElementById('goalAffordPanel').style.display === 'block',
+    formVisible: document.getElementById('adHocAffordForm').style.display === 'block',
+  }));
+  assert.equal(state.panelVisible, true, 'left-nav must open the shared #goalAffordPanel, same as Home "Sor"');
+  assert.equal(state.formVisible, true, 'left-nav must open the shared #adHocAffordForm, same as Home "Sor"');
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+// H. Existing goal-linked affordability must still work from the left-nav —
+// and now ACTUALLY work, since `primary.type` was never populated before.
+test('Left navigation "Alabilir miyim?" opens the real goal-linked affordability flow when an affordable goal exists (fixes the previously-dead primary.type branch)', async () => {
+  const futureDate = new Date(Date.now() + 200 * 86400000).toISOString().slice(0, 10);
+  const { page, pageErrors } = await newSession({
+    income: 80000, expenses: 30000, assets: 0,
+    goals: [{ id: 'g1', typeKey: 'diger', name: 'Bilgisayar', targetAmount: 40000, targetDate: futureDate }],
+  });
+  await page.evaluate(() => { setTab('home'); render(); });
+  await page.evaluate(() => { document.querySelector('#navDrawer [data-action="afford"]').click(); });
+  await page.waitForTimeout(300);
+  const state = await page.evaluate(() => ({
+    panelVisible: document.getElementById('goalAffordPanel').style.display === 'block',
+    formVisible: document.getElementById('adHocAffordForm').style.display,
+    title: document.getElementById('goalAffordTitle').innerHTML,
+    hasResult: !!affordLastResult,
+  }));
+  assert.equal(state.panelVisible, true);
+  assert.notEqual(state.formVisible, 'block', 'a real goal must show the goal-linked view, not the ad-hoc form');
+  assert.ok(/Diğer/.test(state.title) && !/🧮/.test(state.title), 'left-nav must open the SAME real goal ("Diğer" category, real goal icon) that Home would resolve as primary, not the generic 🧮 ad-hoc entry');
+  assert.ok(state.hasResult, 'opening a real goal via left-nav must still produce a DecisionResult');
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+// C/E + MANDATORY REGRESSION. Same financial state through (1) Home → Sor and
+// (2) Left navigation → Alabilir miyim? must yield: same input form, the
+// identical deterministic DecisionResult, the same decision category, the
+// same ETA state, and no persistent goal created by either path.
+test('MANDATORY REGRESSION: Home "Sor" and Left-nav "Alabilir miyim?" produce an identical DecisionResult, category and ETA state for the same input, and neither persists a goal', async () => {
+  const setup = { income: 90000, expenses: 40000, assets: 150000, goals: [] };
+  const purchase = { price: 60000, downPayment: 10000 };
+
+  // Path 1: Home "Sor"
+  const home = await newSession(setup);
+  await home.page.evaluate(() => { setTab('home'); render(); });
+  await home.page.evaluate(() => { document.getElementById('homeAffordAdHocBtn').click(); });
+  await home.page.waitForTimeout(300); // renderAffordTeaser()'ın "Sor" tetikleyicisi 120ms setTimeout kullanıyor
+  const homeResult = await home.page.evaluate((p) => {
+    document.getElementById('adHocPrice').value = String(p.price);
+    document.getElementById('adHocDownPayment').value = String(p.downPayment);
+    document.getElementById('adHocSubmitBtn').click();
+    return {
+      decision: affordLastResult ? affordLastResult.decision : null,
+      category: affordLastResult ? affordLastResult.category : null,
+      badgeHtml: document.getElementById('decisionCategoryBadge').innerHTML,
+      etaText: affordLastResult ? affordEtaState(affordLastResult, false).text : null,
+      goalsCount: persistent.goals.length,
+      formVisible: document.getElementById('adHocAffordForm').style.display === 'block',
+    };
+  }, purchase);
+  await home.page.close();
+  assert.equal(pageErrors_ok(home.pageErrors), true, JSON.stringify(home.pageErrors));
+
+  // Path 2: Left navigation "Alabilir miyim?"
+  const nav = await newSession(setup);
+  await nav.page.evaluate(() => { setTab('home'); render(); });
+  await nav.page.evaluate(() => { document.querySelector('#navDrawer [data-action="afford"]').click(); });
+  await nav.page.waitForTimeout(300); // navAlabilirMiAc() de AYNI 120ms setTimeout desenini kullanıyor
+  const navResult = await nav.page.evaluate((p) => {
+    document.getElementById('adHocPrice').value = String(p.price);
+    document.getElementById('adHocDownPayment').value = String(p.downPayment);
+    document.getElementById('adHocSubmitBtn').click();
+    return {
+      decision: affordLastResult ? affordLastResult.decision : null,
+      category: affordLastResult ? affordLastResult.category : null,
+      badgeHtml: document.getElementById('decisionCategoryBadge').innerHTML,
+      etaText: affordLastResult ? affordEtaState(affordLastResult, false).text : null,
+      goalsCount: persistent.goals.length,
+      formVisible: document.getElementById('adHocAffordForm').style.display === 'block',
+    };
+  }, purchase);
+  await nav.page.close();
+  assert.equal(pageErrors_ok(nav.pageErrors), true, JSON.stringify(nav.pageErrors));
+
+  assert.equal(homeResult.formVisible, true, 'Home path must reach the same #adHocAffordForm');
+  assert.equal(navResult.formVisible, true, 'Left-nav path must reach the same #adHocAffordForm');
+  assert.deepEqual(navResult.decision, homeResult.decision, 'identical financial input through both entry points must produce the exact same DecisionResult');
+  assert.equal(navResult.category.tr, homeResult.category.tr, 'both entry points must show the same category label');
+  assert.equal(navResult.badgeHtml, homeResult.badgeHtml, 'both entry points must render the same category badge');
+  assert.equal(navResult.etaText, homeResult.etaText, 'both entry points must show the same ETA state');
+  assert.equal(homeResult.goalsCount, 0, 'Home "Sor" must not persist a goal');
+  assert.equal(navResult.goalsCount, 0, 'Left-nav "Alabilir miyim?" must not persist a goal');
+});
+function pageErrors_ok(errs) { return errs.length === 0; }
+
+// F. Home "Hedef Ekle" must still open the existing Goals flow, unmerged with
+// the Decision Engine — the two actions stay separate per product requirements.
+test('Home "Hedef Ekle" still opens the Goals flow (not merged into the Decision Engine)', async () => {
+  const { page, pageErrors } = await newSession({ income: 80000, expenses: 30000, assets: 200000, goals: [] });
+  await page.evaluate(() => { setTab('home'); render(); });
+  const btn = await page.$('#homeAffordGoToGoalsBtn');
+  assert.ok(btn, '#homeAffordGoToGoalsBtn ("Hedef Ekle") must still exist alongside "Sor"');
+  await btn.click();
+  await page.waitForTimeout(200);
+  const state = await page.evaluate(() => ({
+    tab: aktifYaprak(),
+    adHocFormVisible: document.getElementById('adHocAffordForm') && document.getElementById('adHocAffordForm').style.display === 'block',
+  }));
+  assert.equal(state.tab, 'goals', '"Hedef Ekle" must land on the Goals tab');
+  assert.notEqual(state.adHocFormVisible, true, '"Hedef Ekle" must NOT open the ad-hoc Decision Engine form');
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
