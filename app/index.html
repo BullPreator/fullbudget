@@ -3344,16 +3344,21 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
          tarafından gösterilir. -->
     <div id="adHocAffordForm" class="card" style="display:none;">
       <p class="section-title"><span data-i18n="adhoc-baslik">Ne almayı düşünüyorsun?</span></p>
-      <div class="form-row" style="margin:6px 0;"><input id="adHocPrice" class="money-input" type="text" inputmode="decimal" placeholder="Fiyat"></div>
-      <div class="form-row" style="margin:6px 0;"><input id="adHocDownPayment" class="money-input" type="text" inputmode="decimal" placeholder="Peşinat (opsiyonel)"></div>
+      <label class="afford-field-label" for="adHocPrice" style="display:block;font-size:var(--fs-sm);color:var(--muted);margin:4px 0 2px;">Fiyat</label>
+      <div class="form-row" style="margin:0 0 6px;"><input id="adHocPrice" class="money-input" type="text" inputmode="decimal" placeholder="Fiyat"></div>
+      <label class="afford-field-label" for="adHocDownPayment" style="display:block;font-size:var(--fs-sm);color:var(--muted);margin:4px 0 2px;">Peşinat (opsiyonel)</label>
+      <div class="form-row" style="margin:0 0 6px;"><input id="adHocDownPayment" class="money-input" type="text" inputmode="decimal" placeholder="Peşinat (opsiyonel)"></div>
       <label style="display:flex;align-items:center;gap:6px;margin:6px 0;font-size:var(--fs-sm);color:var(--muted);">
         <input id="adHocFinancingToggle" type="checkbox"> <span data-i18n="adhoc-taksit">Taksitle almayı düşünüyorum</span>
       </label>
       <div id="adHocFinancingFields" style="display:none;">
-        <div class="form-row" style="margin:6px 0;"><input id="adHocMonths" type="number" inputmode="numeric" min="1" max="120" placeholder="Taksit sayısı (ay)"></div>
-        <div class="form-row" style="margin:6px 0;"><input id="adHocRatePct" type="number" inputmode="decimal" step="0.1" min="0" placeholder="Aylık faiz % (opsiyonel)"></div>
+        <label class="afford-field-label" for="adHocMonths" style="display:block;font-size:var(--fs-sm);color:var(--muted);margin:4px 0 2px;">Vade (ay)</label>
+        <div class="form-row" style="margin:0 0 6px;"><input id="adHocMonths" type="number" inputmode="numeric" min="1" max="120" placeholder="Vade (ay)"></div>
+        <label class="afford-field-label" for="adHocRatePct" style="display:block;font-size:var(--fs-sm);color:var(--muted);margin:4px 0 2px;">Aylık faiz % (opsiyonel)</label>
+        <div class="form-row" style="margin:0 0 6px;"><input id="adHocRatePct" type="number" inputmode="decimal" step="0.1" min="0" placeholder="Aylık faiz % (opsiyonel)"></div>
       </div>
-      <div class="form-row" style="margin:6px 0;"><input id="adHocRecurringCost" class="money-input" type="text" inputmode="decimal" placeholder="Aylık ek maliyet (opsiyonel, ör. sigorta/bakım)"></div>
+      <label class="afford-field-label" for="adHocRecurringCost" style="display:block;font-size:var(--fs-sm);color:var(--muted);margin:4px 0 2px;">Aylık ek maliyet (opsiyonel)</label>
+      <div class="form-row" style="margin:0 0 6px;"><input id="adHocRecurringCost" class="money-input" type="text" inputmode="decimal" placeholder="Aylık ek maliyet (opsiyonel, ör. sigorta/bakım)"></div>
       <button class="add-btn" id="adHocSubmitBtn" type="button" data-i18n="adhoc-hesapla">Hesapla</button>
     </div>
 
@@ -16210,18 +16215,56 @@ function closeGoalAffordPanel(){
   window.scrollTo(0,0);
 }
 
+// UI test bulgusu #1 düzeltmesi: "Tahmini hedef süresi" alanı önceden yalnızca iki durumu
+// biliyordu - financedAmount<=0 ("zaten yeterli") ve financedAmount>0 + SONLU ay sayısı
+// ("N ayda ulaşılır"). Üçüncü bir gerçek durum GÖZ ARDI EDİLİYORDU: financedAmount>0 AMA
+// güvenli aylık kapasite 0 olduğu için monthsAtMaxMonthly SONSUZ (bu tempoda asla
+// ulaşılamaz) - bu durum yanlışlıkla "zaten yeterli" dalına düşüyor, DecisionResult
+// no_unsafe olsa bile ekranda çelişkili şekilde "Zaten yeterli" gösterilebiliyordu.
+// Bu fonksiyon YENİ bir finansal hesap İCAT ETMEZ - sadece VAR OLAN üç alanı (financedAmount,
+// monthsAtMaxMonthly, r.decision.answerCategory) doğru şekilde üç ayrı duruma ayırır ve
+// paylaşım kartıyla (drawAffordShareCard) TEK bir kaynaktan besler, böylece ikisi asla
+// birbiriyle çelişmez.
+function affordEtaState(r, en){
+  const decisionUnsafe = !!(r.decision && r.decision.answerCategory === 'no_unsafe');
+  if(decisionUnsafe){
+    return {text: en?'Not safe right now':'Şu an güvenli değil', cls:'danger'};
+  }
+  if(r.financedAmount<=0){
+    return {text: en?'Already there':'Zaten yeterli', cls:'good'};
+  }
+  if(isFinite(r.monthsAtMaxMonthly)){
+    return {text: `${r.monthsAtMaxMonthly} ${en?'months':'ay'}`, cls:''};
+  }
+  return {text: en?'Not reachable at current pace':'Mevcut tempoda ulaşılamıyor', cls:'danger'};
+}
+
 function renderAffordResult(r){
   const en = currentLang==='en';
   const meta = affordVerdictMeta(r.verdict, en);
   const dc = document.getElementById('affordDecisionCard');
   dc.className = 'afford-decision-card '+meta.cls;
+  const eta = affordEtaState(r, en);
+  // UI test bulgusu #2 düzeltmesi: "Bu alım için gereken: ₺0/ay" - hesaplama DEĞİŞMEDİ
+  // (r.requiredPace hâlâ AYNI computeAffordability alanı), ama financedAmount>0 iken
+  // requiredPace<=0 olması "hiçbir aylık pay ayrılmadı" anlamına gelir - bu, "0 TL yeterli"
+  // olarak yanlış anlaşılabiliyordu. Etiket + kısa açıklama bunu netleştirir; sayı DEĞİŞMEDİ.
+  const noPaceSet = r.financedAmount>0 && r.requiredPace<=0;
+  const paceCls = r.verdict==='red'?'danger':(r.verdict==='yellow'?'warn':'good');
+  const paceValueHtml = noPaceSet
+    ? `<b class="danger">${CUR}${fmt(r.requiredPace)}/${en?'mo':'ay'} <span style="font-weight:400;font-size:var(--fs-sm);">(${en?'no monthly amount set aside yet':'hiç aylık pay ayrılmadı'})</span></b>`
+    : `<b class="${paceCls}">${CUR}${fmt(r.requiredPace)}/${en?'mo':'ay'}</b>`;
+  // UI test bulgusu #2: "Finansal güvenlik sonucu" artık ayrı ve AÇIK bir satır - VAR OLAN
+  // r.verdict/affordSafetyLabel kullanılır, yeni bir güvenlik hesaplaması YOK.
+  const [safetyLbl, safetyCls] = affordSafetyLabel(r.verdict, en);
   dc.innerHTML = `<div class="afford-decision-icon">${meta.icon}</div>
     <div class="afford-decision-title">${meta.title}</div>
     <div class="afford-decision-reason">${affordReasonText(r, en)}</div>
     <div class="afford-decision-stats stat-grid">
       <div class="stat"><span>${en?'Safe monthly capacity':'Güvenli aylık kapasite'}</span><b class="good">${CUR}${fmt(r.safeMonthlyCapacity)}</b></div>
-      <div class="stat"><span>${en?'Needed for this purchase':'Bu alım için gereken'}</span><b class="${r.verdict==='red'?'danger':(r.verdict==='yellow'?'warn':'good')}">${CUR}${fmt(r.requiredPace)}/${en?'mo':'ay'}</b></div>
-      ${r.financedAmount>0 && isFinite(r.monthsAtMaxMonthly) ? `<div class="stat"><span>${en?'Estimated time':'Tahmini süre'}</span><b>${r.monthsAtMaxMonthly} ${en?'mo':'ay'}</b></div>` : ''}
+      <div class="stat"><span>${en?'Monthly commitment for this purchase':'Bu alım için aylık taahhüt'}</span>${paceValueHtml}</div>
+      <div class="stat"><span>${en?'Financial safety result':'Finansal güvenlik sonucu'}</span><b class="${safetyCls}">${safetyLbl}</b></div>
+      <div class="stat"><span>${en?'Estimated time':'Tahmini süre'}</span><b class="${eta.cls}">${eta.text}</b></div>
     </div>`;
 
   const steps = computeAffordRoute(r, en);
@@ -16363,10 +16406,17 @@ function renderAffordFinancing(r){
     box.innerHTML = `<p class="empty">${en?'Nothing left to finance — your savings and down payment already cover it.':'Finanse edilecek bir tutar kalmadı — birikimin ve peşinatın zaten karşılıyor.'}</p>`;
     return;
   }
+  // UI test bulgusu #3 düzeltmesi: "Tahmini toplam maliyet" etiketi r.financedAmount'a
+  // (peşinat/birikim DÜŞÜLDÜKTEN SONRA kalan tutar) bağlıydı - bu, satın almanın TOPLAM
+  // maliyeti DEĞİL, geri kalan/finanse edilecek kısmıdır. Değer DEĞİŞMEDİ (aynı r.financedAmount),
+  // sadece etiket "Kalan tutar" olarak düzeltildi ve tam resmi görmek için satın alma fiyatı
+  // ile peşinat/birikim satırları eklendi (ikisi de VAR OLAN alanlar, yeni hesap YOK).
   const ownCol = `<div class="strategy-col">
       <div class="strategy-col-title">${yolculukIkonSvg('yigin',15)} ${en?'Your Own Savings':'Kendi Birikiminle'}</div>
+      <div class="strategy-stat"><span>${en?'Purchase price':'Satın alma fiyatı'}</span><b>${CUR}${fmt(r.targetPrice)}</b></div>
+      <div class="strategy-stat"><span>${en?'Down payment / already saved':'Peşinat / mevcut birikim'}</span><b>${CUR}${fmt((r.downPayment||0)+(r.currentSaved||0))}</b></div>
+      <div class="strategy-stat"><span>${en?'Remaining amount':'Kalan tutar'}</span><b>${CUR}${fmt(r.financedAmount)}</b></div>
       <div class="strategy-stat"><span>${en?'Monthly burden':'Aylık yük'}</span><b>${CUR}${fmt(r.maxMonthly)}</b></div>
-      <div class="strategy-stat"><span>${en?'Est. total cost':'Tahmini toplam maliyet'}</span><b>${CUR}${fmt(r.financedAmount)}</b></div>
       <div class="strategy-stat"><span>${en?'Est. duration':'Tahmini süre'}</span><b>${isFinite(r.monthsAtMaxMonthly)?r.monthsAtMaxMonthly+' '+(en?'mo':'ay'):'—'}</b></div>
       <div class="strategy-stat"><span>${en?'Risk level':'Risk seviyesi'}</span><b class="good">${en?'Low':'Düşük'}</b></div>
     </div>`;
@@ -16380,6 +16430,18 @@ function renderAffordFinancing(r){
     return;
   }
 
+  // UI test bulgusu #4 KÖK NEDEN düzeltmesi: "Aylık ödeme" alanının varsayılan değeri önceden
+  // Math.max(1, Math.round(r.maxMonthly)) idi - yani kullanıcının GÜVENLİ AYLIK KAPASİTESİNİ
+  // (safeMonthlyCapacity), tamamen FARKLI bir şeyin (bu tasarruf finansmanı planı için
+  // "makul bir taksit tutarı") yerine kullanıyordu. Kapasite meşru şekilde 0 olabilir (örn.
+  // nakit akışı 0 olduğunda) - bu durumda varsayılan ödeme Math.max(1, 0) = ₺1'e düşüyor,
+  // ve computeSavingsOrgFinancing(1.500.000, %12, ₺1) => 1.680.000 AY gibi anlamsız bir süre
+  // üretiyordu. Bu YANLIŞ PARAMETRE EŞLEMESİYDİ, hesap fonksiyonunda (computeSavingsOrgFinancing)
+  // bir hata YOKTU. Düzeltme: varsayım artık Banka Finansmanı kartının ZATEN kullandığı 24 aylık
+  // makul vade örneğiyle AYNI mantığı izliyor - r.financedAmount / 24 (mevcut alan, yeni hesap
+  // İCAT EDİLMEDİ) - kullanıcı yine de bu alanı istediği gibi değiştirebilir.
+  const affordOrgDefaultMonthly = Math.max(1, Math.round(r.financedAmount/24));
+
   box.innerHTML = `<div class="strategy-compare">${ownCol}
       <div class="strategy-col">
         <div class="strategy-col-title">${yolculukIkonSvg('banka',15)} ${en?'Bank Financing':'Banka Finansmanı'}</div>
@@ -16392,20 +16454,29 @@ function renderAffordFinancing(r){
         <div class="strategy-col-title">${yolculukIkonSvg('ev',15)} ${en?'Savings Organization':'Tasarruf Finansmanı'}</div>
         <p class="afford-hint" style="margin:0 0 6px;">${en?'Planning assumption, not a real offer — edit to match yours:':'Planlama varsayımı, gerçek bir teklif değil — kendi rakamınla değiştir:'}</p>
         <div class="form-row" style="margin:6px 0;"><input id="affordOrgFee" type="number" inputmode="decimal" step="0.5" min="0" placeholder="${en?'Org. fee %':'Organizasyon ücreti %'}" value="12"></div>
-        <div class="form-row" style="margin:6px 0;"><input id="affordOrgMonthly" type="text" class="money-input" inputmode="decimal" placeholder="${en?'Monthly payment':'Aylık ödeme'}" value="${Math.max(1,Math.round(r.maxMonthly))}"></div>
+        <div class="form-row" style="margin:6px 0;"><input id="affordOrgMonthly" type="text" class="money-input" inputmode="decimal" placeholder="${en?'Monthly payment':'Aylık ödeme'}" value="${affordOrgDefaultMonthly}"></div>
         <div id="affordOrgResult"></div>
       </div>
     </div>
     <p class="afford-hint" style="margin-top:10px;">${en ? "This app doesn't provide loans or financing directly — these are planning estimates only, not an offer from any provider." : 'Bu uygulama doğrudan kredi ya da finansman sağlamaz — bunlar sadece planlama tahminidir, herhangi bir sağlayıcının teklifi değildir.'}</p>`;
   attachAllMoneyInputs(box);
 
+  // UI test bulgusu #3 düzeltmesi: "Tahmini toplam maliyet" burada computeLoanFinancing/
+  // computeSavingsOrgFinancing'in totalCost'unu gösteriyordu - bu SADECE finansman
+  // (peşinat/mevcut birikim HARİÇ) toplamıdır, ownCol'daki "Kalan tutar" ile AYNI kelimeyle
+  // ("toplam maliyet") FARKLI bir şey ifade ediyordu. Etiket "Finansman ödeme toplamı" olarak
+  // netleştirildi ve peşinat dahil GERÇEK toplam nakit çıkışını gösteren ayrı bir satır eklendi
+  // (ikisi de VAR OLAN alanların toplamı - r.downPayment/r.currentSaved/res.totalCost - yeni
+  // hesap İCAT EDİLMEDİ).
   const renderRiskStats = (elId, res, isOrg)=>{
     const el = document.getElementById(elId);
     if(!res){ el.innerHTML=''; return; }
     const impactPct = r.safeMonthlyCapacity>0 ? Math.round((res.monthlyBurden/r.safeMonthlyCapacity)*100) : null;
     const risk = affordRiskBadge(impactPct, en);
+    const totalCashOutlay = (r.downPayment||0)+(r.currentSaved||0)+res.totalCost;
     el.innerHTML = `<div class="strategy-stat"><span>${en?'Monthly burden':'Aylık yük'}</span><b>${CUR}${fmt(res.monthlyBurden)}</b></div>
-      <div class="strategy-stat"><span>${en?'Est. total cost':'Tahmini toplam maliyet'}</span><b>${CUR}${fmt(res.totalCost)}</b></div>
+      <div class="strategy-stat"><span>${en?'Financing payment total (excl. down payment)':'Finansman ödeme toplamı (peşinat hariç)'}</span><b>${CUR}${fmt(res.totalCost)}</b></div>
+      <div class="strategy-stat"><span>${en?'Total cash outlay incl. down payment':'Peşinat dahil toplam nakit çıkışı'}</span><b>${CUR}${fmt(totalCashOutlay)}</b></div>
       <div class="strategy-stat"><span>${isOrg?(en?'Est. duration':'Tahmini süre'):(en?'Cash-flow impact':'Nakit akışına etkisi')}</span><b>${isOrg ? res.months+' '+(en?'mo':'ay') : (impactPct!=null?yzd(impactPct):'—')}</b></div>
       <div class="strategy-stat"><span>${en?'Risk level':'Risk seviyesi'}</span><b class="${risk.cls}">${risk.label}</b></div>`;
   };
@@ -16579,7 +16650,10 @@ function drawAffordShareCard(r, en){
   ctx.fillStyle='#8FA39C'; ctx.font='600 32px Inter, sans-serif';
   ctx.fillText(en?'ESTIMATED TIME TO GOAL':'TAHMİNİ HEDEF SÜRESİ', W/2, 970);
   ctx.fillStyle='#F5F7F6'; ctx.font='700 84px "Space Grotesk", sans-serif';
-  ctx.fillText((r.financedAmount>0 && isFinite(r.monthsAtMaxMonthly)) ? `${r.monthsAtMaxMonthly} ${en?'months':'ay'}` : (en?'Already there':'Zaten yeterli'), W/2, 1075);
+  // UI test bulgusu #1 düzeltmesi: bu kart artık renderAffordResult ile AYNI affordEtaState()
+  // kaynağını okur - eskiden burada AYRI, eksik bir ternary vardı (financedAmount>0 AMA ay
+  // sayısı sonsuz olduğunda yanlışlıkla "Zaten yeterli" gösteriyordu; bkz. affordEtaState).
+  ctx.fillText(affordEtaState(r, en).text, W/2, 1075);
 
   ctx.fillStyle='#4C5F58'; ctx.font='600 36px "Space Grotesk", sans-serif';
   ctx.fillText('🧭 ' + BRAND_NAME, W/2, H-110);
