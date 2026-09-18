@@ -10696,9 +10696,23 @@ function computeGoalInfo(g){
   const inflationWarning = (inflatedPrice!=null && basePrice>0 && inflatedPrice > basePrice*1.001);
   const FLAT_AMOUNT_TYPES = ['bilgisayar','telefon','tatil','yatirim','motor','egitim','dugun','diger'];
   const flatAmountNoInflation = FLAT_AMOUNT_TYPES.includes(g.typeKey) && monthsLeft!=null && monthsLeft>12;
+  /* DÜZELTME (2026-09): "Ev" hedeflerinde varsayılan mod SADECE PEŞİNATI biriktirmektir
+     (fullPriceInsteadOfDownPayment=false) — bu durumda neededTotal, evin tam (enflasyona göre
+     güncellenmiş) fiyatı DEĞİL, o fiyatın yalnızca downPaymentPct'i (varsayılan %30) kadardır.
+     computeGoalInfo() bunu ŞİMDİYE KADAR hiçbir alanla İŞARETLEMİYORDU: gap<=0 hem "peşinatı
+     topladın" hem "evi tamamen aldın" anlamına gelebiliyordu ve çağıran taraf (UI/Decision
+     Engine) ikisini ayırt edemiyordu. Örnek (gerçek bulgu): hedef fiyatı ₺5.000.000, güncel
+     referans fiyatı (inflatedPrice) ₺5.212.875, kullanıcı ₺1.563.863 biriktirmiş (tam olarak
+     %30'u) — gap=0/progress=%100 ARİTMETİK OLARAK DOĞRU (peşinat hedefine ulaşıldı) ama ekranda
+     "Hedefe zaten ulaştın" ifadesi bunu evin TAMAMINA ulaşıldığı gibi yanlış yansıtıyordu.
+     ÇÖZÜM: neededTotal/gap/alreadySaved/pct'e (mevcut finansal gerçeklik semantiği) DOKUNULMADI —
+     yalnızca hangi modun aktif olduğunu ve tam fiyatı (inflatedPrice zaten dönüyordu) ayırt etmeye
+     yarayan bu YENİ, katkısal alan eklendi; renderGoalList() bunu okuyup mesajı doğru nitelendirir. */
+  const isDownPaymentGoal = g.typeKey==='ev' && !g.fullPriceInsteadOfDownPayment;
   return {type, neededTotal, alreadySaved, gap, monthsLeft, requiredMonthly, projectedMonths, monthlyCashFlow,
     toplamNakitAkisi,
-    basePrice, inflatedPrice, extraCosts, priceLabel, inflationPct, inflationWarning, flatAmountNoInflation, dateExpired, rawMonthsLeft};
+    basePrice, inflatedPrice, extraCosts, priceLabel, inflationPct, inflationWarning, flatAmountNoInflation, dateExpired, rawMonthsLeft,
+    isDownPaymentGoal};
 }
 
 /* =========================================================
@@ -11588,7 +11602,13 @@ function renderGoalList(){
         </div>`;
       }
     } else if(info.gap<=0){
-      statusHtml = en ? `<div class="goal-status ok">You already reached this goal.</div>` : `<div class="goal-status ok">Hedefe zaten ulaştın.</div>`;
+      /* DÜZELTME (2026-09): "Ev" hedefi varsayılan (peşinat) modundayken gap<=0 yalnızca PEŞİNAT
+         hedefine ulaşıldığını gösterir — evin tam fiyatına değil. Bunu ayırt etmeden "Hedefe zaten
+         ulaştın" demek, kullanıcının evi tamamen alabilecek durumda olduğunu yanlış ima ediyordu
+         (bkz. computeGoalInfo()'daki isDownPaymentGoal alanı ve yukarıdaki denetim notu). */
+      statusHtml = info.isDownPaymentGoal
+        ? (en ? `<div class="goal-status ok">You've reached your down-payment target (${CUR}${fmt(info.neededTotal)}). The home's current reference price is still ${CUR}${fmt(info.inflatedPrice)} — this covers the down payment only, not the full purchase.</div>` : `<div class="goal-status ok">Peşinat hedefine ulaştın (${CUR}${fmt(info.neededTotal)}). Evin güncel referans fiyatı hâlâ ${CUR}${fmt(info.inflatedPrice)} — bu yalnızca peşinatı karşılıyor, evin tamamını değil.</div>`)
+        : (en ? `<div class="goal-status ok">You already reached this goal.</div>` : `<div class="goal-status ok">Hedefe zaten ulaştın.</div>`);
     } else if(info.dateExpired){
       statusHtml = en ? `<div class="goal-status behind">
         ⏰ <b>Your target date has passed</b> (${Math.abs(info.rawMonthsLeft)} months ago). You're still ${CUR}${fmt(info.gap)} short.<br>
