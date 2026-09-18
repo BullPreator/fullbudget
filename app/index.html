@@ -12450,24 +12450,50 @@ function runGoalCashAllocationEngine(de2, snapshot){
   const distributableCash = Math.max(0, Number(de2.distributableCash) || 0);
   let remaining = distributableCash;
 
-  // ADIM 2 — Likidite açığı bilgisi: protectedCash (DE2'nin zaten uyguladığı, tavanlı aylık
-  // "damla") BURADA TEKRAR TAHSİS EDİLMEZ. Sadece açığın ne kadarının hâlâ kapanmadığı, bilgi
-  // amaçlı gösterilir — yeni bir likidite hesabı İCAT EDİLMEZ.
+  // ADIM 2 — Likidite açığı: protectedCash (DE2'nin zaten uyguladığı, tavanlı aylık "damla")
+  // BURADA TEKRAR TAHSİS EDİLMEZ (double-count YOK — DE2'nin distributableCash'i zaten bunu
+  // düşmüş durumda). Ama açık (stillShort = emergencyGap - protectedCash) hâlâ kapanmadıysa ve
+  // bu ay dağıtılabilir para VARSA, bu artık salt bilgi değil — GERÇEK bir tahsisat önceliğidir
+  // (P1, borç/hedef/esnek-kalandan ÖNCE): kalan tutarın stillShort'a kadarki kısmı doğrudan acil
+  // fona ayrılır. Dağıtılabilir para YOKSA (remaining<=1), eskisi gibi salt bilgilendirme notu
+  // kalır — İCAT EDİLMİŞ bir tutar yok, sadece "hâlâ ne kadar eksik" bilgisi.
   const emergencyGap = Number(snapshot.emergencyGap) || 0;
   const protectedCash = Number(de2.protectedCash) || 0;
   if (emergencyGap > 0) {
     const stillShort = Math.max(0, emergencyGap - protectedCash);
     if (stillShort > 1) {
-      const monthsToClose = protectedCash > 0 ? Math.ceil(stillShort / protectedCash) : null;
-      allocations.push({
-        type: 'liquidity_shortfall_note', amount: 0, priority: 'P1',
-        reason: en ? `This month’s ${CUR}${fmt(protectedCash)} liquidity contribution still leaves ${CUR}${fmt(stillShort)} short of your 3-month target.` : `Bu ayki ${CUR}${fmt(protectedCash)} likidite katkısından sonra hâlâ ${CUR}${fmt(stillShort)} eksik (3 aylık hedefe göre).`,
-        whatIfSkipped: en ? 'Your emergency runway grows more slowly and you stay more exposed to needing high-interest debt for surprises.' : 'Acil durum rezervin daha yavaş büyür, beklenmedik giderlerde yüksek faizli borca başvurma riskin daha uzun sürer.',
-        remainingAfterThisStep: remaining, confidence: 'actual', relatedGoalId: null, relatedDebtId: null,
-      });
-      warnings.push(en
-        ? `Still ${CUR}${fmt(stillShort)} short of your emergency target${monthsToClose ? ` — about ${monthsToClose} more month(s) at this pace` : ''}.`
-        : `Acil fonun hâlâ ${CUR}${fmt(stillShort)} eksik${monthsToClose ? ` — bu tempoyla yaklaşık ${monthsToClose} ay daha sürer` : ''}.`);
+      if (remaining > 1) {
+        const amt = Math.min(remaining, stillShort);
+        remaining -= amt;
+        const afterAmt = stillShort - amt;
+        const closesFully = afterAmt <= 1;
+        allocations.push({
+          type: 'emergency_fund_contribution', amount: amt, priority: 'P1',
+          reason: closesFully
+            ? (en ? `Your emergency fund was ${CUR}${fmt(stillShort)} short. Putting ${CUR}${fmt(amt)} toward it this month closes that gap completely.` : `Acil durum fonun ${CUR}${fmt(stillShort)} eksikti. Bu ay ${CUR}${fmt(amt)} ayırarak açığını tamamen kapatabilirsin.`)
+            : (en ? `Your emergency fund is still ${CUR}${fmt(stillShort)} short. Putting all of this month’s ${CUR}${fmt(amt)} distributable cash toward it brings the gap down to ${CUR}${fmt(afterAmt)}.` : `Acil durum fonun hâlâ ${CUR}${fmt(stillShort)} eksik. Bu ay dağıtılabilir ${CUR}${fmt(amt)}’nin tamamını acil fona ayırırsan açığın ${CUR}${fmt(afterAmt)}’ye düşer.`),
+          whatIfSkipped: en ? 'Your emergency runway grows more slowly and you stay more exposed to needing high-interest debt for surprises.' : 'Acil durum rezervin daha yavaş büyür, beklenmedik giderlerde yüksek faizli borca başvurma riskin daha uzun sürer.',
+          remainingAfterThisStep: remaining, confidence: 'actual', relatedGoalId: null, relatedDebtId: null,
+        });
+        if (!closesFully) {
+          const monthsToClose = protectedCash > 0 ? Math.ceil(afterAmt / protectedCash) : null;
+          warnings.push(en
+            ? `Still ${CUR}${fmt(afterAmt)} short of your emergency target even after this month’s allocation${monthsToClose ? ` — about ${monthsToClose} more month(s) at this pace` : ''}.`
+            : `Bu ayki tahsisattan sonra bile acil fonun hâlâ ${CUR}${fmt(afterAmt)} eksik${monthsToClose ? ` — bu tempoyla yaklaşık ${monthsToClose} ay daha sürer` : ''}.`);
+        }
+      } else {
+        // Dağıtılabilir para yok — İCAT EDİLECEK bir tutar da yok, salt bilgilendirme.
+        const monthsToClose = protectedCash > 0 ? Math.ceil(stillShort / protectedCash) : null;
+        allocations.push({
+          type: 'liquidity_shortfall_note', amount: 0, priority: 'P1',
+          reason: en ? `This month’s ${CUR}${fmt(protectedCash)} liquidity contribution still leaves ${CUR}${fmt(stillShort)} short of your 3-month target.` : `Bu ayki ${CUR}${fmt(protectedCash)} likidite katkısından sonra hâlâ ${CUR}${fmt(stillShort)} eksik (3 aylık hedefe göre).`,
+          whatIfSkipped: en ? 'Your emergency runway grows more slowly and you stay more exposed to needing high-interest debt for surprises.' : 'Acil durum rezervin daha yavaş büyür, beklenmedik giderlerde yüksek faizli borca başvurma riskin daha uzun sürer.',
+          remainingAfterThisStep: remaining, confidence: 'actual', relatedGoalId: null, relatedDebtId: null,
+        });
+        warnings.push(en
+          ? `Still ${CUR}${fmt(stillShort)} short of your emergency target${monthsToClose ? ` — about ${monthsToClose} more month(s) at this pace` : ''}.`
+          : `Acil fonun hâlâ ${CUR}${fmt(stillShort)} eksik${monthsToClose ? ` — bu tempoyla yaklaşık ${monthsToClose} ay daha sürer` : ''}.`);
+      }
     }
   }
 
@@ -12546,7 +12572,7 @@ function runGoalCashAllocationEngine(de2, snapshot){
 
   const unallocatedCash = Math.max(0, remaining);
   let status = 'no_action_needed';
-  if (allocations.some(a => a.type === 'liquidity_shortfall_note')) status = 'liquidity_priority';
+  if (allocations.some(a => a.type === 'liquidity_shortfall_note' || a.type === 'emergency_fund_contribution')) status = 'liquidity_priority';
   if (allocations.some(a => a.type === 'debt_reduction')) status = 'debt_priority';
   if (allocations.some(a => a.type === 'goal_contribution')) status = 'goal_priority';
   if (status === 'no_action_needed' && allocations.some(a => a.type === 'long_term_or_flexible')) status = 'invest_or_flex';
