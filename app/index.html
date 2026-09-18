@@ -427,6 +427,11 @@ body.reorder-mode .reorder-done-bar{display:flex;}
 .hero-row span{font-size:var(--fs-md);color:var(--muted);}
 .hero-row b{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-lg);font-weight:600;
   font-variant-numeric:tabular-nums;}
+/* P0 denetim düzeltmesi: "Gider" satırının altındaki açıklayıcı alt satır (kartla ödenen kısım) —
+   ana satırlardan görsel olarak daha sakin, girintili; yeni bir bileşen/tasarım dili getirmez. */
+.hero-row-sub{padding:0 0 4px 12px;}
+.hero-row-sub span{font-size:var(--fs-xs);color:var(--muted);}
+.hero-row-sub b{font-size:var(--fs-md);font-weight:500;color:var(--muted);}
 .hero-row.total{margin-top:4px;padding-top:9px;border-top:1px solid var(--line);}
 .hero-row.total span{color:var(--text);font-weight:600;font-size:var(--fs-md);}
 .hero-row.total b{font-size:var(--fs-xl);font-weight:700;}
@@ -1088,6 +1093,10 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
 .afford-form-title{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk',sans-serif;font-size:var(--fs-xl);font-weight:700;margin-bottom:16px;}
 .afford-form-title span.afford-form-icon{display:inline-flex;align-items:center;vertical-align:-4px;}
 .afford-hint{font-size:var(--fs-xs);color:var(--disabled);margin:-6px 0 12px;line-height:1.5;}
+/* P2 denetim düzeltmesi: finansman/ad-hoc form alanlarının GÖRÜNÜR etiketi. Bu sınıf ad-hoc
+   formda zaten kullanılıyordu ama yalnızca satır-içi stil ile; kural tek yere alındı, böylece
+   banka/tasarruf finansmanı alanları da aynı görünümü paylaşıyor (yeni tasarım dili YOK). */
+.afford-field-label{display:block;font-size:var(--fs-sm);color:var(--muted);margin:4px 0 2px;}
 
 .goal-afford-btn{
   background:none;border:none;color:var(--gold);cursor:pointer;font-size:var(--fs-sm);font-weight:700;
@@ -1241,6 +1250,9 @@ html[data-premium-gating="off"] [data-section="ayarlar-premium"]{display:none !i
 .score-item .track{flex:1;height:6px;background:var(--line);border-radius:var(--r-pill);overflow:hidden;}
 .score-item .fill{height:100%;border-radius:var(--r-pill);}
 .score-item .val{width:32px;text-align:right;font-family:'Space Grotesk',sans-serif;flex-shrink:0;}
+/* P1 denetim düzeltmesi: ölçülemeyen boyut "veri yok" yazar - sayı alanından daha geniş ve
+   daha sakin görünür, böylece 0 puanla karıştırılmaz. */
+.score-item .val.score-val-na{width:auto;font-family:Inter,sans-serif;font-size:var(--fs-xs);color:var(--muted);}
 
 .goal-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;margin-bottom:12px;}
 .goal-card:last-child{margin-bottom:0;}
@@ -2687,7 +2699,13 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
     <div class="hero-ledger">
       <div class="hero-row"><span data-i18n="s-bu-ay-gelir">Gelir</span><b id="sumIncome">₺0</b></div>
       <div class="hero-row"><span data-i18n="s-bu-ay-gider">Gider</span><b id="sumExpense">₺0</b></div>
+      <!-- P0 denetim düzeltmesi: "Kalan" NAKİT esaslıdır — kartla finanse edilen harcama bu ay
+           cebinden çıkmaz (nakit karşılığı kartın ödemesidir, o da "Borç ödemesi" satırında).
+           Bu satır olmadan dört satır birbiriyle çelişiyordu (ör. 110.000 − 44.067 − 0 = 110.000
+           gibi görünüyordu). Yalnızca kartla finanse edilen harcama varsa gösterilir. -->
+      <div class="hero-row hero-row-sub" id="sumCardFundedRow" style="display:none;"><span data-i18n="s-kartla-odenen">bunun kartla ödenen kısmı</span><b id="sumCardFunded">₺0</b></div>
       <div class="hero-row"><span data-i18n="s-borc-odemesi">Borç ödemesi</span><b id="sumDebtPay">₺0</b></div>
+      <div class="hero-row hero-row-sub" id="sumDebtPayEstRow" style="display:none;"><span data-i18n="s-borc-odemesi-tahmini">bunun içinde tahmini (henüz gerçek ödeme kaydı yok)</span><b id="sumDebtPayEst">₺0</b></div>
       <div class="hero-row total"><span data-i18n="s-bu-ay-kalan">Kalan</span><b id="sumRemain">₺0</b></div>
     </div>
     <div class="hero-meta">
@@ -3727,6 +3745,138 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
 
 <script>
 /* =========================================================
+   📊 ANALYTICS — KONTROLLÜ PostHog ENTEGRASYONU (ürün kullanım funnel'ı)
+   -----------------------------------------------------------------------
+   AMAÇ: ilk beta kullanıcıları için ANONİM davranış/funnel ölçümü.
+   BU MODÜL Finance Core / Decision Engine / AI Coach'tan TAMAMEN BAĞIMSIZDIR:
+   hiçbiri bu dosyayı çağırmaz/import etmez, bu dosya da onların hesaplama
+   mantığına HİÇBİR ŞEKİLDE dokunmaz - sadece UI olay noktalarından
+   (aşağıdaki dosyanın geri kalanında ayrı ayrı işaretlenmiş) tek satırlık
+   analytics.track(...) çağrıları alır.
+
+   GİZLİLİK KURALI (ÇOK ÖNEMLİ - bkz. proje talimatı): PostHog'a KESİNLİKLE
+   finansal bir DEĞER (tutar, bakiye, gelir, gider, borç, net varlık, hedef
+   tutarı, satın alma fiyatı, peşinat, taksit, financialSnapshot, ham
+   localStorage/state, AI Coach prompt/context, PII) gönderilmez. Bu, iki
+   bağımsız savunma katmanıyla ZORUNLU KILINIR (biri atlanırsa diğeri durdurur):
+     1) Yalnızca aşağıdaki ANALYTICS_EVENTS listesindeki, ÖNCEDEN TANIMLI event
+        isimleri gönderilebilir - çağıran taraf serbest bir isim UYDURAMAZ.
+     2) Her property, ANALYTICS_PROP_VALIDATORS içinde AÇIKÇA izin verilen bir
+        anahtar adına VE o anahtarın izin verilen sabit değer kümesine
+        (enum'a) uymak ZORUNDADIR - varsayılan davranış REDDETMEKTİR
+        (allowlist, blocklist DEĞİL). SAYISAL (number) hiçbir değer ASLA
+        gönderilmez - bir property'nin "kaç TL" taşıdığını dolaylı yoldan
+        bile sızdırmamak için sayısal tip tamamen yasaklanmıştır.
+   ========================================================= */
+const ANALYTICS_CONFIG = Object.freeze({
+  // TODO(product): gerçek PostHog proje token'ı burada tanımlanacak. Token boşken
+  // (yerel geliştirme/test ortamı gibi) PostHog script'i hiç yüklenmeye ÇALIŞILMAZ -
+  // analytics.track() sessizce no-op olur, uygulama hiçbir şekilde etkilenmez.
+  token: '',
+  apiHost: 'https://us.i.posthog.com',           // US Cloud - proje talimatı
+  scriptSrc: 'https://us-assets.i.posthog.com/static/array.full.js',
+});
+
+// Gönderilebilecek TEK event isim kümesi budur - proje talimatındaki isimlerle
+// BİREBİR aynı. Başka hiçbir yerde serbest metin event adı YAZILMAZ.
+const ANALYTICS_EVENTS = Object.freeze({
+  APP_OPENED: 'app_opened',
+  ONBOARDING_STARTED: 'onboarding_started',
+  ONBOARDING_COMPLETED: 'onboarding_completed',
+  AFFORDABILITY_OPENED: 'affordability_opened',
+  AFFORDABILITY_FORM_STARTED: 'affordability_form_started',
+  AFFORDABILITY_CALCULATED: 'affordability_calculated',
+  DECISION_RESULT_VIEWED: 'decision_result_viewed',
+  MONEY_TASK_VIEWED: 'money_task_viewed',
+  MONEY_TASK_STARTED: 'money_task_started',
+  MONEY_TASK_COMPLETED: 'money_task_completed',
+  GOAL_CREATED: 'goal_created',
+  AI_COACH_OPENED: 'ai_coach_opened',
+  AI_COACH_QUESTION_SENT: 'ai_coach_question_sent',
+  SHARE_CARD_GENERATED: 'share_card_generated',
+});
+const ANALYTICS_EVENT_NAME_SET = new Set(Object.values(ANALYTICS_EVENTS));
+
+// ALLOWLIST + ENUM doğrulayıcılar - GOAL_TYPES'a bilerek GEÇ (lazy) referans verilir
+// (GOAL_TYPES bu script'te daha aşağıda tanımlanır; validator'lar yalnızca gerçek bir
+// event tetiklendiğinde, yani GOAL_TYPES çoktan tanımlanmış olduğunda ÇALIŞIR).
+const ANALYTICS_PROP_VALIDATORS = Object.freeze({
+  entry_point: v => v==='home' || v==='navigation',
+  decision_category: v => ['yes_today','yes_on_date','yes_with_condition','yes_delays_goals','no_unsafe'].includes(v),
+  task_status: v => v==='started' || v==='completed',
+  ai_entry_point: v => v==='navigation',
+  goal_type: v => typeof GOAL_TYPES!=='undefined' && Array.isArray(GOAL_TYPES) && GOAL_TYPES.some(t=>t.key===v),
+});
+
+// Yalnızca string/boolean kabul edilir. SAYISAL (number) hiçbir değer asla kabul
+// edilmez - yukarıdaki dosya-başı yorumundaki gizlilik kuralının teknik karşılığı.
+function analyticsSanitizeProps(properties){
+  const safe = {};
+  if(!properties || typeof properties!=='object') return safe;
+  Object.keys(properties).forEach(key=>{
+    const validator = ANALYTICS_PROP_VALIDATORS[key];
+    if(!validator) return; // allowlist'te olmayan HERHANGİ bir anahtar sessizce atılır
+    const value = properties[key];
+    if(typeof value !== 'string' && typeof value !== 'boolean') return;
+    if(!validator(value)) return; // izin verilen sabit kümenin dışında bir değer atılır
+    safe[key] = value;
+  });
+  return safe;
+}
+
+let _analyticsReady = false;
+let _analyticsQueue = [];
+function analyticsFlushQueue(){
+  if(!_analyticsReady || typeof posthog==='undefined') return;
+  const q = _analyticsQueue; _analyticsQueue = [];
+  q.forEach(item=>{ try{ posthog.capture(item.name, item.props); }catch(e){} });
+}
+function analyticsLoadPostHog(){
+  if(!ANALYTICS_CONFIG.token) return; // token tanımlı değilse (yerel/test ortamı) hiç yüklenmeye çalışma
+  try{
+    const s = document.createElement('script');
+    s.src = ANALYTICS_CONFIG.scriptSrc;
+    s.async = true; // sayfa yükünü/`load` olayını ASLA bloklamaz - dinamik olarak eklenir
+    s.onload = function(){
+      try{
+        posthog.init(ANALYTICS_CONFIG.token, {
+          api_host: ANALYTICS_CONFIG.apiHost,
+          autocapture: false,          // proje talimatı: genel otomatik click/form yakalama YOK
+          capture_pageview: false,     // proje talimatı: Web Analytics/sayfa görüntüleme YOK
+          capture_pageleave: false,
+          disable_session_recording: true, // proje talimatı: Session Replay YOK
+          disable_surveys: true,           // proje talimatı: Surveys YOK
+          advanced_disable_decide: false,
+          persistence: 'localStorage',
+        });
+        _analyticsReady = true;
+        analyticsFlushQueue();
+      }catch(e){ /* PostHog init başarısız olsa bile uygulama ETKİLENMEZ */ }
+    };
+    s.onerror = function(){ /* ağ hatası - analytics sessizce devre dışı kalır */ };
+    document.head.appendChild(s);
+  }catch(e){ /* analytics ASLA uygulamayı bozmamalı */ }
+}
+
+// UYGULAMANIN GERİ KALANININ KULLANDIĞI TEK GİRİŞ NOKTASI. Hiçbir yerde doğrudan
+// posthog.capture() ÇAĞRILMAZ - hepsi bu tek soyutlamadan geçer.
+const analytics = {
+  track(eventName, properties){
+    try{
+      if(!ANALYTICS_EVENT_NAME_SET.has(eventName)) return; // önceden tanımlanmamış event ASLA gönderilmez
+      const safeProps = analyticsSanitizeProps(properties);
+      if(_analyticsReady){
+        try{ posthog.capture(eventName, safeProps); }catch(e){}
+      } else {
+        _analyticsQueue.push({name:eventName, props:safeProps});
+        if(_analyticsQueue.length>50) _analyticsQueue.shift(); // sınırsız büyümeyi önle
+      }
+    }catch(e){ /* analytics ASLA uygulamayı bozmamalı */ }
+  },
+};
+analyticsLoadPostHog();
+
+/* =========================================================
    🌐 DİL / i18n SİSTEMİ
    Kapsam notu: Şu an splash ekranı, alt navigasyon ve bölüm başlıkları
    (section-title) çevrilebilir durumda. Kartların içindeki form etiketleri,
@@ -3946,6 +4096,10 @@ const TRANSLATIONS = {
   's-bu-ay-gelir': {tr:'Gelir', en:'Income'},
   's-bu-ay-gider': {tr:'Gider', en:'Spending'},
   's-bu-ay-kalan': {tr:'Kalan', en:'Left'},
+  /* P0 denetim düzeltmesi (bkz. #sumCardFundedRow): "Kalan" nakit esaslı olduğu için kartla
+     finanse edilen harcama ondan düşülmez; bu satır farkı açıkça gösterir. */
+  's-kartla-odenen': {tr:'bunun kartla ödenen kısmı (bu ay nakit çıkışı değil)', en:'of which paid by card (no cash outflow this month)'},
+  's-borc-odemesi-tahmini': {tr:'bunun içinde tahmini (henüz gerçek ödeme kaydı yok)', en:'of which is estimated (no real payment recorded yet)'},
   's-bu-ay-yapman': {tr:'Bu ay yapman gerekenler', en:'What to do this month'},
   's-bu-ayki-gelir': {tr:'Bu ayki toplam gelirin', en:'Your total income this month'},
   's-bugun-harcanabilir': {tr:'Bugün harcayabileceğin', en:'Safe to Spend Today'},
@@ -5064,7 +5218,7 @@ function yzd(n){ return currentLang==='en' ? (n + '%') : ('%' + n); }
    persistent: kalıcı bilanço verisi (hesaplar/varlıklar/borçlar) - ay değişse de kalır
    ========================================================= */
 let month = { incomes: [], expenses: [], goal: {type:'save', amount:0} };
-let persistent = { accounts: [], assets: [], debts: [], usdRate: 0, goals: [], goalMarketData: [], goalInflationOverride: null, recurringIncomes: [], recurringExpenses: [], lastAutoMonth: '', categoryBudgets: {}, reminders: [], notes: [], sectionOrder: {}, creditCards: [], importedTransactions: [], merchantCategoryOverrides: {}, subscriptionOverrides: {}, isPremium: false,
+let persistent = { accounts: [], assets: [], debts: [], usdRate: 0, goals: [], goalMarketData: [], goalInflationOverride: null, recurringIncomes: [], recurringExpenses: [], lastAutoMonth: '', categoryBudgets: {}, reminders: [], notes: [], sectionOrder: {}, creditCards: [], importedTransactions: [], cardPaymentLog: [], merchantCategoryOverrides: {}, subscriptionOverrides: {}, isPremium: false,
   // Bugünün Para Görevi (bkz. ensureTodaysMoneyTask): günün görevi + o gün için
   // tamamlanmış/atlanmış adım imzaları. moneyTaskStats: "bu ayki finansal ilerlemen"
   // rozeti için ay-bazlı tamamlama sayacı - schemaVersion gerektirmeyecek kadar basit,
@@ -5660,6 +5814,12 @@ function normalizePersistentFinancialFields(data){
   // aynı garanti burada da veriliyor - yeni bir özellik değil, aynı normalizasyon
   // sözleşmesinin (her zaman kullanılabilir bir persistent şekli) tamamlanması.
   data.categoryBudgets = (data.categoryBudgets && typeof data.categoryBudgets === 'object' && !Array.isArray(data.categoryBudgets)) ? data.categoryBudgets : {};
+  /* P1 FİNANSAL DOĞRULUK (kredi kartı gerçek ödeme denetimi): kartın BU AY gerçekten ödendiğini
+     gösteren tek günlük — bkz. applyCardPayment()/recordCardPaymentLog()/actualCardPaymentTL().
+     Eski kayıtlarda bu alan yok, additive: yoksa boş diziye düşer. */
+  data.cardPaymentLog = (Array.isArray(data.cardPaymentLog) ? data.cardPaymentLog : []).map(p=>({
+    id: p.id||uid(), cardId: p.cardId||'', amount: guvenliSayi(p.amount), monthKey: p.monthKey||'', at: p.at||'',
+  })).filter(p=>p.cardId && p.amount>0 && p.monthKey);
   return data;
 }
 /* STATE-NORMALIZATION-END */
@@ -5768,6 +5928,7 @@ async function loadState(){
   persistent.settledDebtIds = Array.isArray(persistent.settledDebtIds) ? persistent.settledDebtIds : [];
   // creditCards artık normalizePersistentFinancialFields() içinde normalize ediliyor (yukarıda).
   persistent.importedTransactions = persistent.importedTransactions || [];
+  persistent.cardPaymentLog = Array.isArray(persistent.cardPaymentLog) ? persistent.cardPaymentLog : [];
   persistent.merchantCategoryOverrides = persistent.merchantCategoryOverrides || {};
   // DÜZELTME: learnMerchantCategory eskiden anahtarı normalizeTurkish() değil düz .toLowerCase() ile
   // üretiyordu. JS'in Türkçe olmayan kural katlaması "İ"yi "i" + görünmez birleşik nokta işaretine
@@ -5912,6 +6073,7 @@ function maybeShowOnboarding(){
   onboardStep = 0;
   updateOnboardSlide();
   document.getElementById('onboardingOverlay').classList.add('show');
+  analytics.track(ANALYTICS_EVENTS.ONBOARDING_STARTED); // yalnızca gerçekten YENİ bir kullanıcıya gösterildiğinde
 }
 function updateOnboardSlide(){
   /* Giden slayt ANINDA yok olmuyor. Eski kod .active sınıfını çekip alıyordu ve slayt display
@@ -5941,6 +6103,7 @@ function updateOnboardSlide(){
 function finishOnboarding(){
   try{ localStorage.setItem('bt_onboarded','1'); }catch(e){}
   document.getElementById('onboardingOverlay').classList.remove('show');
+  analytics.track(ANALYTICS_EVENTS.ONBOARDING_COMPLETED); // "Atla" veya son adımdan gelen HER iki yol da buradan geçer
   maybeShowAuthGate();   // AŞAMA 2: rehberden sonra hesap seçimi (zorunlu değil, bir kez)
 }
 document.getElementById('onboardSkipBtn').addEventListener('click', finishOnboarding);
@@ -6239,7 +6402,31 @@ function totalFixedExpense(){ return month.expenses.filter(e=>e.fixed).reduce((s
    ₺2.000 kart asgarisi → uygulama ₺38.000 diyordu, oysa hesaptan çıkan yalnızca ₺2.000'di.
    totalSpent() olduğu gibi kalıyor (harcama analizi, donut, kategori limitleri doğru olmalı);
    yalnızca NAKİT AKIŞI hesabı kartla finanse edilen kısmı dışarıda bırakıyor. */
-function cardFundedSpent(){ return month.expenses.reduce((s,e)=> s + (e.cardId ? (Number(e.amount)||0) : 0), 0); }
+/* P0 FİNANSAL DOĞRULUK DÜZELTMESİ (A→Z denetimi): yukarıdaki çift-sayım düzeltmesi, kartla
+   finanse edilen harcamayı nakit akışından çıkarırken onun nakit karşılığının (kartın ödemesi)
+   monthlyDebtPayments() içinde SAYILDIĞINI varsayar. Bu varsayım, `cardId` GERÇEKTE var olan bir
+   karta işaret etmiyorsa çöküyordu: kart sonradan silindiyse, veri içe aktarıldıysa ya da harcama
+   hiç eklenmemiş bir kart kimliğiyle kaydedildiyse, tutar nakit akışından düşülüyor AMA hiçbir
+   yerde borç ödemesi olarak geri eklenmiyordu — yani para finansal gerçeklikten TAMAMEN yok
+   oluyordu. Etki tek bir ekranla sınırlı değildi: aylık kalan, tasarruf oranı, güvenli günlük
+   harcama, güvenli aylık kapasite, Money Task tutarları, satın alma senaryolarının "sonrası
+   serbest para" değeri, skor ve AI Coach context'i hepsi bu tek sayıdan besleniyor (ör. gelir
+   110.000 / gider 44.067 iken "Kalan 110.000", "Tasarruf oranı %100", "güvenli günlük 8.462").
+   Düzeltme: bir harcama YALNIZCA gerçekten var olan bir karta bağlıysa "kartla finanse edilmiş"
+   sayılır; aksi halde nakit çıkışıdır. Çift sayım koruması aynen korunuyor. */
+function expenseIsCardFunded(e){
+  if(!e || !e.cardId) return false;
+  if(getCreditCard(e.cardId)) return true;
+  // Eski modelden kalan "Kredi Kartı" tipindeki hesaplar da allDebts() içinde borç olarak sayılır.
+  const legacyCardAccount = (persistent.accounts||[]).find(a=>a.id===e.cardId && a.type==='Kredi Kartı');
+  return !!legacyCardAccount;
+}
+function cardFundedSpent(){ return month.expenses.reduce((s,e)=> s + (expenseIsCardFunded(e) ? (Number(e.amount)||0) : 0), 0); }
+/* Kartı gerçekten var olmayan (sahipsiz cardId) harcama toplamı — yalnızca teşhis/şeffaflık
+   için: nakit akışına ARTIK nakit çıkışı olarak giriyor (bkz. expenseIsCardFunded). */
+function orphanCardSpent(){
+  return month.expenses.reduce((s,e)=> s + ((e && e.cardId && !expenseIsCardFunded(e)) ? (Number(e.amount)||0) : 0), 0);
+}
 function cashOutSpent(){ return Math.max(0, totalSpent() - cardFundedSpent()); }
 function totalVariableExpense(){ return month.expenses.filter(e=>!e.fixed).reduce((s,e)=>s+e.amount,0); }
 function totalAccountsAsset(){ return persistent.accounts.filter(a=>a.type!=='Kredi Kartı').reduce((s,a)=>s+accountValueTL(a),0); }
@@ -6287,10 +6474,23 @@ function allDebts(){
     const pay = c.minPayment||0;
     const payTL = (c.currency && c.currency!=='TRY') ? convertToTRY(pay, c.currency) : pay;
     const balTL = c.currency==='TRY' ? c.currentBalance : convertToTRY(c.currentBalance, c.currency);
+    /* P1 FİNANSAL DOĞRULUK (kredi kartı gerçek ödeme denetimi): paymentTL — avalanche/snowball
+       ve simulatePayoff() gibi İLERİYE DÖNÜK projeksiyonların girdisidir, BİLEREK değiştirilmedi
+       (hâlâ minPayment tahminidir: "bundan sonra her ay muhtemelen ne ödenecek"). Nakit akışı
+       (monthlyDebtPayments -> Kalan/Tasarruf/Güvenli Harcama/Decision Engine/AI Coach/Money Task)
+       ise BU AYA ÖZGÜ bir soru sorar: "bu ay gerçekten ne ödendi?" — o yüzden ayrı bir alan
+       (cashFlowPaymentTL) eklendi: bu ay için applyCardPayment() ile kaydedilmiş gerçek bir ödeme
+       varsa onu, yoksa yine minPayment tahminini kullanır. paymentIsEstimated, gerçek/tahmini
+       ayrımının UI'da (monthlyDebtPaymentsBreakdown) gösterilebilmesi için taşınır. */
+    const actualPayTL = actualCardPaymentTL(c);
+    const hasActualPayment = actualPayTL > 0;
+    const cashFlowPayTL = hasActualPayment ? actualPayTL : payTL;
     out.push({kind:'card', id:c.id, ref:c, label:(c.name||'')+(c.last4?' ••'+c.last4:''),
       balanceTL:Number(balTL)||0, interestBaseTL:cardStatementBalanceTL(c), rate:Number(c.rate)||0,
       fixedSchedule:false,
-      paymentTL:payTL, minPaymentTL:payTL, extraPaymentTL:0});
+      paymentTL:payTL, minPaymentTL:payTL, extraPaymentTL:0,
+      cashFlowPaymentTL:cashFlowPayTL, paymentIsEstimated:!hasActualPayment,
+      actualPaymentTL:actualPayTL, estimatedPaymentTL:payTL});
   });
   // Eski modelden kalan "Kredi Kartı" tipindeki hesaplar: bakiyesi borçtur ama faiz oranı/asgari
   // ödemesi bilinmez, o yüzden yalnızca toplama girer.
@@ -6298,11 +6498,24 @@ function allDebts(){
     out.push({kind:'account', id:a.id, ref:a, label:a.name||'Kredi Kartı',
       balanceTL:accountValueTL(a), interestBaseTL:0, rate:0,
       fixedSchedule:false,
-      paymentTL:0, minPaymentTL:0, extraPaymentTL:0});
+      paymentTL:0, minPaymentTL:0, extraPaymentTL:0,
+      cashFlowPaymentTL:0, paymentIsEstimated:false, actualPaymentTL:0, estimatedPaymentTL:0});
   });
   return out;
 }
-function monthlyDebtPayments(){ return allDebts().reduce((sum,x)=>sum+x.paymentTL, 0); }
+/* Nakit akışı için "bu ay borç ödemesi": kartlarda gerçek ödeme varsa onu, yoksa tahmini kullanır
+   (bkz. allDebts() içindeki cashFlowPaymentTL). Krediler/eski kart hesapları için değişmedi. */
+function monthlyDebtPayments(){ return allDebts().reduce((sum,x)=>sum+(x.cashFlowPaymentTL!=null ? x.cashFlowPaymentTL : x.paymentTL), 0); }
+/* UI'da "gerçekleşen / tahmini" ayrımını göstermek için: monthlyDebtPayments() ile TUTARLI
+   (aynı allDebts() satırlarından, aynı toplam), sadece gerçek/tahmini olarak ikiye ayrılmış hâli. */
+function monthlyDebtPaymentsBreakdown(){
+  let actual = 0, estimated = 0;
+  allDebts().forEach(x=>{
+    const v = x.cashFlowPaymentTL!=null ? x.cashFlowPaymentTL : x.paymentTL;
+    if(x.paymentIsEstimated) estimated += v; else actual += v;
+  });
+  return { actual, estimated, total: actual+estimated };
+}
 /* Ekonomik doğruluk düzeltmesi (2026-09): "borç/gelir oranı" tek bir sayı değildir - en az iki
    farklı, birbirine indirgenemez ölçüdür ve UI'daki "debtRatio" (render() içinde) bunlardan
    yalnızca birini (aylık borç servis yükü) ölçer. Karışıklığı önlemek için ayrı isimlerle burada
@@ -6441,8 +6654,20 @@ function cardStatementBalanceTL(card){
 /* accountId verilirse ödeme o hesaptan DÜŞÜLÜR. Verilmezse yalnızca kart borcu azalır —
    bu durumda net varlık artmış görünür, o yüzden çağıran tarafın kullanıcıyı uyarması gerekir
    (bkz. cc-pay-confirm). Parametre opsiyonel: eski çağrılar (varsa) davranışını korur. */
-function applyCardPayment(card, amount, accountId){
+/* P1 FİNANSAL DOĞRULUK DÜZELTMESİ (kredi kartı gerçek ödeme denetimi): buraya kadar bu fonksiyon
+   yalnızca BAKİYELERİ günceller, hiçbir yerde "bu ay gerçekten X TL ödendi" diye bir iz bırakmazdı.
+   Sonuç: monthlyDebtPayments() (dolayısıyla Kalan/Tasarruf Oranı/Güvenli Harcama/Decision
+   Engine/AI Coach/Money Task) kartın gerçek ödemesinden HABERSİZ kalıyor, yalnızca card.minPayment
+   konfigürasyon tahminini kullanıyordu — kullanıcı bankasından gerçekten ödeme yapsa bile "Kalan"
+   değişmiyordu (bkz. audit raporu, Senaryo B). Düzeltme: gerçek bir ödeme (iade değil) burada tek
+   noktadan (recordCardPaymentLog) ay bazlı bir günlüğe yazılır; monthlyDebtPayments() artık kartın
+   BU AYKI günlüğü varsa onu, yoksa minPayment TAHMİNİNİ kullanır (bkz. allDebts()). Borç ödeme
+   PLANLARINI (avalanche/snowball/simulatePayoff) besleyen d.paymentTL alanı BİLEREK dokunulmadan
+   bırakıldı — o hesap "bundan sonra her ay ne kadar ödenecek" varsayımıdır, bu ayki tek seferlik
+   gerçek ödeme tutarıyla karıştırılırsa gelecek ay projeksiyonları bozulurdu. */
+function applyCardPayment(card, amount, accountId, opts){
   if(!card || !(amount>0)) return;
+  opts = opts || {};
   if(accountId) adjustAccountBalance(accountId, -amount);
   card.currentBalance = Math.max(0, (Number(card.currentBalance)||0) - amount);
   if(Number(card.statementBalance) > 0){
@@ -6451,6 +6676,28 @@ function applyCardPayment(card, amount, accountId){
     // (ekstre sonrası) harcamalar için bu ay faiz gösterilmez — gerçek grace period davranışı.
     if(card.statementBalance === 0) card.statementSettledCycle = cardStatementCycleKey(card);
   }
+  // İade (opts.countsAsCashPayment===false) nakit çıkışı DEĞİLDİR: borcu azaltır ama kullanıcının
+  // cebinden o ay para çıkmaz, bu yüzden gerçek ödeme günlüğüne yazılmaz.
+  if(opts.countsAsCashPayment !== false){
+    recordCardPaymentLog(card.id, amount);
+  }
+}
+/* Kartın BU AY için gerçekleşmiş (iade hariç) ödemelerinin günlüğü — tek yazma noktası
+   applyCardPayment() olduğu için hem "Öde" butonu hem CSV ekstre onayı otomatik kapsanır. */
+function recordCardPaymentLog(cardId, amount){
+  if(!cardId || !(amount>0)) return;
+  persistent.cardPaymentLog = Array.isArray(persistent.cardPaymentLog) ? persistent.cardPaymentLog : [];
+  persistent.cardPaymentLog.push({ id: uid(), cardId, amount: Number(amount)||0, monthKey, at: new Date().toISOString() });
+}
+/* Kartın bu ay için TOPLAM gerçek (iade hariç) ödemesi, TL cinsinden. Farklı aylarda yapılan
+   ödemeler (TEST G) ve aynı ay içindeki birden fazla kısmi ödeme (TEST F) burada doğal olarak
+   ayrılır/toplanır: filtre monthKey'e göre, toplam reduce ile. */
+function actualCardPaymentTL(card){
+  if(!card) return 0;
+  const entries = (persistent.cardPaymentLog||[]).filter(p=>p && p.cardId===card.id && p.monthKey===monthKey);
+  const sum = entries.reduce((s,p)=>s+(Number(p.amount)||0), 0);
+  if(sum<=0) return 0;
+  return (card.currency && card.currency!=='TRY') ? convertToTRY(sum, card.currency) : sum;
 }
 
 // Türkçe karakter normalizasyonu — bazı banka CSV dışa aktarmaları Türkçe karaktersiz (ASCII) olabilir
@@ -8770,7 +9017,14 @@ function computeCashFlowSummary({ income, expenses, debtPayments, remainingDays,
   const savingsRate = income > 0 ? (remaining / income) * 100 : 0;
   const safeRemaining = income - expenses - remainingFixedEstimate - debtPayments;
   const safeDailySpend = (remainingDays > 0 && safeRemaining > 0) ? safeRemaining / remainingDays : 0;
-  return { remaining, savingsRate, safeDailySpend, safeRemaining };
+  /* P1 denetim düzeltmesi (EK ALAN - mevcut sözleşme bozulmadı): gelir 0 iken "tasarruf oranı"
+     TANIMSIZDIR (0/0), ama savingsRate geriye dönük uyumluluk için 0 dönmeye devam ediyor
+     (app/test/finance-core.test.mjs bunu doğruluyor). UI bu sayıyı "%0,0" olarak gösterince
+     kullanıcı bunu GERÇEK bir ölçüm sanıyordu ("hiç tasarruf etmiyorsun") - oysa ölçülecek gelir
+     yok. Bu bayrak, gösterim katmanının "veri yok" ile "gerçekten %0" arasında ayrım yapmasını
+     sağlar; hesaplanan sayı DEĞİŞMEDİ. */
+  const savingsRateAvailable = income > 0;
+  return { remaining, savingsRate, savingsRateAvailable, safeDailySpend, safeRemaining };
 }
 function computeNetWorth({ assets, totalDebt }){
   return (Number(assets) || 0) - (Number(totalDebt) || 0);
@@ -8836,7 +9090,37 @@ function render(){
   document.getElementById('sumDebt').textContent = `${CUR}${fmt(totalDebt)}`;
   document.getElementById('sumIncome').textContent = `${CUR}${fmt(income)}`;
   document.getElementById('sumExpense').textContent = `${CUR}${fmt(spent)}`;
+  /* P0 denetim düzeltmesi: dört satırın birbiriyle çelişmemesi için kartla finanse edilen kısım
+     AÇIKÇA gösterilir (yalnızca varsa). Hesaplama DEĞİŞMEDİ - "Kalan" hâlâ cashOutSpent()
+     üzerinden nakit esaslı; bu satır yalnızca aradaki farkı görünür kılar. */
+  (function renderCardFundedRow(){
+    const row = document.getElementById('sumCardFundedRow');
+    const val = document.getElementById('sumCardFunded');
+    if(!row || !val) return;
+    const cardFunded = cardFundedSpent();
+    if(cardFunded > 0){
+      val.textContent = `${CUR}${fmt(cardFunded)}`;
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  })();
   document.getElementById('sumDebtPay').textContent = `${CUR}${fmt(debtPay)}`;
+  /* P1 denetim düzeltmesi: "Borç ödemesi" satırındaki tutarın ne kadarının GERÇEK (kaydedilmiş
+     applyCardPayment) ne kadarının minPayment TAHMİNİ olduğu açıkça gösterilir — yalnızca tahmini
+     bir kısım varsa (aksi halde satır gizli kalır, tasarım gereksiz büyümez). */
+  (function renderDebtPayEstimateRow(){
+    const row = document.getElementById('sumDebtPayEstRow');
+    const val = document.getElementById('sumDebtPayEst');
+    if(!row || !val) return;
+    const breakdown = monthlyDebtPaymentsBreakdown();
+    if(breakdown.estimated > 0.5){
+      val.textContent = `${CUR}${fmt(breakdown.estimated)}`;
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  })();
   // Harcama formundaki büyük tutar alanının para birimi işareti (statik markup olduğu için
   // burada güncelleniyor; para birimi değiştiğinde zaten render() çağrılıyor).
   const leadCur = document.getElementById('amountLeadCur');
@@ -8844,7 +9128,11 @@ function render(){
   const remainEl = document.getElementById('sumRemain');
   remainEl.textContent = `${monthlyCashFlow<0?'-':''}${CUR}${fmt(Math.abs(monthlyCashFlow))}`;
   remainEl.className = monthlyCashFlow<0 ? 'danger' : 'good';
-  document.getElementById('savingsRateStat').textContent = `${yzd(savingsRate.toFixed(1))}`;
+  /* P1 denetim düzeltmesi: gelir yoksa tasarruf oranı TANIMSIZ - "%0,0" yazmak kullanıcıyı
+     "hiç tasarruf etmiyorsun" diye yanlış yönlendiriyordu (bkz. savingsRateAvailable). */
+  document.getElementById('savingsRateStat').textContent = _cfBase.savingsRateAvailable
+    ? `${yzd(savingsRate.toFixed(1))}`
+    : (currentLang==='en' ? 'no data' : 'veri yok');
   const ratioEl = document.getElementById('debtRatioStat');
   ratioEl.textContent = `${yzd(debtRatio.toFixed(1))}`;
   ratioEl.className = debtRatio>=35 ? 'danger' : (debtRatio>=20 ? 'warn' : 'good');
@@ -10460,26 +10748,48 @@ function renderScore(income, debtRatio, savingsRate, netWorth){
   const monthlyEssential = monthlyEssentialInfo.value;
   const target3 = monthlyEssential*3;
   const liquid = totalLiquidAssets();
-  const debtScore = clamp(100 - debtRatio*2, 0, 100);
-  const savingsScore = clamp(savingsRate*2.5, 0, 100);
-  const emergencyScore = target3>0 ? clamp((liquid/target3)*100,0,100) : (liquid>0?100:0);
+  /* P1 FİNANSAL DOĞRULUK DÜZELTMESİ (A→Z denetimi) — "VERİ YOK" ile "SKOR 0" AYNI ŞEY DEĞİLDİR.
+     Önceki davranış ölçülemeyen boyutlara UYDURMA sayılar veriyordu ve skoru yanlış yönde
+     çekiyordu:
+       • investScore: hiç yatırım varlığı yoksa 0 -> "yatırım performansın kötü" gibi okunuyordu
+         (oysa ölçülecek veri yok) ve %15 ağırlıkla skoru aşağı çekiyordu.
+       • goalScore: hiç hedef yoksa 50 -> tamamen uydurma bir "yarı yoldasın" değeri.
+       • netWorthScore: gelir yoksa 50 -> yine uydurma.
+       • emergencyScore: zorunlu gider tahmin edilemiyorsa (hiç harcama verisi yok) likit>0 ise
+         100 -> veri yokken TAM PUAN, yani yanlış şekilde güven veren bir sonuç.
+     Yeni davranış: ölçülemeyen boyut null döner, ağırlıklı ortalamaya HİÇ GİRMEZ ve kalan
+     ağırlıklar mevcut veriye göre normalize edilir (bkz. availableWeight). Boyut, listede
+     "veri yok" olarak gösterilir. Bileşenlerin FORMÜLLERİ değişmedi - yalnızca "veri yok"
+     durumu artık sayı uydurmuyor. */
+  const debtScore = income>0 ? clamp(100 - debtRatio*2, 0, 100) : null; // debtRatio gelir olmadan tanımsız
+  const savingsScore = income>0 ? clamp(savingsRate*2.5, 0, 100) : null; // tasarruf oranı gelir olmadan tanımsız
+  const emergencyScore = target3>0 ? clamp((liquid/target3)*100,0,100) : null; // zorunlu gider bilinmiyorsa ölçülemez
   const investAssets = totalInvestAssets();
   const totalAst = totalAssets();
-  const investScore = totalAst>0 ? clamp((investAssets/totalAst)*200,0,100) : 0;
-  const netWorthScore = income>0 ? clamp((netWorth/(income*12))*100,0,100) : (netWorth>0?50:0);
+  const investScore = totalAst>0 ? clamp((investAssets/totalAst)*200,0,100) : null; // hiç varlık yoksa pay ölçülemez
+  const netWorthScore = income>0 ? clamp((netWorth/(income*12))*100,0,100) : null; // gelire göre ölçüldüğü için gelir şart
   const goalScores = (persistent.goals||[]).map(g=>{
     const info = computeGoalInfo(g);
-    return info.neededTotal>0 ? clamp((info.alreadySaved/info.neededTotal)*100,0,100) : 0;
-  });
-  const goalScore = goalScores.length ? goalScores.reduce((a,b)=>a+b,0)/goalScores.length : 50;
+    // Hedefin net bir toplam ihtiyacı yoksa o hedef ORTALAMAYA KATILMAZ (0 sayılmaz).
+    return info.neededTotal>0 ? clamp((info.alreadySaved/info.neededTotal)*100,0,100) : null;
+  }).filter(v=>v!==null);
+  const goalScore = goalScores.length ? goalScores.reduce((a,b)=>a+b,0)/goalScores.length : null;
   const SCORE_WEIGHTS = {debt:0.20, savings:0.20, emergency:0.20, netWorth:0.15, invest:0.15, goal:0.10};
-  let overall = Math.round(
-    debtScore*SCORE_WEIGHTS.debt + savingsScore*SCORE_WEIGHTS.savings + emergencyScore*SCORE_WEIGHTS.emergency +
-    netWorthScore*SCORE_WEIGHTS.netWorth + investScore*SCORE_WEIGHTS.invest + goalScore*SCORE_WEIGHTS.goal
-  );
-  const criticalFloor = Math.min(debtScore, savingsScore, emergencyScore);
-  const isCriticallyWeak = criticalFloor < 30;
-  if(isCriticallyWeak) overall = Math.min(overall, 65);
+  const scoreParts = [
+    {key:'debt', val:debtScore}, {key:'savings', val:savingsScore}, {key:'emergency', val:emergencyScore},
+    {key:'netWorth', val:netWorthScore}, {key:'invest', val:investScore}, {key:'goal', val:goalScore},
+  ];
+  const measured = scoreParts.filter(p=>p.val!==null);
+  const availableWeight = measured.reduce((s,p)=>s+SCORE_WEIGHTS[p.key], 0);
+  // Ölçülebilir hiçbir boyut yoksa skor YOKTUR - 0 göstermek yanlış olur.
+  const hasAnyScore = measured.length>0 && availableWeight>0;
+  let overall = hasAnyScore
+    ? Math.round(measured.reduce((s,p)=>s + p.val*SCORE_WEIGHTS[p.key], 0) / availableWeight)
+    : null;
+  // Kritik taban yalnızca GERÇEKTEN ÖLÇÜLMÜŞ risk bileşenlerine bakar (ölçülemeyen boyut kritik sayılmaz).
+  const riskMeasured = [debtScore, savingsScore, emergencyScore].filter(v=>v!==null);
+  const isCriticallyWeak = riskMeasured.length>0 && Math.min(...riskMeasured) < 30;
+  if(isCriticallyWeak && overall!==null) overall = Math.min(overall, 65);
 
   const items = [
     {label:'Borç yönetimi', val:debtScore, color:'var(--coral)'},
@@ -10490,8 +10800,9 @@ function renderScore(income, debtRatio, savingsRate, netWorth){
     {label:'Hedef ilerlemesi', val:goalScore, color:'#7C9CBF'},
   ];
   const circumference = 2*Math.PI*40;
-  const offset = circumference*(1-overall/100);
-  const ringColor = overall>=70?'var(--teal)':(overall>=40?'var(--amber)':'var(--coral)');
+  // Skor yoksa halka BOŞ çizilir ve büyük sayı yerine "—" gösterilir (0 göstermek yanlış olurdu).
+  const offset = overall===null ? circumference : circumference*(1-overall/100);
+  const ringColor = overall===null ? 'var(--line)' : (overall>=70?'var(--teal)':(overall>=40?'var(--amber)':'var(--coral)'));
   document.getElementById('scoreBox').innerHTML = `
     <div class="score-ring-wrap">
       <svg width="96" height="96" viewBox="0 0 96 96">
@@ -10499,17 +10810,28 @@ function renderScore(income, debtRatio, savingsRate, netWorth){
         <circle cx="48" cy="48" r="40" fill="none" stroke="${ringColor}" stroke-width="8" stroke-linecap="round"
           stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" style="transform:rotate(-90deg);transform-origin:48px 48px;"></circle>
       </svg>
-      <div><div class="score-big">${overall}<span style="font-size:var(--fs-lg);color:var(--muted);">/100</span></div><div class="score-sub">${currentLang==='en'?'Your financial health score':'Finansal sağlık skorun'}</div></div>
+      <div><div class="score-big">${overall===null ? '—' : overall}<span style="font-size:var(--fs-lg);color:var(--muted);">/100</span></div><div class="score-sub">${overall===null
+        ? (currentLang==='en'?'Not enough data to score yet':'Skor için henüz yeterli veri yok')
+        : (currentLang==='en'?'Your financial health score':'Finansal sağlık skorun')}</div></div>
     </div>
     <div class="score-breakdown">
-      ${items.map(it=>`<div class="score-item"><span class="label">${catLabel(it.label)}${it.estimated ? (currentLang==='en'?' (est.)':' (tahmini)') : ''}</span><div class="track"><div class="fill" style="width:${it.val}%;background:${it.color}"></div></div><span class="val">${Math.round(it.val)}</span></div>`).join('')}
+      ${items.map(it=>{
+        // "veri yok" boyutlarında dolgu çubuğu BOŞ kalır ve sayı yerine açık bir etiket yazılır.
+        const unavailable = it.val===null;
+        const valText = unavailable ? (currentLang==='en'?'no data':'veri yok') : Math.round(it.val);
+        const width = unavailable ? 0 : it.val;
+        return `<div class="score-item"><span class="label">${catLabel(it.label)}${(!unavailable && it.estimated) ? (currentLang==='en'?' (est.)':' (tahmini)') : ''}</span><div class="track"><div class="fill" style="width:${width}%;background:${it.color}"></div></div><span class="val${unavailable?' score-val-na':''}">${valText}</span></div>`;
+      }).join('')}
     </div>
     <p style="font-size:var(--fs-sm);color:var(--muted);margin:14px 0 0;line-height:1.5;">${currentLang==='en'
       ? 'The score is a weighted mix of debt management, savings rate and emergency-fund coverage (20% each - these matter most), net worth and investment share of assets (15% each), and average goal progress (10%). It is not a substitute for professional financial advice.'
       : 'Skor; borç yönetimi, tasarruf oranı ve acil fon doluluğuna (her biri %20 - en çok bunlar önemli), net varlık ve yatırım payına (her biri %15), hedeflerdeki ortalama ilerlemeye (%10) dayalı ağırlıklı bir bileşimdir. Profesyonel finansal danışmanlığın yerini tutmaz.'}
       ${isCriticallyWeak ? (currentLang==='en'
         ? ' Note: your debt, savings, or emergency-fund component is critically low right now, so the overall score is capped - a strong investment or goal component alone cannot show as "healthy".'
-        : ' Not: borç, tasarruf veya acil fon bileşenlerinden biri şu anda kritik seviyede düşük olduğu için genel skor sınırlandırıldı - yalnızca güçlü bir yatırım veya hedef bileşeni "sağlıklı" görünmeni sağlayamaz.') : ''}</p>
+        : ' Not: borç, tasarruf veya acil fon bileşenlerinden biri şu anda kritik seviyede düşük olduğu için genel skor sınırlandırıldı - yalnızca güçlü bir yatırım veya hedef bileşeni "sağlıklı" görünmeni sağlayamaz.') : ''}
+      ${measured.length>0 && measured.length<scoreParts.length ? (currentLang==='en'
+        ? ` Note: ${scoreParts.length - measured.length} component(s) cannot be measured yet ("no data") and are excluded - they do not count as zero, and the remaining weights are normalized to 100%.`
+        : ` Not: ${scoreParts.length - measured.length} bileşen henüz ölçülemiyor ("veri yok") ve hesaba KATILMIYOR - sıfır puan olarak sayılmazlar; kalan ağırlıklar %100'e normalize edilir.`) : ''}</p>
   `;
 }
 
@@ -11113,11 +11435,13 @@ function renderAffordTeaser(){
       </div>`;
       const btn = document.getElementById('homeAffordBtn');
       if(btn) btn.addEventListener('click', ()=>{
+        analytics.track(ANALYTICS_EVENTS.AFFORDABILITY_OPENED, {entry_point:'home'});
         setTab('goals');
         setTimeout(()=>openGoalAfford(g.id), 120);
       });
       const adHocBtn = document.getElementById('homeAffordAdHocBtn');
       if(adHocBtn) adHocBtn.addEventListener('click', ()=>{
+        analytics.track(ANALYTICS_EVENTS.AFFORDABILITY_OPENED, {entry_point:'home'});
         setTab('goals');
         setTimeout(()=>openAdHocAffordEntry(), 120);
       });
@@ -11140,6 +11464,7 @@ function renderAffordTeaser(){
   </div>`;
   const adHocBtn = document.getElementById('homeAffordAdHocBtn');
   if(adHocBtn) adHocBtn.addEventListener('click', ()=>{
+    analytics.track(ANALYTICS_EVENTS.AFFORDABILITY_OPENED, {entry_point:'home'});
     setTab('goals');
     setTimeout(()=>openAdHocAffordEntry(), 120);
   });
@@ -11990,16 +12315,55 @@ function moneyTaskPriorityFromStep(step){
 
 /* Anında finansal etki metni (madde 7) - AI DEĞİL, adımın kendi 'amount'ından
    (deterministic finance engine çıktısı) türetilen sabit bir şablon. */
+/* P0/P1 FİNANSAL DOĞRULUK DÜZELTMESİ (A→Z denetimi): bu metin, tutarı olan HER adım için
+   "net varlığını yaklaşık ₺X güçlendirebilir" diyordu. Bu, adımların çoğu için MATEMATİKSEL
+   OLARAK YANLIŞTI:
+     • Borç ödemesi bir BİLANÇO TRANSFERİDİR: varlık ₺X azalır, borç ₺X azalır -> net varlık
+       (varlık − borç) anaparanın transferiyle ANINDA DEĞİŞMEZ. Gerçek kazanç, ödenmeyen faiz,
+       azalan kur/faiz riski ve öne gelen borçsuzluk tarihidir.
+     • Acil fona / birikime / hedefe / yatırıma para ayırmak da transferdir: nakit azalır,
+       başka bir varlık kalemi artar -> net varlık aynı kalır; kazanç güvenlik ya da beklenen
+       (garanti OLMAYAN) getiridir.
+   Net varlık GERÇEKTEN ₺X artar yalnızca para yaratıldığında/korunduğunda: gider kısma ve gelir
+   artışı. Aşağıdaki eşleme, ZATEN VAR OLAN moneyTaskCategoryFromStep() sınıflandırmasını
+   yeniden kullanır - yeni bir finansal hesap ya da kategori İCAT EDİLMEDİ. */
 function moneyTaskImpactText(step){
   const en = currentLang === 'en';
-  if(step && step.amount > 0){
+  if(!(step && step.amount > 0)){
     return en
-      ? `This can strengthen your net worth by about ${CUR}${fmt(step.amount)} this month.`
-      : `Bu adım bu ay net varlığını yaklaşık ${CUR}${fmt(step.amount)} güçlendirebilir.`;
+      ? 'This step helps bring your financial picture into focus.'
+      : 'Bu adım finansal tablonun netleşmesine yardımcı olur.';
   }
-  return en
-    ? 'This step helps bring your financial picture into focus.'
-    : 'Bu adım finansal tablonun netleşmesine yardımcı olur.';
+  const amount = `${CUR}${fmt(step.amount)}`;
+  switch(moneyTaskCategoryFromStep(step)){
+    case 'borc':
+      return en
+        ? `This reduces your debt balance by about ${amount}. Paying principal is a transfer (cash down, debt down), so your net worth does not jump by this amount — what improves is the interest you no longer pay and how soon you become debt-free.`
+        : `Bu adım borç bakiyeni yaklaşık ${amount} azaltır. Anapara ödemesi bir transferdir (nakit azalır, borç azalır); bu yüzden net varlığın bu tutar kadar ARTMAZ — iyileşen şey artık ödemediğin faiz ve borçsuz kalma tarihinin öne gelmesidir.`;
+    case 'acil_fon':
+      return en
+        ? `This moves about ${amount} into your emergency fund. It is a transfer between your own accounts, so your net worth stays the same — what improves is your safety buffer against an unexpected expense.`
+        : `Bu adım yaklaşık ${amount} tutarı acil fonuna taşır. Kendi hesapların arasındaki bir transfer olduğu için net varlığın AYNI KALIR — iyileşen şey beklenmedik bir gidere karşı güvenlik tamponundur.`;
+    case 'tasarruf':
+    case 'hedef':
+      return en
+        ? `This sets aside about ${amount}. Moving money into savings is a transfer, so your net worth does not increase by itself — what improves is how much of your plan is already funded.`
+        : `Bu adım yaklaşık ${amount} tutarı kenara ayırır. Parayı birikime taşımak bir transfer olduğu için net varlığın kendiliğinden ARTMAZ — iyileşen şey planının ne kadarının fonlanmış olduğudur.`;
+    case 'yatirim':
+      return en
+        ? `This directs about ${amount} into investments. It is a transfer (cash becomes an investment), so your net worth does not change at that moment; the potential gain is future return, which is not guaranteed.`
+        : `Bu adım yaklaşık ${amount} tutarı yatırıma yönlendirir. Bu bir transferdir (nakit, yatırım varlığına dönüşür); dolayısıyla net varlığın o anda DEĞİŞMEZ — olası kazanç gelecekteki getiridir ve getiri garanti değildir.`;
+    case 'harcama':
+      // Gider kısmak parayı gerçekten korur: bu ay cebinde kalır -> net varlık gerçekten artar.
+      return en
+        ? `Keeping about ${amount} from leaving your budget this month genuinely strengthens your net worth by that amount.`
+        : `Bu ay yaklaşık ${amount} tutarın bütçenden çıkmasını önlemek net varlığını gerçekten bu tutar kadar güçlendirir.`;
+    default:
+      // Kategorisi net olmayan adımlarda tutar hakkında finansal bir İDDİA KURULMAZ.
+      return en
+        ? `This step concerns about ${amount} of your money this month.`
+        : `Bu adım bu ay paranın yaklaşık ${amount} tutarlık kısmını ilgilendiriyor.`;
+  }
 }
 
 function buildMoneyTaskFromStep(step){
@@ -12070,6 +12434,7 @@ function ensureTodaysMoneyTask(plan){
   return rec;
 }
 
+let _analyticsLastViewedMoneyTaskSignature = null; // ANALYTICS: money_task_viewed tekilleştirme anahtarı
 function completeMoneyTask(){
   const rec = persistent.dailyMoneyTask;
   if(!rec || !rec.task || rec.task.status !== 'pending') return;
@@ -12081,6 +12446,10 @@ function completeMoneyTask(){
   }
   persistent.moneyTaskStats.completedCount += 1;
   persistPersistent();
+  // ANALYTICS: yukarıdaki 'pending' guard'ı geçtiği için burası HER ZAMAN gerçek bir
+  // pending→completed geçişidir (çift tıklama tekrar tetiklemez). Görev başlığı/tutarı
+  // GÖNDERİLMEZ - task_status enum'u dışında hiçbir alan taşınmaz.
+  analytics.track(ANALYTICS_EVENTS.MONEY_TASK_COMPLETED, {task_status:'completed'});
   renderMoneyTaskCard(rec);
 }
 
@@ -12145,6 +12514,14 @@ function renderMoneyTaskCard(rec){
     return;
   }
 
+  // ANALYTICS: "görüldü" sinyali - AYNI görev (signature) için tekrar tekrar tetiklenmesin
+  // diye (bu fonksiyon başka state değişikliklerinde de yeniden render edilebilir) son
+  // görülen imza modül-seviyesinde tutulur. Görev başlığı/tutarı ASLA gönderilmez.
+  if(task.signature && task.signature !== _analyticsLastViewedMoneyTaskSignature){
+    _analyticsLastViewedMoneyTaskSignature = task.signature;
+    analytics.track(ANALYTICS_EVENTS.MONEY_TASK_VIEWED);
+  }
+
   // dismissMoneyTask() bir sonraki adımı HEMEN 'pending' olarak atadığı için
   // burada gösterilen durum her zaman 'pending'dir (dismissed statüsü kalıcı
   // olarak SAKLANMAZ - handledSignatures'a imza olarak geçer, o kadar).
@@ -12171,7 +12548,10 @@ function renderMoneyTaskCard(rec){
         <button type="button" class="money-task-btn-secondary" id="moneyTaskSkipBtn">${escapeHtml(t('gorev-btn-atla'))}</button>
       </div>
     </div>`;
-  document.getElementById('moneyTaskCompleteBtn')?.addEventListener('click', completeMoneyTask);
+  document.getElementById('moneyTaskCompleteBtn')?.addEventListener('click', ()=>{
+    analytics.track(ANALYTICS_EVENTS.MONEY_TASK_STARTED, {task_status:'started'});
+    completeMoneyTask();
+  });
   document.getElementById('moneyTaskSkipBtn')?.addEventListener('click', dismissMoneyTask);
 }
 
@@ -12413,6 +12793,14 @@ function buildAICoachContext(){
       monthlyCashFlow: Math.round(monthlyCashFlow),
       liquidAssets: Math.round(totalLiquidAssets()),
       totalDebt: Math.round(totalDebtTL()),
+      /* P1 denetim düzeltmesi (A→Z, INV10 - AI ile ekranın ÇELİŞMEMESİ): context'te daha önce
+         yalnızca liquidAssets ve totalDebt vardı, netVarlık YOKTU. Bir LLM'in bu ikisini çıkarıp
+         "net varlığın ~X" demesi çok olası - ama liquidAssets TOPLAM varlık DEĞİLDİR (ev/araç/
+         yatırım gibi likit olmayan kalemler hariçtir), dolayısıyla böyle bir çıkarım ekranda
+         gösterilen net varlıktan FARKLI bir sayı üretirdi. Artık kanonik değerler AÇIKÇA
+         veriliyor: aynı computeNetWorth()/totalAssets() kaynağından, yeni hesap İCAT EDİLMEDİ. */
+      totalAssets: Math.round(totalAssets()),
+      netWorth: Math.round(computeNetWorth({ assets: totalAssets(), totalDebt: totalDebtTL() })),
       totalInstallmentCommitment,
       creditCardDebt,
       // NOT: "savings" alanı bilinçli olarak eklenmedi - FullBudget'ta liquidAssets'ten
@@ -12786,8 +13174,16 @@ function answerHowMuchCanISpend(){
   const spent = totalSpent(), debtPay = monthlyDebtPayments(), fixedSpent = totalFixedExpense();
   const lastMonthFixed = history.length ? history[history.length-1].fixedExpense||0 : 0;
   const remainingFixedEstimate = Math.max(0, lastMonthFixed - fixedSpent);
-  const safeRemaining = income - cashOutSpent() - remainingFixedEstimate - debtPay; // kartla finanse edilen harcama burada da düşülmez (bkz. cashOutSpent)
-  const safeDaily = safeRemaining > 0 ? safeRemaining / daysLeft : 0;
+  /* P2 denetim düzeltmesi (TEK KAYNAK): burada güvenli günlük harcama formülü ELLE tekrar
+     yazılıyordu (income - cashOutSpent() - remainingFixedEstimate - debtPay, sonra /daysLeft).
+     Sonuç bugün render()'daki ile aynıydı, ama AYNI finansal gerçeğin iki ayrı kopyası vardı -
+     biri değişince ekran ile koç birbirinden farklı sayı söyleyebilirdi. Artık ikisi de AYNI
+     FINANCE-CORE fonksiyonundan besleniyor (computeCashFlowSummary); ayrıca o fonksiyon
+     remainingDays>0 korumasını da içeriyor (elle yazılan sürüm daysLeft=0 durumunda Infinity
+     üretebilirdi). Formül/sonuç DEĞİŞMEDİ. */
+  const _cf = computeCashFlowSummary({ income, expenses: cashOutSpent(), debtPayments: debtPay, remainingDays: daysLeft, remainingFixedEstimate });
+  const safeRemaining = _cf.safeRemaining; // kartla finanse edilen harcama burada da düşülmez (bkz. cashOutSpent)
+  const safeDaily = _cf.safeDailySpend;
   if(safeRemaining<=0){
     return en ? `Your safe budget for this month is already used up (${CUR}${fmt(Math.abs(safeRemaining))} over). New spending would eat into next month.` : `Bu ayki güvenli bütçen zaten tükenmiş (${CUR}${fmt(Math.abs(safeRemaining))} açık). Yeni bir harcama gelecek aydan yer çalar.`;
   }
@@ -13248,6 +13644,9 @@ async function askCoach(question){
     renderAiChatLog();
     return;
   }
+  // ANALYTICS: SADECE "bir soru gönderildi" sinyali - soru METNİ, AI Coach context'i
+  // (buildAICoachContext/financialSnapshot) veya cevabın kendisi KESİNLİKLE gönderilmez.
+  analytics.track(ANALYTICS_EVENTS.AI_COACH_QUESTION_SENT);
   setAiChatBusy(true);
   try{
     if(canUseRealAICoach()) await askCoachAI(q);
@@ -14227,6 +14626,9 @@ document.getElementById('addGoalBtn').addEventListener('click', ()=>{
     priceInflationPct: inflationEl ? (parseFloat(inflationEl.value)||0) : null,
   });
   document.getElementById('goalForm').style.display = 'none'; // ekledikten sonra formu kapat
+  // ANALYTICS: yalnızca hedef TÜRÜ (mevcut, güvenli bir kimlik - ör. 'ev','araba','diger')
+  // gönderilir - hedefin tutarı/adı/tarihi/notu ASLA gönderilmez.
+  analytics.track(ANALYTICS_EVENTS.GOAL_CREATED, {goal_type: goalType});
   persist(); render(); showToast(t('msg-hedef-eklendi'));
 });
 /* Hedef formu da katlanır: hedef ekleme nadir bir işlem, mevcut hedeflerin durumuna bakmak ise sık.
@@ -14687,8 +15089,10 @@ document.getElementById('csvApproveBtn').addEventListener('click', ()=>{
       applyCardPayment(card, t.amount); // güncel borcu ve varsa kesilmiş ekstre borcunu birlikte düşer
       addedPayment += t.amount;
     } else if(t.isRefund){
-      // İade: bir harcama olarak EKLEME; kart bakiyesini azalt ve gelecekteki net harcama hesabını doğru tut
-      applyCardPayment(card, t.amount);
+      // İade: bir harcama olarak EKLEME; kart bakiyesini azalt ve gelecekteki net harcama hesabını doğru tut.
+      // P1 denetim notu: iade nakit çıkışı DEĞİLDİR (kullanıcının cebinden o ay para çıkmaz), bu yüzden
+      // gerçek kart ödemesi günlüğüne (dolayısıyla monthlyDebtPayments() nakit akışına) yazılmaz.
+      applyCardPayment(card, t.amount, '', { countsAsCashPayment: false });
       addedRefund += t.amount;
     } else {
       month.expenses.push({
@@ -16060,6 +16464,10 @@ function openGoalAfford(goalId){
       financing: null, recurringMonthlyCost: 0, targetDateStr: g.targetDate||null, goalId: g.id,
     }, excludeGoalId: g.id});
   }catch(e){ result.decision = null; }
+  // ANALYTICS: yalnızca "bir hesaplama yapıldı" sinyali - hiçbir tutar/DecisionResult DEĞERİ
+  // (fiyat, peşinat, r.decision.answerCategory dahi) burada gönderilmez; kategori özeti
+  // (decision_category) yalnızca renderDecisionCategoryBadge() içinde, gösterildiği anda gider.
+  analytics.track(ANALYTICS_EVENTS.AFFORDABILITY_CALCULATED);
   affordLastResult = result;
   affordLastGoalId = goalId;
   affordScenarioAmounts = null;
@@ -16095,6 +16503,7 @@ function openAdHocAffordEntry(){
     const el = document.getElementById(id); if(el) el.innerHTML = '';
   });
   renderAdHocAffordForm();
+  analytics.track(ANALYTICS_EVENTS.AFFORDABILITY_FORM_STARTED);
   window.scrollTo(0,0);
 }
 // Ad-hoc form alanlarını (parseFormattedNumber ile - Hızlı Ekle ve senaryo formuyla AYNI
@@ -16157,6 +16566,9 @@ function renderDecisionCategoryBadge(r){
   el.innerHTML = `<div class="afford-decision-card ${cls}" style="margin-top:10px;">
     <div class="afford-decision-title">${escapeHtml(decisionCategoryLabel(d.answerCategory, d.affordabilityDate, en))}</div>
   </div>`;
+  // ANALYTICS: gönderilen TEK bilgi, Decision Engine'in zaten sabit 5 kategorisinden biridir
+  // (answerCategory) - hiçbir tutar/tarih/finansal alan taşınmaz.
+  analytics.track(ANALYTICS_EVENTS.DECISION_RESULT_VIEWED, {decision_category: d.answerCategory});
 }
 // AD-HOC KARAR (Decision Engine V1 UI entegrasyonu, kullanıcı zorunlu düzeltmesi #16):
 // openGoalAfford ile AYNI panel/DOM elemanlarını, AYNI computeAffordability()/renderAffordResult()
@@ -16193,6 +16605,8 @@ function openAdHocPurchaseDecision(purchaseOpts){
     }});
   }catch(e){ result.decision = null; }
 
+  // ANALYTICS: bkz. openGoalAfford() içindeki AYNI notu - yalnızca "hesaplama yapıldı" sinyali.
+  analytics.track(ANALYTICS_EVENTS.AFFORDABILITY_CALCULATED);
   affordLastResult = result;
   affordLastGoalId = null; // ad-hoc: gerçek bir hedefe bağlı değil
   affordScenarioAmounts = null;
@@ -16452,14 +16866,24 @@ function renderAffordFinancing(r){
       <div class="strategy-col">
         <div class="strategy-col-title">${yolculukIkonSvg('banka',15)} ${en?'Bank Financing':'Banka Finansmanı'}</div>
         <p class="afford-hint" style="margin:0 0 6px;">${en?'Planning assumption, not a real offer — edit to match yours:':'Planlama varsayımı, gerçek bir teklif değil — kendi rakamınla değiştir:'}</p>
+        <!-- P2 denetim düzeltmesi (girdi semantiği): bu alanlarda YALNIZCA placeholder vardı, ama
+             her birinin ÖN TANIMLI bir değeri de var (4.5 / 24) - placeholder değer varken
+             GÖRÜNMEZ. Kullanıcı ekranda çıplak "4.5" ve "24" görüyordu ("4.5 ne?"). Görünür
+             etiket eklendi; placeholder'lar ve değerler aynen korundu. -->
+        <label class="afford-field-label" for="affordBankRate">${en?'Monthly interest rate (%)':'Aylık faiz oranı (%)'}</label>
         <div class="form-row" style="margin:6px 0;"><input id="affordBankRate" type="number" inputmode="decimal" step="0.1" min="0" placeholder="${en?'Monthly rate %':'Aylık faiz %'}" value="4.5"></div>
+        <label class="afford-field-label" for="affordBankTerm">${en?'Term (months)':'Vade (ay)'}</label>
         <div class="form-row" style="margin:6px 0;"><input id="affordBankTerm" type="number" inputmode="numeric" min="1" placeholder="${en?'Term (months)':'Vade (ay)'}" value="24"></div>
         <div id="affordBankResult"></div>
       </div>
       <div class="strategy-col">
         <div class="strategy-col-title">${yolculukIkonSvg('ev',15)} ${en?'Savings Organization':'Tasarruf Finansmanı'}</div>
         <p class="afford-hint" style="margin:0 0 6px;">${en?'Planning assumption, not a real offer — edit to match yours:':'Planlama varsayımı, gerçek bir teklif değil — kendi rakamınla değiştir:'}</p>
+        <!-- P2 denetim düzeltmesi: bkz. Banka Finansmanı kartındaki aynı not - çıplak "12" ve
+             ön tanımlı aylık ödeme tutarı etiketsiz görünüyordu. -->
+        <label class="afford-field-label" for="affordOrgFee">${en?'Organization fee (%)':'Organizasyon ücreti (%)'}</label>
         <div class="form-row" style="margin:6px 0;"><input id="affordOrgFee" type="number" inputmode="decimal" step="0.5" min="0" placeholder="${en?'Org. fee %':'Organizasyon ücreti %'}" value="12"></div>
+        <label class="afford-field-label" for="affordOrgMonthly">${en?`Monthly payment (${CUR})`:`Aylık ödeme (${CUR})`}</label>
         <div class="form-row" style="margin:6px 0;"><input id="affordOrgMonthly" type="text" class="money-input" inputmode="decimal" placeholder="${en?'Monthly payment':'Aylık ödeme'}" value="${affordOrgDefaultMonthly}"></div>
         <div id="affordOrgResult"></div>
       </div>
@@ -16484,7 +16908,18 @@ function renderAffordFinancing(r){
       <div class="strategy-stat"><span>${en?'Financing payment total (excl. down payment)':'Finansman ödeme toplamı (peşinat hariç)'}</span><b>${CUR}${fmt(res.totalCost)}</b></div>
       <div class="strategy-stat"><span>${en?'Total cash outlay incl. down payment':'Peşinat dahil toplam nakit çıkışı'}</span><b>${CUR}${fmt(totalCashOutlay)}</b></div>
       <div class="strategy-stat"><span>${isOrg?(en?'Est. duration':'Tahmini süre'):(en?'Cash-flow impact':'Nakit akışına etkisi')}</span><b>${isOrg ? res.months+' '+(en?'mo':'ay') : (impactPct!=null?yzd(impactPct):'—')}</b></div>
-      <div class="strategy-stat"><span>${en?'Risk level':'Risk seviyesi'}</span><b class="${risk.cls}">${risk.label}</b></div>`;
+      <div class="strategy-stat"><span>${en?'Risk level':'Risk seviyesi'}</span><b class="${risk.cls}">${risk.label}</b></div>
+      ${/* P2 denetim düzeltmesi (muhasebesel şeffaflık): tasarruf finansmanında süre
+            Math.ceil(toplam/aylık) ile YUKARI yuvarlanıyor, yani SON TAKSİT genelde kısmi bir
+            ödemedir. Kullanıcı "27 ay" ile "toplam 1.680.000"i yan yana görüp 27 × 62.500 =
+            1.687.500 diye çarpınca ₺7.500'lük bir "tutarsızlık" buluyordu - oysa matematik
+            doğru, sadece son taksidin kısmi olduğu SÖYLENMİYORDU. Hesap DEĞİŞMEDİ; yalnızca
+            fark açıkça yazılıyor. */''}
+      ${(isOrg && res.months>0 && res.monthlyBurden>0 && (res.monthlyBurden*res.months - res.totalCost) > 0.5)
+        ? `<p class="afford-hint" style="margin:6px 0 0;">${en
+            ? `The last installment is partial: ${res.months-1} × ${CUR}${fmt(res.monthlyBurden)} + a final ${CUR}${fmt(res.totalCost - res.monthlyBurden*(res.months-1))} = ${CUR}${fmt(res.totalCost)} in total.`
+            : `Son taksit kısmidir: ${res.months-1} × ${CUR}${fmt(res.monthlyBurden)} + son ödeme ${CUR}${fmt(res.totalCost - res.monthlyBurden*(res.months-1))} = toplam ${CUR}${fmt(res.totalCost)}.`}</p>`
+        : ''}`;
   };
   const updateBank = ()=>{
     const rate = parseFloat(document.getElementById('affordBankRate').value)||0;
@@ -16531,6 +16966,10 @@ function renderAffordShare(r){
       a.href = url; a.download = `fullbudget-analiz-${(r.category&&r.category.key)||affordLastGoalId||'hedef'}.png`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
+      // ANALYTICS: kartın kendisi (görsel/PNG) veya içindeki metinler ASLA gönderilmez -
+      // yalnızca "bir paylaşım kartı üretildi" sinyali + var olan 5 kategoriden biri.
+      analytics.track(ANALYTICS_EVENTS.SHARE_CARD_GENERATED,
+        r.decision && r.decision.answerCategory ? {decision_category: r.decision.answerCategory} : undefined);
     }, 'image/png');
   });
 }
@@ -17468,6 +17907,13 @@ function setTab(tab, fbNavOpts){
   // P1-7: değişiklikten ÖNCEKİ aktif sekmeyi yakala - history girdisi geri
   // dönülecek sekmeyi bilmek için buna ihtiyaç duyar.
   const _prevTab = aktifYaprak();
+  // ANALYTICS: AI Coach sekmesine giden TEK yol burasıdır (nav çekmecesi/alt şerit "Finans Koçu"
+  // ve arama kısayolları hepsi setTab() üzerinden geçer) - tek bir merkezi kancadır, her giriş
+  // noktasına ayrı ayrı analytics çağrısı SERPİLMEZ. Yalnızca gerçek bir sekme DEĞİŞİMİNDE
+  // (zaten coach'tayken yeniden render tetiklenmesinde DEĞİL) tetiklenir.
+  if(tab==='coach' && _prevTab!==tab){
+    analytics.track(ANALYTICS_EVENTS.AI_COACH_OPENED, {ai_entry_point:'navigation'});
+  }
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.dataset.tab===tab));
   const g = grupBul(tab);
   grupSonYaprak[g.id] = tab;
@@ -17505,6 +17951,7 @@ function aktifYaprak(){
 // "Sor"/"Analiz Et") AYNI mantığı birebir kullanır - yeni bir hesaplama/akış İCAT EDİLMEDİ, sadece
 // iki giriş noktası artık AYNI iki fonksiyona (openGoalAfford / openAdHocAffordEntry) yönleniyor.
 function navAlabilirMiAc(){
+  analytics.track(ANALYTICS_EVENTS.AFFORDABILITY_OPENED, {entry_point:'navigation'});
   const primary = pickPrimaryGoal();
   if(primary){
     const type = GOAL_TYPES.find(tp=>tp.key===primary.g.typeKey)||GOAL_TYPES[0];
@@ -18153,6 +18600,9 @@ document.addEventListener('click', (e)=>{
 });
 
 loadState().then(()=>{
+  // ANALYTICS: uygulama durumu yüklenip ilk render tamamlandığında bir kez tetiklenir.
+  // Hiçbir finansal veri taşımaz - sadece "bir oturum açıldı" sinyali.
+  analytics.track(ANALYTICS_EVENTS.APP_OPENED);
   /* ÖNCEDEN VAR OLAN HATA: applySectionOrder yukarıda, betik ayrıştırılırken çalışıyor —
      yani loadState() daha çözülmeden. O anda persistent.sectionOrder henüz boş olduğu için
      hep DEFAULT_SECTION_ORDER uygulanıyordu; kullanıcının "bölüm düzenle" ile yaptığı sıra
