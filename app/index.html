@@ -2722,6 +2722,16 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <div class="card card-featured"><div id="priorityBox"></div></div>
   </div>
 
+  <!-- DECISION ENGINE v2 — "Bu ay paramla ne yapmalıyım?" sorusuna YAPISAL cevap. YUKARIDAKİ
+       "Bu Ay Ne Yapmalısın?" kartının (computePriorityPlan) YERİNE GEÇMEZ, onu tekrar etmez:
+       burada gösterilen kullanılabilir/korunan/dağıtılabilir tutar kırılımı ve öncelik nedenleri
+       AYRI bir yapısal katmandan (runDecisionEngineV2, bkz. JS "DECISION ENGINE v2" bloğu) gelir,
+       ama AYNI canonical nakit akışı/borç/hedef verisini okur — yeni bir finansal hesap YOK. -->
+  <div class="reorder-section" data-section="karar-motoru-v2"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
+  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M4 19h16M7 15v4M12 10v9M17 6v13"/></svg></span><span data-i18n="karar-v2-baslik">Nakit Akışı Karar Özeti</span></p>
+  <div class="card"><div id="decisionEngineV2Box"></div></div>
+  </div>
+
   <!-- BUGÜN BİLMEN GEREKENLER — eskiden .networth-hero'nun içinde küçük bir "2 acil uyarı" rozetiydi;
        tıklanınca açılan .info-badge-pop, align-right + sabit 250px genişlik yüzünden dar ekranlarda
        ekranın SOLUNA taşıp okunamaz hale geliyordu. Artık kendi bölümü: en fazla 3 madde (öncelik
@@ -4276,6 +4286,7 @@ const TRANSLATIONS = {
   'borc-plan': {tr:'Borç Ödeme Planı', en:'Debt Payoff Plan'},
   'borclar': {tr:'Borçların', en:'Your Debts'},
   'bu-ay-plan': {tr:'Bu Ay Ne Yapmalısın?', en:'What To Do This Month?'},
+  'karar-v2-baslik': {tr:'Nakit Akışı Karar Özeti', en:'Cash Flow Decision Summary'},
   'bu-ayki-harcama': {tr:'Bu ayki harcamalar', en:'This Month\'s Expenses'},
   'bugunku-butce': {tr:'Bugünkü Güvenli Bütçen', en:'Safe to Spend Today'},
   'dolar-kur': {tr:'Döviz Borcu Kur Senaryoları', en:'FX Debt Exchange Rate Scenarios'},
@@ -9334,6 +9345,9 @@ function render(){
   renderGoalCapacityCheck();
   const priorityResult = _planCache;   // yukarıda bir kez kuruldu, ikinci kez hesaplanmaz
   renderPriorityPlan(priorityResult, monthlyCashFlow);
+  // Decision Engine v2: AYRI, ek bir yapısal katman — computePriorityPlan/_planCache'in yerine
+  // geçmez, onu tekrar hesaplamaz; kendi canonical snapshot'ını (buildMonthlySnapshot) okur.
+  renderDecisionEngineV2();
   guncelleKararOzeti(priorityResult, safeDaily, income);
   // Bugünün Para Görevi: AYNI priorityResult'tan besleniyor, ikinci bir hesaplama yok.
   renderMoneyTaskCard(ensureTodaysMoneyTask(priorityResult));
@@ -12062,6 +12076,300 @@ function _planKur(monthlyCashFlow){
       reason: riskNote || (en ? 'No urgent debt/emergency-fund/goal priority left this month — this amount is available to invest.' : 'Bu ay öncelikli borç/acil fon/hedef kalmadı — bu tutar yatırıma açık.')});
   }
   return {steps, investable, hedefeAyrilabilir, monthlyCashFlow};
+}
+
+/* =========================================================
+   DECISION ENGINE v2 — "Bu ay paramla ne yapmalıyım?"
+   -----------------------------------------------------------------------
+   AMAÇ: computePriorityPlan() (yukarıda) hâlâ Bugünün Para Görevi'nin TEK oyunlaştırılmış
+   adımını besliyor ve ona DOKUNULMADI. Bu blok, AYNI canonical finansal gerçeği (Finance Core /
+   allDebts / estimateMonthlyEssential / computeGoalInfo / getFinancialAlerts / mevduatAylikBilesikNet)
+   okuyup, YAPISAL, test edilebilir, "what-if" destekleyen AYRI bir karar katmanı üretir:
+     buildMonthlySnapshot() → global durumu (persistent/month) okur, düz bir DecisionInput'a çevirir.
+     runDecisionEngineV2(snapshot) → SAF fonksiyondur: yalnızca kendisine verilen snapshot'ı okur,
+       persistent/month'a ASLA dokunmaz. Böylece bir "what-if" senaryosu (runWhatIfScenario) gerçek
+       kullanıcı verisini mutasyona uğratmadan, snapshot'ın bir KOPYASI üzerinde çalışabilir.
+   HİÇBİR finansal değer burada İCAT EDİLMEZ: her tutar zaten var olan bir fonksiyondan okunur.
+   Faiz oranı/getiri/enflasyon gibi hiçbir sabit burada YENİDEN tanımlanmaz — mevduatAylikBilesikNet()
+   gibi zaten var olan tek referans yeniden kullanılır. Yatırım için SPESİFİK bir yüzde/getiri
+   dağılımı İCAT EDİLMEZ (bkz. P4 aksiyonu) — bu, "AI'ı finansal gerçeğin kaynağı yapma" ilkesiyle
+   aynı gerekçeye dayanır: veri yoksa/yetersizse uydurma tavsiye yerine nötr bilgi verilir. */
+const DECISION_STATUS = Object.freeze({
+  NEEDS_MORE_DATA: 'needs_more_data',
+  NEGATIVE_CASH_FLOW: 'negative_cash_flow',
+  PROTECT_LIQUIDITY: 'protect_liquidity',
+  DEBT_PRIORITY: 'debt_priority',
+  GOAL_PRIORITY: 'goal_priority',
+  SAFE_TO_ALLOCATE: 'safe_to_allocate',
+});
+
+/* Global durumu okuyan TEK nokta. Aşağısı (runDecisionEngineV2) bundan sonra HİÇBİR globale
+   dokunmaz — bu ayrım, what-if senaryolarının gerçek veriyi asla mutasyona uğratmamasını sağlar. */
+function buildMonthlySnapshot(){
+  const income = totalIncome();
+  // TEK kaynak: getAffordCapacityInfo() zaten Decision Engine v1'in (Alabilir miyim?) kullandığı
+  // canonical kapasite hesabı — monthlyCashFlow, emergencyTarget3, liquid, emergencyGap, emergencyReserve
+  // burada YENİDEN hesaplanmaz, doğrudan okunur.
+  const cap = getAffordCapacityInfo();
+  const debts = allDebts().map(d => ({
+    id: d.id, kind: d.kind, label: d.label, balanceTL: Number(d.balanceTL) || 0, rate: Number(d.rate) || 0,
+    fixedSchedule: !!d.fixedSchedule,
+    // Kredi kartı gerçek ödeme modeli (bkz. allDebts()): gerçek ödeme varsa onu, yoksa tahmini
+    // kullanır — burada da AYNI alan okunur, ikinci bir "ödeme" kavramı İCAT EDİLMEZ.
+    cashFlowPaymentTL: Number(d.cashFlowPaymentTL != null ? d.cashFlowPaymentTL : d.paymentTL) || 0,
+    paymentIsEstimated: !!d.paymentIsEstimated,
+  }));
+  // "Gelirimi Artır" hedefi bir birikim hedefi değildir (computePriorityPlan ile AYNI istisna,
+  // bkz. yukarısı) — aylık nakit akışı tahsisiyle YARIŞMAZ.
+  const activeGoals = (persistent.goals || []).filter(g => g.typeKey !== 'gelirartir');
+  const goals = activeGoals.map(g => {
+    const info = computeGoalInfo(g);
+    return {
+      id: g.id, name: goalDisplayName(g),
+      neededTotal: Number(info.neededTotal) || 0, alreadySaved: Number(info.alreadySaved) || 0,
+      gap: Number(info.gap) || 0, monthsLeft: info.monthsLeft,
+      requiredMonthly: (info.requiredMonthly != null && isFinite(info.requiredMonthly)) ? info.requiredMonthly : null,
+      dateExpired: !!info.dateExpired,
+    };
+  });
+  const criticalAlerts = getFinancialAlerts().filter(a => a.severity === 'critical').map(a => ({
+    title: a.title,
+    reason: a.tooltip ? [a.tooltip.why, a.tooltip.meaning, a.tooltip.action].filter(Boolean).join(' ') : '',
+  }));
+  return {
+    income,
+    monthlyCashFlow: Number(cap.monthlyCashFlow) || 0,
+    liquid: Number(cap.liquid) || 0,
+    emergencyTarget3: Number(cap.emergencyTarget3) || 0,
+    emergencyGap: Number(cap.emergencyGap) || 0,
+    emergencyReserve: Number(cap.emergencyReserve) || 0,
+    debtPay: Number(monthlyDebtPayments()) || 0,
+    debts, goals, criticalAlerts,
+    depositMonthlyRate: Number(mevduatAylikBilesikNet()) || 0,
+    riskProfile: activeRiskProfile || null,
+  };
+}
+
+/* Bir hedefin bu ayki tahsisata göre etkisini özetler. gap/monthsLeft/requiredMonthly zaten
+   computeGoalInfo()'dan geldi (bkz. buildMonthlySnapshot) — burada yalnızca "BU tahsisatla kaç ay
+   sürer" gibi basit bölme yapılır, YENİ bir finansal varsayım eklenmez. */
+function decisionGoalImpactEntry(g, allocatedThisMonth){
+  const gap = Number(g.gap) || 0;
+  const projectedMonthsAtThisAllocation = gap <= 0 ? 0 : (allocatedThisMonth > 0 ? Math.ceil(gap / allocatedThisMonth) : null);
+  return {
+    goalId: g.id, name: g.name, neededTotal: g.neededTotal, alreadySaved: g.alreadySaved, gap,
+    monthsLeft: g.monthsLeft, requiredMonthly: g.requiredMonthly, allocatedThisMonth,
+    projectedMonthsAtThisAllocation,
+    underfunded: g.requiredMonthly != null && allocatedThisMonth < (g.requiredMonthly * 0.99),
+  };
+}
+
+/* SAF FONKSİYON: yalnızca `snapshot` parametresini okur, hiçbir globale (persistent/month/
+   _planCache) YAZMAZ ve onları OKUMAZ. Bu yüzden runWhatIfScenario() bunu bir kopya üzerinde
+   güvenle çağırabilir. Deterministiktir: aynı snapshot her zaman aynı DecisionResult'ı üretir. */
+function runDecisionEngineV2(snapshot){
+  snapshot = snapshot || {};
+  const en = currentLang === 'en';
+  const income = Number(snapshot.income) || 0;
+  const availableCash = Number(snapshot.monthlyCashFlow) || 0;
+  const actions = [];
+
+  // NEEDS_MORE_DATA: hiç gelir yoksa hiçbir tahsis önerilemez — uydurmak yerine açıkça söylenir.
+  if (income <= 0) {
+    return {
+      status: DECISION_STATUS.NEEDS_MORE_DATA,
+      summary: en ? 'No income recorded yet — add this month’s income to get a plan.' : 'Henüz gelir girilmedi — bir plan üretebilmek için bu ayın gelirini gir.',
+      availableCash: 0, protectedCash: 0, distributableCash: 0,
+      actions: [], warnings: [], goalImpact: [], explanations: [],
+    };
+  }
+
+  // P0 — BİLGİLENDİRME, TAHSİS DEĞİL: bu tutarlar Finance Core'un monthlyDebtPayments() içinde
+  // zaten `availableCash`'ten düşülmüş durumda (bkz. computeCashFlowSummary). Burada AYRICA
+  // `remaining`den düşülmezler — aksi halde aynı ödeme iki kez sayılırdı (denetim kuralı).
+  (snapshot.debts || []).filter(d => d.cashFlowPaymentTL > 0).forEach(d => {
+    actions.push({
+      type: 'debt_payment', priority: 'P0', amount: d.cashFlowPaymentTL,
+      title: en ? `Cover payment: ${d.label}` : `${d.label} ödemesini karşıla`,
+      reason: d.paymentIsEstimated
+        ? (en ? 'Estimated monthly obligation (no real payment recorded yet this month).' : 'Tahmini aylık yükümlülük (bu ay için henüz gerçek bir ödeme kaydı yok).')
+        : (en ? 'A real payment was already recorded this month.' : 'Bu ay için gerçek bir ödeme zaten kaydedildi.'),
+      impact: en ? 'Already subtracted from this month’s available cash — never allocated a second time.' : 'Bu ayki kullanılabilir tutardan zaten düşüldü — ikinci kez tahsis edilmez.',
+      confidence: d.paymentIsEstimated ? 'estimated' : 'actual',
+      relatedGoalId: null, relatedDebtId: d.id,
+    });
+  });
+  (snapshot.criticalAlerts || []).forEach(a => {
+    actions.push({
+      type: 'critical_alert', priority: 'P0', amount: 0, title: a.title, reason: a.reason,
+      impact: en ? 'Resolve this before committing new money elsewhere.' : 'Başka bir yere yeni para taahhüt etmeden önce bunu çöz.',
+      confidence: 'actual', relatedGoalId: null, relatedDebtId: null,
+    });
+  });
+
+  if (availableCash <= 0) {
+    return {
+      status: DECISION_STATUS.NEGATIVE_CASH_FLOW,
+      summary: en ? 'Your income does not cover this month’s expenses and debt payments.' : 'Gelirin, bu ayki gider ve borç ödemelerini karşılamıyor.',
+      availableCash, protectedCash: 0, distributableCash: 0,
+      actions,
+      warnings: [en ? 'Negative cash flow — avoid committing new money until this is resolved.' : 'Negatif nakit akışı — bu düzelmeden yeni para taahhüt etme.'],
+      goalImpact: (snapshot.goals || []).map(g => decisionGoalImpactEntry(g, 0)),
+      explanations: [],
+    };
+  }
+
+  let remaining = availableCash;
+
+  // P1 — likidite koruması (acil fon açığı). Formül zaten canonical: getAffordCapacityInfo().emergencyReserve.
+  const protectedCash = Math.max(0, Math.min(remaining, Number(snapshot.emergencyReserve) || 0));
+  if (protectedCash > 1) {
+    actions.push({
+      type: 'liquidity_protection', priority: 'P1', amount: protectedCash,
+      title: en ? 'Add to emergency reserve' : 'Acil durum rezervine ekle',
+      reason: en ? `Liquid assets are below the 3-month essential expense target (short by ${fmt(snapshot.emergencyGap)}).` : `Likit varlığın 3 aylık zorunlu gider hedefinin altında (${fmt(snapshot.emergencyGap)} eksik).`,
+      impact: en ? 'Reduces the risk of needing high-interest debt for an unexpected expense.' : 'Beklenmedik bir giderde yüksek faizli borca başvurma riskini azaltır.',
+      confidence: 'actual', relatedGoalId: null, relatedDebtId: null,
+    });
+    remaining -= protectedCash;
+  }
+
+  // P2 — mevduat net getirisinden pahalı, esnek (sabit taksitli olmayan) borç. Referans oranı
+  // mevduatAylikBilesikNet() — Money Task / AI Coach ile AYNI kaynak, burada icat edilmedi.
+  const depositRate = Number(snapshot.depositMonthlyRate) || 0;
+  const expensiveDebt = (snapshot.debts || [])
+    .filter(d => !d.fixedSchedule && d.rate > depositRate && d.balanceTL > 0)
+    .sort((a, b) => b.rate - a.rate)[0];
+  let debtAllocated = 0;
+  if (expensiveDebt && remaining > 0) {
+    const amt = Math.min(remaining * 0.5, expensiveDebt.balanceTL);
+    if (amt > 1) {
+      debtAllocated = amt;
+      actions.push({
+        type: 'debt_reduction', priority: 'P2', amount: amt,
+        title: en ? `Extra payment: ${expensiveDebt.label}` : `${expensiveDebt.label} borcuna ekstra ödeme`,
+        reason: en ? `Its monthly rate (${expensiveDebt.rate}%) is above deposit returns (~${depositRate.toFixed(1)}%/mo).` : `Aylık faizi (${yzd(expensiveDebt.rate)}) mevduat getirisinin (~aylık ${yzd(depositRate.toFixed(1))}) üzerinde.`,
+        impact: en ? 'Mathematically the highest-return use of this money among your current debts.' : 'Mevcut borçların arasında bu para için matematiksel olarak en yüksek getirili kullanım.',
+        confidence: 'actual', relatedGoalId: null, relatedDebtId: expensiveDebt.id,
+      });
+      remaining -= amt;
+    }
+  }
+
+  // P3 — en yakın/aciliyeti en yüksek hedef. Sıralama computePriorityPlan ile AYNI kural
+  // (süresi geçmiş > en az ayı kalan), yeni bir öncelik mantığı icat edilmedi.
+  const goalsWithGap = (snapshot.goals || []).filter(g => g.requiredMonthly > 0).sort((a, b) => {
+    const am = a.dateExpired ? -1 : (a.monthsLeft ?? 9999);
+    const bm = b.dateExpired ? -1 : (b.monthsLeft ?? 9999);
+    return am - bm;
+  });
+  let goalAllocated = 0, chosenGoal = null;
+  if (goalsWithGap.length && remaining > 0) {
+    chosenGoal = goalsWithGap[0];
+    const amt = Math.min(remaining * 0.5, chosenGoal.requiredMonthly);
+    if (amt > 1) {
+      goalAllocated = amt;
+      actions.push({
+        type: 'goal_contribution', priority: 'P3', amount: amt,
+        title: en ? `Set aside for ${chosenGoal.name}` : `${chosenGoal.name} için ayır`,
+        reason: en ? `About ${fmt(chosenGoal.requiredMonthly)}/mo is needed to reach this goal on schedule.` : `Bu hedefe zamanında ulaşman için ayda ~${fmt(chosenGoal.requiredMonthly)} gerekiyor.`,
+        impact: en ? 'Keeps this goal on its planned timeline.' : 'Bu hedefi planlanan zaman çizelgesinde tutar.',
+        confidence: 'actual', relatedGoalId: chosenGoal.id, relatedDebtId: null,
+      });
+      remaining -= amt;
+    }
+  }
+
+  // P4/P5 — kalan tutar: yatırım/uzun vadeli birikim VEYA serbest kullanım. Bu ikisi tek bir
+  // eylemde birleştirilir çünkü uygulamada "isteğe bağlı harcama bütçesi" diye ayrı bir veri yok
+  // (icat etmemek için: gerçek veri yoksa uydurma bir ayrım yapmamak tercih edildi). Spesifik bir
+  // yatırım yüzdesi/getiri oranı İCAT EDİLMEZ — yalnızca risk profili biliniyorsa buna işaret edilir.
+  if (remaining > 1) {
+    actions.push({
+      type: 'remaining_allocation', priority: 'P4', amount: remaining,
+      title: en ? 'Remaining amount' : 'Kalan tutar',
+      reason: snapshot.riskProfile
+        ? (en ? `No urgent debt/liquidity/goal need is left this month — see the Investing tab for options that fit your "${snapshot.riskProfile}" risk profile, or use it freely.` : `Bu ay öncelikli borç/likidite/hedef ihtiyacı kalmadı — "${snapshot.riskProfile}" risk profiline uygun seçenekler için Yatırım sekmesine bak, ya da serbestçe kullan.`)
+        : (en ? 'No urgent need is left this month. Set a risk profile in the Investing tab for a personalized note.' : 'Bu ay öncelikli bir ihtiyaç kalmadı. Kişiselleştirilmiş bir not için Yatırım sekmesinden risk profilini belirle.'),
+      impact: en ? 'Available for investing or discretionary use — the choice is yours.' : 'Yatırım ya da serbest kullanım için uygun — tercih sana ait.',
+      confidence: 'actual', relatedGoalId: null, relatedDebtId: null,
+    });
+  }
+
+  const goalImpact = (snapshot.goals || []).map(g => decisionGoalImpactEntry(g, (chosenGoal && g.id === chosenGoal.id) ? goalAllocated : 0));
+
+  // Durum: bu ay baskın olan önceliği adlandırır — yeni bir hesap değil, yukarıdaki tahsisatların
+  // hangisinin en büyük pay aldığının okunmasıdır.
+  let status = DECISION_STATUS.SAFE_TO_ALLOCATE;
+  if (protectedCash > 1 && protectedCash >= Math.max(debtAllocated, goalAllocated)) status = DECISION_STATUS.PROTECT_LIQUIDITY;
+  else if (debtAllocated > 1 && debtAllocated >= goalAllocated) status = DECISION_STATUS.DEBT_PRIORITY;
+  else if (goalAllocated > 1) status = DECISION_STATUS.GOAL_PRIORITY;
+
+  return {
+    status,
+    summary: en ? `${fmt(availableCash)} available this month.` : `Bu ay ${fmt(availableCash)} kullanılabilir.`,
+    availableCash, protectedCash, distributableCash: Math.max(0, availableCash - protectedCash),
+    actions, warnings: [], goalImpact, explanations: [],
+  };
+}
+
+/* Kullanım kolaylığı: canlı (gerçek) durumdan bir DecisionResult üretir. UI bunu çağırır. */
+function runMonthlyDecisionEngineLive(){
+  return runDecisionEngineV2(buildMonthlySnapshot());
+}
+
+/* STEP 7 — WHAT-IF/SENARYO DESTEĞİ: `baseSnapshot`'ı ASLA mutasyona uğratmaz (derin kopya üzerinde
+   çalışır) — gerçek kullanıcı verisi bu fonksiyon çağrıldığında DEĞİŞMEZ. `delta`:
+     cashFlowDelta      → "bu ay X TL daha biriktirirsem/harcarsam ne değişir" (ör. +10000, -5000)
+     prioritizeDebtId   → "önce şu borcu ödesem" — o borcu P2 sıralamasında öne çıkarır
+   Basit, saf bir dönüşümdür; yeni bir finansal formül İCAT ETMEZ, yalnızca aynı runDecisionEngineV2
+   fonksiyonunu değiştirilmiş bir girdiyle tekrar çağırır. */
+function runWhatIfScenario(baseSnapshot, delta){
+  delta = delta || {};
+  const scenario = JSON.parse(JSON.stringify(baseSnapshot || {}));
+  if (delta.cashFlowDelta) scenario.monthlyCashFlow = (Number(scenario.monthlyCashFlow) || 0) + Number(delta.cashFlowDelta);
+  if (delta.prioritizeDebtId && Array.isArray(scenario.debts)) {
+    const idx = scenario.debts.findIndex(d => d.id === delta.prioritizeDebtId);
+    if (idx >= 0) {
+      const maxRate = Math.max(0, ...scenario.debts.map(d => Number(d.rate) || 0));
+      scenario.debts[idx] = { ...scenario.debts[idx], rate: maxRate + 0.01, fixedSchedule: false };
+    }
+  }
+  return runDecisionEngineV2(scenario);
+}
+
+/* Minimal UI: mevcut "Bu Ay Ne Yapmalısın?" kartının (renderPriorityPlan) YERİNE GEÇMEZ, DOM'una
+   dokunmaz — hemen altındaki AYRI, küçük bir kartı doldurur (bkz. HTML: #decisionEngineV2Box). */
+function renderDecisionEngineV2(){
+  const box = document.getElementById('decisionEngineV2Box');
+  if (!box) return;
+  const en = currentLang === 'en';
+  const result = runMonthlyDecisionEngineLive();
+  const STATUS_LABEL = {
+    needs_more_data: en ? 'Needs more data' : 'Daha fazla veri gerekiyor',
+    negative_cash_flow: en ? 'Negative cash flow' : 'Negatif nakit akışı',
+    protect_liquidity: en ? 'Protect liquidity' : 'Likiditeyi koru',
+    debt_priority: en ? 'Debt priority' : 'Borç önceliği',
+    goal_priority: en ? 'Goal priority' : 'Hedef önceliği',
+    safe_to_allocate: en ? 'Safe to allocate' : 'Tahsis etmek güvenli',
+  };
+  if (result.status === DECISION_STATUS.NEEDS_MORE_DATA) {
+    box.innerHTML = `<p class="empty">${escapeHtml(result.summary)}</p>`;
+    return;
+  }
+  const rows = result.actions.slice(0, 3).map(a => `
+    <div class="hero-row" style="align-items:flex-start;">
+      <span style="max-width:70%;">${escapeHtml(a.title)}${a.confidence === 'estimated' ? ` <i style="color:var(--muted);font-size:var(--fs-xs);">(${en ? 'estimated' : 'tahmini'})</i>` : ''}<br><span style="font-size:var(--fs-xs);color:var(--muted);">${escapeHtml(a.reason || '')}</span></span>
+      ${a.amount > 0 ? `<b>${CUR}${fmt(a.amount)}</b>` : ''}
+    </div>`).join('');
+  const negative = result.status === DECISION_STATUS.NEGATIVE_CASH_FLOW;
+  box.innerHTML = `
+    <div class="hero-row"><span>${en ? 'Status' : 'Durum'}</span><b class="${negative ? 'danger' : 'good'}">${STATUS_LABEL[result.status] || result.status}</b></div>
+    <div class="hero-row"><span>${en ? 'Available this month' : 'Bu ay kullanılabilir'}</span><b>${CUR}${fmt(result.availableCash)}</b></div>
+    ${result.protectedCash > 0 ? `<div class="hero-row hero-row-sub"><span>${en ? 'Protected (liquidity)' : 'Korunan (likidite)'}</span><b>${CUR}${fmt(result.protectedCash)}</b></div>` : ''}
+    <div class="hero-row total"><span>${en ? 'Distributable' : 'Dağıtılabilir'}</span><b>${CUR}${fmt(result.distributableCash)}</b></div>
+    ${rows}
+  `;
 }
 
 /* =========================================================
@@ -18364,7 +18672,7 @@ const DEFAULT_SECTION_ORDER = {
      o kazanır; bu yalnızca varsayılan. */
   /* AŞAMA 3 (brief §13): Aylık Gelir+Gider, "bugün ne kadar harcayabilirim" halkasının
      ÜSTÜNE alındı — kullanıcı önce ayın tablosunu, sonra günün payını görüyor. */
-  home:  ['networth','bugunun-gorevi','ay-defteri','ring','bu-ay-plan','bugun-bilmen-gerekenler','afford-teaser',
+  home:  ['networth','bugunun-gorevi','ay-defteri','ring','bu-ay-plan','karar-motoru-v2','bugun-bilmen-gerekenler','afford-teaser',
           'yaklasan-odemeler','activegoal','son-islemler','hizli-ekle','top5','expense-donut','journey-teaser'],
   /* Kullanıcı isteği: Finans Koçu en üste alındı — Aylık Rapor'un önüne geçti. */
   coach: ['ai-koc-baslik','aylik-rapor','zenginleseme-skoru','net-durum','acil-fon','finansal-yol',
