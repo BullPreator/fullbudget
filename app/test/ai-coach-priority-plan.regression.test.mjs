@@ -26,7 +26,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import http from 'node:http';
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { chromium } from 'playwright';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.join(__dirname, '..', '..'); // repo kökü (app/ ve app/index.html'i içerir)
