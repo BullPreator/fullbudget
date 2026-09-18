@@ -2730,6 +2730,13 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <div class="reorder-section" data-section="karar-motoru-v2"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
   <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M4 19h16M7 15v4M12 10v9M17 6v13"/></svg></span><span data-i18n="karar-v2-baslik">Nakit Akışı Karar Özeti</span></p>
   <div class="card"><div id="decisionEngineV2Box"></div></div>
+  <!-- HEDEF & NAKİT DAĞILIM MOTORU — Decision Engine v2'nin distributableCash'ini TEKRAR
+       HESAPLAMADAN alıp adım adım böler (bkz. JS "GOAL & CASH ALLOCATION ENGINE" bloğu,
+       runGoalCashAllocationEngine()). runDecisionEngineV2()'ye DOKUNULMADI; bu, onun P4
+       ("Kalan tutar") tek satırını YAPISAL bir kırılıma açan AYRI, ek bir katman. Yatırım için
+       hiçbir yüzde/getiri İCAT EDİLMEZ; artan tutar otomatik olarak yatırıma zorlanmaz. -->
+  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg></span><span data-i18n="karar-v2-tahsis-baslik">Bu Ay Paramı Nasıl Bölmeliyim?</span></p>
+  <div class="card"><div id="goalCashAllocationBox"></div></div>
   </div>
 
   <!-- BUGÜN BİLMEN GEREKENLER — eskiden .networth-hero'nun içinde küçük bir "2 acil uyarı" rozetiydi;
@@ -4287,6 +4294,7 @@ const TRANSLATIONS = {
   'borclar': {tr:'Borçların', en:'Your Debts'},
   'bu-ay-plan': {tr:'Bu Ay Ne Yapmalısın?', en:'What To Do This Month?'},
   'karar-v2-baslik': {tr:'Nakit Akışı Karar Özeti', en:'Cash Flow Decision Summary'},
+  'karar-v2-tahsis-baslik': {tr:'Bu Ay Paramı Nasıl Bölmeliyim?', en:'How Should I Split My Money This Month?'},
   'bu-ayki-harcama': {tr:'Bu ayki harcamalar', en:'This Month\'s Expenses'},
   'bugunku-butce': {tr:'Bugünkü Güvenli Bütçen', en:'Safe to Spend Today'},
   'dolar-kur': {tr:'Döviz Borcu Kur Senaryoları', en:'FX Debt Exchange Rate Scenarios'},
@@ -9348,6 +9356,9 @@ function render(){
   // Decision Engine v2: AYRI, ek bir yapısal katman — computePriorityPlan/_planCache'in yerine
   // geçmez, onu tekrar hesaplamaz; kendi canonical snapshot'ını (buildMonthlySnapshot) okur.
   renderDecisionEngineV2();
+  // Goal & Cash Allocation Engine: DE2'nin distributableCash'ini GİRDİ olarak alır, TEKRAR
+  // hesaplamaz — DE2'nin P4 tek satırını çok adımlı bir kırılıma açan ek, ayrı bir katman.
+  renderGoalCashAllocation();
   guncelleKararOzeti(priorityResult, safeDaily, income);
   // Bugünün Para Görevi: AYNI priorityResult'tan besleniyor, ikinci bir hesaplama yok.
   renderMoneyTaskCard(ensureTodaysMoneyTask(priorityResult));
@@ -12150,6 +12161,9 @@ function buildMonthlySnapshot(){
       gap: Number(info.gap) || 0, monthsLeft: info.monthsLeft,
       requiredMonthly: (info.requiredMonthly != null && isFinite(info.requiredMonthly)) ? info.requiredMonthly : null,
       dateExpired: !!info.dateExpired,
+      // GOAL & CASH ALLOCATION ENGINE için: computeGoalInfo() zaten bu ayrımı hesaplıyor (bkz.
+      // fix: clarify home down-payment goal status) — burada YENİDEN hesaplanmaz, aynen aktarılır.
+      isDownPaymentGoal: !!info.isDownPaymentGoal,
     };
   });
   const criticalAlerts = getFinancialAlerts().filter(a => a.severity === 'critical').map(a => ({
@@ -12390,6 +12404,201 @@ function renderDecisionEngineV2(){
     <div class="hero-row total"><span>${en ? 'Distributable' : 'Dağıtılabilir'}</span><b>${CUR}${fmt(result.distributableCash)}</b></div>
     ${rows}
   `;
+}
+
+/* =========================================================
+   GOAL & CASH ALLOCATION ENGINE — "Bu ay dağıtılabilir paramı nasıl bölmeliyim?"
+   -----------------------------------------------------------------------
+   runDecisionEngineV2()'YE DOKUNULMADI ve TEKRAR ÇAĞRILMIYOR — bu, onun sonucunu (özellikle
+   distributableCash/protectedCash/actions) GİRDİ olarak alan, AYRI, ek bir saf fonksiyondur.
+   Amaç: DE2'nin tek satırlık P4 "Kalan tutar" aksiyonunu, aynı canonical veriyi (buildMonthlySnapshot)
+   kullanarak çok adımlı, açıklamalı bir kırılıma açmak — nakit akışı/borç/acil fon/hedef
+   hesaplarının HİÇBİRİ burada YENİDEN YAPILMAZ.
+   ÜRÜN KARARI (onaylandı): kalan tutarın TAMAMI asla otomatik olarak yatırıma zorlanmaz; hiçbir
+   yatırım yüzdesi/getiri oranı İCAT EDİLMEZ; riskProfile yalnızca BAĞLAMSAL bilgi olarak kalır
+   (bir tahsisat büyüklüğü belirlemez). */
+function runGoalCashAllocationEngine(de2, snapshot){
+  de2 = de2 || {}; snapshot = snapshot || {};
+  const en = currentLang === 'en';
+  const allocations = [];
+  const goalImpact = [];
+  const warnings = [];
+
+  // ADIM 1 — Zorunlu/mevcut yükümlülükler: DE2'nin P0 aksiyonlarını AYNEN, bağlam olarak
+  // yansıtır. Yeni bir tutar hesaplanmaz (zaten DE2.distributableCash'ten düşülmüş durumdadır).
+  (de2.actions || []).filter(a => a.priority === 'P0').forEach(a => {
+    allocations.push({
+      type: 'obligation_context', amount: 0, priority: 'P0', reason: a.reason,
+      whatIfSkipped: en ? 'This is already paid or already assumed in this month’s available cash — skipping it here changes nothing; shown for context only.' : 'Bu zaten ödendi ya da bu ayki kullanılabilir tutara zaten dahil edildi — burada atlamak hiçbir şeyi değiştirmez, yalnızca bağlam için gösterilir.',
+      remainingAfterThisStep: null, confidence: a.confidence || 'actual',
+      relatedGoalId: a.relatedGoalId || null, relatedDebtId: a.relatedDebtId || null,
+    });
+  });
+
+  // DE2 zaten "gelir yok" / "negatif nakit akışı" durumlarını netleştirdi — burada TEKRAR
+  // hesaplanmaz, doğrudan devralınır.
+  if (de2.status === DECISION_STATUS.NEEDS_MORE_DATA || de2.status === DECISION_STATUS.NEGATIVE_CASH_FLOW) {
+    return {
+      distributableCash: 0, allocations, unallocatedCash: 0,
+      status: de2.status === DECISION_STATUS.NEEDS_MORE_DATA ? 'needs_more_data' : 'negative_cash_flow',
+      explanation: de2.summary || '',
+      warnings: de2.status === DECISION_STATUS.NEGATIVE_CASH_FLOW ? [...(de2.warnings || [])] : [],
+      goalImpact: [],
+    };
+  }
+
+  const distributableCash = Math.max(0, Number(de2.distributableCash) || 0);
+  let remaining = distributableCash;
+
+  // ADIM 2 — Likidite açığı bilgisi: protectedCash (DE2'nin zaten uyguladığı, tavanlı aylık
+  // "damla") BURADA TEKRAR TAHSİS EDİLMEZ. Sadece açığın ne kadarının hâlâ kapanmadığı, bilgi
+  // amaçlı gösterilir — yeni bir likidite hesabı İCAT EDİLMEZ.
+  const emergencyGap = Number(snapshot.emergencyGap) || 0;
+  const protectedCash = Number(de2.protectedCash) || 0;
+  if (emergencyGap > 0) {
+    const stillShort = Math.max(0, emergencyGap - protectedCash);
+    if (stillShort > 1) {
+      const monthsToClose = protectedCash > 0 ? Math.ceil(stillShort / protectedCash) : null;
+      allocations.push({
+        type: 'liquidity_shortfall_note', amount: 0, priority: 'P1',
+        reason: en ? `This month’s ${CUR}${fmt(protectedCash)} liquidity contribution still leaves ${CUR}${fmt(stillShort)} short of your 3-month target.` : `Bu ayki ${CUR}${fmt(protectedCash)} likidite katkısından sonra hâlâ ${CUR}${fmt(stillShort)} eksik (3 aylık hedefe göre).`,
+        whatIfSkipped: en ? 'Your emergency runway grows more slowly and you stay more exposed to needing high-interest debt for surprises.' : 'Acil durum rezervin daha yavaş büyür, beklenmedik giderlerde yüksek faizli borca başvurma riskin daha uzun sürer.',
+        remainingAfterThisStep: remaining, confidence: 'actual', relatedGoalId: null, relatedDebtId: null,
+      });
+      warnings.push(en
+        ? `Still ${CUR}${fmt(stillShort)} short of your emergency target${monthsToClose ? ` — about ${monthsToClose} more month(s) at this pace` : ''}.`
+        : `Acil fonun hâlâ ${CUR}${fmt(stillShort)} eksik${monthsToClose ? ` — bu tempoyla yaklaşık ${monthsToClose} ay daha sürer` : ''}.`);
+    }
+  }
+
+  // ADIM 3 — Pahalı, esnek borçlar: EN YÜKSEK FAİZDEN başlayarak (avalanche — uygulamanın
+  // simulatePayoff/avalanche sıralamasıyla AYNI mantık), sabit taksitli olmayanlar arasında.
+  // Tavan: 0.5 gibi İCAT EDİLMİŞ bir oran DEĞİL, borcun kendi gerçek bakiyesi (asla fazla ödeme).
+  const depositRate = Number(snapshot.depositMonthlyRate) || 0;
+  const expensiveDebts = (snapshot.debts || [])
+    .filter(d => !d.fixedSchedule && d.rate > depositRate && d.balanceTL > 0)
+    .sort((a, b) => b.rate - a.rate);
+  expensiveDebts.forEach(d => {
+    if (remaining <= 1) return;
+    const amt = Math.min(remaining, d.balanceTL);
+    if (amt <= 1) return;
+    remaining -= amt;
+    allocations.push({
+      type: 'debt_reduction', amount: amt, priority: 'P2',
+      reason: en ? `Its monthly rate (${d.rate}%) is above deposit returns (~${depositRate.toFixed(1)}%/mo).` : `Aylık faizi (${yzd(d.rate)}) mevduat getirisinin (~aylık ${yzd(depositRate.toFixed(1))}) üzerinde.`,
+      whatIfSkipped: en ? `You keep paying ${d.rate}%/mo on this balance instead of reducing it — mathematically the most expensive money left in your plan.` : `Bu bakiye üzerinden aylık ${yzd(d.rate)} ödemeye devam edersin — planındaki matematiksel olarak en pahalı para bu.`,
+      remainingAfterThisStep: remaining, confidence: 'actual', relatedGoalId: null, relatedDebtId: d.id,
+    });
+  });
+
+  // ADIM 4 — Aktif, henüz fonlanmamış hedefler: aciliyet sırasına göre (süresi geçmiş > en az ayı
+  // kalan — computePriorityPlan/DE2 ile AYNI kural), TEK bir hedefle SINIRLI DEĞİL. Zaten fonlanmış
+  // (gap<=0) hedefler sessizce atlanmaz — açık bir bilgilendirme kaydı üretir (bkz. "ev" hedefi
+  // peşinat/tam fiyat ayrımı, isDownPaymentGoal).
+  const goalsSorted = [...(snapshot.goals || [])].sort((a, b) => {
+    const am = a.dateExpired ? -1 : (a.monthsLeft ?? 9999);
+    const bm = b.dateExpired ? -1 : (b.monthsLeft ?? 9999);
+    return am - bm;
+  });
+  goalsSorted.forEach(g => {
+    if (g.gap <= 0) {
+      allocations.push({
+        type: 'goal_already_funded', amount: 0, priority: 'P3',
+        reason: g.isDownPaymentGoal
+          ? (en ? `Down-payment target reached for “${g.name}” — the full purchase price is a separate, larger target.` : `“${g.name}” için peşinat hedefine ulaşıldı — evin tam fiyatı ayrı, daha büyük bir hedef.`)
+          : (en ? `“${g.name}” is already fully funded.` : `“${g.name}” hedefi zaten tamamen fonlandı.`),
+        whatIfSkipped: en ? 'Nothing — this goal needs no further contribution this month.' : 'Hiçbir şey — bu hedef bu ay için ek katkı gerektirmiyor.',
+        remainingAfterThisStep: remaining, confidence: 'actual', relatedGoalId: g.id, relatedDebtId: null,
+      });
+      goalImpact.push(decisionGoalImpactEntry(g, 0));
+      return;
+    }
+    if (remaining <= 1 || !(g.requiredMonthly > 0)) { goalImpact.push(decisionGoalImpactEntry(g, 0)); return; }
+    const amt = Math.min(remaining, g.requiredMonthly);
+    if (amt <= 1) { goalImpact.push(decisionGoalImpactEntry(g, 0)); return; }
+    remaining -= amt;
+    allocations.push({
+      type: 'goal_contribution', amount: amt, priority: 'P3',
+      reason: en ? `About ${CUR}${fmt(g.requiredMonthly)}/mo is needed to reach “${g.name}” on schedule.` : `“${g.name}” hedefine zamanında ulaşman için ayda ~${CUR}${fmt(g.requiredMonthly)} gerekiyor.`,
+      whatIfSkipped: en ? 'This goal falls behind its planned timeline.' : 'Bu hedef planlanan zaman çizelgesinin gerisinde kalır.',
+      remainingAfterThisStep: remaining, confidence: 'actual', relatedGoalId: g.id, relatedDebtId: null,
+    });
+    goalImpact.push(decisionGoalImpactEntry(g, amt));
+  });
+
+  // ADIM 5/6 — Uzun vadeli / esnek kalan: ÜRÜN KARARI GEREĞİ kalanın TAMAMI otomatik olarak
+  // yatırıma ZORLANMAZ, hiçbir yüzde/getiri/spesifik enstrüman İCAT EDİLMEZ. riskProfile sadece
+  // BAĞLAMSAL bilgi olarak metne yansır — bir tahsisat büyüklüğü belirlemez (mevcut miktarın
+  // TAMAMI tek bir "uzun vadeli/esnek" kalem olarak kullanıcıya bırakılır).
+  if (remaining > 1) {
+    const riskProfile = snapshot.riskProfile;
+    allocations.push({
+      type: 'long_term_or_flexible', amount: remaining, priority: 'P4',
+      reason: riskProfile
+        ? (en ? `No more urgent debt/liquidity/goal need this month. This fits your configured "${riskProfile}" risk profile if you choose to invest it — see the Investing tab for options — or you can keep it flexible.` : `Bu ay daha fazla acil borç/likidite/hedef ihtiyacı yok. Yatırmak istersen "${riskProfile}" risk profiline uygun seçenekler için Yatırım sekmesine bakabilirsin — ya da esnek tutabilirsin.`)
+        : (en ? 'No more urgent need this month. Set a risk profile in the Investing tab for a personalized note, or keep this amount flexible.' : 'Bu ay daha fazla acil ihtiyaç yok. Kişiselleştirilmiş bir not için Yatırım sekmesinden risk profili belirleyebilirsin, ya da bu tutarı esnek tutabilirsin.'),
+      whatIfSkipped: en ? 'Nothing is lost by waiting — this amount simply stays flexible until you decide.' : 'Beklemekle hiçbir şey kaybetmezsin — bu tutar sen karar verene kadar esnek kalır.',
+      remainingAfterThisStep: 0, confidence: riskProfile ? 'actual' : 'needs_more_data',
+      relatedGoalId: null, relatedDebtId: null,
+    });
+    remaining = 0;
+  }
+
+  const unallocatedCash = Math.max(0, remaining);
+  let status = 'no_action_needed';
+  if (allocations.some(a => a.type === 'liquidity_shortfall_note')) status = 'liquidity_priority';
+  if (allocations.some(a => a.type === 'debt_reduction')) status = 'debt_priority';
+  if (allocations.some(a => a.type === 'goal_contribution')) status = 'goal_priority';
+  if (status === 'no_action_needed' && allocations.some(a => a.type === 'long_term_or_flexible')) status = 'invest_or_flex';
+
+  const meaningfulCount = allocations.filter(a => a.amount > 0).length;
+  const explanation = distributableCash <= 0
+    ? (en ? 'There is no distributable cash to allocate this month.' : 'Bu ay dağıtılabilecek bir tutar yok.')
+    : (en ? `${CUR}${fmt(distributableCash)} distributable this month, split across ${meaningfulCount} item(s).` : `Bu ay ${CUR}${fmt(distributableCash)} dağıtılabilir, ${meaningfulCount} kaleme ayrıldı.`);
+
+  return { distributableCash, allocations, unallocatedCash, status, explanation, warnings, goalImpact };
+}
+
+/* Kullanım kolaylığı: canlı durumdan bir AllocationResult üretir. DE2'yi TEKRAR hesaplamaz —
+   runMonthlyDecisionEngineLive()'ın sonucunu girdi olarak kullanır. */
+function runMonthlyGoalCashAllocationLive(){
+  return runGoalCashAllocationEngine(runMonthlyDecisionEngineLive(), buildMonthlySnapshot());
+}
+
+/* Minimal UI: "Nakit Akışı Karar Özeti" kartının (renderDecisionEngineV2) YERİNE GEÇMEZ, DOM'una
+   dokunmaz — hemen altındaki AYRI bir kartı (#goalCashAllocationBox) doldurur. */
+function renderGoalCashAllocation(){
+  const box = document.getElementById('goalCashAllocationBox');
+  if (!box) return;
+  const en = currentLang === 'en';
+  const result = runMonthlyGoalCashAllocationLive();
+
+  if (result.status === 'needs_more_data' || result.status === 'negative_cash_flow') {
+    box.innerHTML = `<p class="empty">${escapeHtml(result.explanation)}</p>`;
+    return;
+  }
+
+  const rows = result.allocations.map((a, i) => {
+    const amountHtml = a.amount > 0 ? `<b>${CUR}${fmt(a.amount)}</b>` : `<i style="color:var(--muted);font-size:var(--fs-2xs);">${en ? 'info' : 'bilgi'}</i>`;
+    const detailId = 'goalAllocDetail' + i;
+    return `<div class="hero-row" style="align-items:flex-start;">
+      <span style="max-width:70%;">${escapeHtml(a.reason)}<br><span class="goal-line goal-note" style="font-size:var(--fs-2xs);cursor:pointer;text-decoration:underline;" data-goal-alloc-toggle="${detailId}">${en ? 'What if I skip this?' : 'Bunu atlarsam ne olur?'}</span><span id="${detailId}" style="display:none;font-size:var(--fs-2xs);color:var(--muted);">${escapeHtml(a.whatIfSkipped)}</span></span>
+      ${amountHtml}
+    </div>`;
+  }).join('');
+
+  box.innerHTML = `
+    <div class="hero-row"><span>${en ? 'Distributable this month' : 'Bu ay dağıtılabilir'}</span><b>${CUR}${fmt(result.distributableCash)}</b></div>
+    ${rows}
+    ${result.unallocatedCash > 1 ? `<div class="hero-row total"><span>${en ? 'Unallocated' : 'Dağıtılmamış'}</span><b>${CUR}${fmt(result.unallocatedCash)}</b></div>` : ''}
+    ${result.warnings.length ? `<div class="goal-line goal-note">${result.warnings.map(w => escapeHtml(w)).join('<br>')}</div>` : ''}
+  `;
+  box.querySelectorAll('[data-goal-alloc-toggle]').forEach(el => {
+    el.addEventListener('click', () => {
+      const target = document.getElementById(el.dataset.goalAllocToggle);
+      if (target) target.style.display = target.style.display === 'none' ? 'block' : 'none';
+    });
+  });
 }
 
 /* =========================================================
