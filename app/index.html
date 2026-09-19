@@ -2848,9 +2848,14 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <div class="reorder-section home-secondary" data-section="top5"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
   <div class="card" style="border-color:var(--gold);">
     <div class="stat-grid" style="margin-bottom:0;">
-      <div class="stat"><span data-i18n="s-bu-ay-biriktir">Bu ay biriktirebileceğin</span><b id="top5Savings">₺0</b></div>
+      <div class="stat"><span data-i18n="s-bu-ay-biriktir">Bu ay kullanılabilir tutar</span><b id="top5Savings">₺0</b></div>
       <div class="stat"><span data-i18n="s-en-yakin-hedef">En yakın hedefine kalan</span><b id="top5GoalLeft">—</b></div>
     </div>
+    <!-- FAZ 3.2: bu tutar (gelir−gider−borç sonrası, korunan likidite DÜŞÜLMEDEN önceki tutar)
+         "Bu Ayki Planım"daki canonical planlanabilir tutardan (distributableCash) BÜYÜK olabilir —
+         aradaki fark, o karttaki korunan likidite payıdır. Bu not, iki rakamı açıklamasız yan yana
+         bırakmamak için var; hesap burada YAPILMIYOR, yalnızca "Bu Ayki Planım"a yönlendiriyor. -->
+    <p class="goal-line" style="margin-top:8px;" id="top5KullanilabilirNot" data-i18n="top5-kullanilabilir-not" hidden>Korunan likidite payı düşülünce "Bu Ayki Planım"daki planlanabilir tutara ulaşılır.</p>
   </div>
   </div>
 
@@ -4118,7 +4123,13 @@ const TRANSLATIONS = {
      eskiden "Borç/gelir" etiketiyle ikisi karıştırılabiliyordu. Hesaplama (debtRatio, render() içinde)
      DEĞİŞMEDİ - yalnızca etiket, ölçtüğü şeyi doğru anlatacak şekilde düzeltildi. */
   's-borc-gelir-orani': {tr:'Aylık borç ödeme yükü', en:'Monthly debt payment load'},
-  's-bu-ay-biriktir': {tr:'Bu ay biriktirebileceğin', en:'What you can save this month'},
+  // FAZ 3.2 (2026-09): "Bu ay biriktirebileceğin" ifadesi, bu kutunun içindeki tutarın
+  // (monthlyCashFlow = gelir−gider−borç sonrası, korunan likidite DÜŞÜLMEDEN önceki tutar)
+  // "Bu Ayki Planım"daki canonical planlanabilir tutarla (distributableCash, korunan DÜŞÜLMÜŞ)
+  // AYNI şey olduğu izlenimini veriyordu — ikisi farklı sayılar (bkz. renderPlanDetailLedger'daki
+  // "Bu ay kullanılabilir tutar" ile AYNI etiket ve AYNI tutar burada da kullanılarak
+  // tutarlılık sağlandı). Hesap DEĞİŞMEDİ (hâlâ monthlyCashFlow), yalnızca etiket netleşti.
+  's-bu-ay-biriktir': {tr:'Bu ay kullanılabilir tutar', en:'Available this month'},
   'bolum-duzenle-not': {tr:'Bölümlerin sırasını değiştirmek istersen düzenleme modunu aç; kartların üstünde taşıma okları çıkar. Sıran bu cihazda hatırlanır.', en:'Turn on edit mode to reorder sections; move arrows appear above each card. Your order is remembered on this device.'},
   'bolum-duzenle-ac': {tr:'Bölümleri düzenle', en:'Edit sections'},
   'bolum-duzenle-bitti': {tr:'Düzenlemeyi bitir', en:'Done editing'},
@@ -4136,6 +4147,7 @@ const TRANSLATIONS = {
   's-degisken-gider': {tr:'Değişken giderler', en:'Variable expenses'},
   's-durum': {tr:'Durum', en:'Status'},
   's-en-yakin-hedef': {tr:'En yakın hedefine kalan', en:'Remaining for your nearest goal'},
+  'top5-kullanilabilir-not': {tr:'Korunan likidite payı düşülünce "Bu Ayki Planım"daki planlanabilir tutara ulaşılır.', en:'Once the protected liquidity share is subtracted, you reach the plannable amount shown in "This Month\'s Plan".'},
   's-varliklarim-toplam': {tr:'Toplam varlığın', en:'Total assets'},
   's-likit-varlik': {tr:'Mevcut likit varlığın', en:'Your current liquid assets'},
   's-net-varlik': {tr:'Net varlık', en:'Net worth'},
@@ -13104,6 +13116,35 @@ function pickUnhandledStep(steps, handledSignatures){
   return null;
 }
 
+/* FAZ 3.3 UI DÜZELTMESİ (2026-09): "Sıradaki Adımım" (bu adımdan buildMoneyTaskFromStep() ile
+   kurulur) computePriorityPlan/_planKur'un KENDİ acil-fon formülünü ("aylık damla": kalanın %30'u,
+   açığa kadar) kullanıyordu — "Bu Ayki Planım"ın gösterdiği canonical runGoalCashAllocationEngine()
+   sonucundan (bu ay dağıtılabilir NAKDİN TAMAMI acil fona) FARKLI, daha küçük bir tutar. İkisi de
+   "acil fona bu ay ne kadar ayırayım" sorusuna cevap verdiği için kullanıcı aynı kararla ilgili iki
+   farklı rakam görüyordu (₺19.500 vs ₺53.000).
+
+   BU FONKSİYON YENİ BİR HESAP YAPMAZ: computePriorityPlan/_planKur'un kendi acil-fon formülü
+   AYNEN duruyor (adım hâlâ o formülle üretiliyor, hâlâ öncelik sırasına göre seçiliyor). Yalnızca
+   BU ADIM KULLANICIYA GÖSTERİLMEDEN HEMEN ÖNCE, eğer adım gerçekten acil fon katkısıysa
+   (moneyTaskCategoryFromStep ile AYNI sınıflandırma), zaten çalıştırılmış canonical GCAE sonucundan
+   (runMonthlyGoalCashAllocationLive — DEĞİŞTİRİLMEDİ) o anki gerçek emergency_fund_contribution
+   tutarı/nedeni okunup adımın GÖRÜNEN kopyasına (orijinal _planCache.steps nesnesi MUTASYONA
+   UĞRAMAZ — spread ile yeni bir kopya) yazılır. Böylece "Sıradaki Adımım" ve "Bu Ayki Planım" AYNI
+   canonical rakamı gösterir. Adımın kendisi acil fonla ilgili DEĞİLSE (borç/hedef/kritik uyarı vb.)
+   ya da canonical sonuçta bir emergency_fund_contribction YOKSA, adım OLDUĞU GİBİ döner — hiçbir
+   ilgisiz rakam zorla eşleştirilmez. */
+function reconcileStepWithCanonicalAllocation(step){
+  if(!step) return step;
+  if(moneyTaskCategoryFromStep(step) !== 'acil_fon') return step;
+  let result;
+  try{ result = runMonthlyGoalCashAllocationLive(); }catch(e){ return step; }
+  const emergencyRow = result && Array.isArray(result.allocations)
+    ? result.allocations.find(a => a.type === 'emergency_fund_contribution' && a.amount > 1)
+    : null;
+  if(!emergencyRow) return step;
+  return {...step, amount: emergencyRow.amount, reason: emergencyRow.reason};
+}
+
 /* TEK GİRİŞ NOKTASI: her render()'da çağrılır. Yeni gün ise (ya da hiç kayıt
    yoksa) planın ilk ele alınmamış adımından günün görevini kurar ve HEMEN
    kalıcı hale getirir (madde 9 - kullanıcı hiçbir şeye dokunmasa bile sayfa
@@ -13122,7 +13163,8 @@ function ensureTodaysMoneyTask(plan){
   if(!rec.task){
     const steps = (plan && plan.steps) || [];
     const candidate = pickUnhandledStep(steps, rec.handledSignatures);
-    rec.task = candidate ? buildMoneyTaskFromStep(candidate) : buildFallbackMoneyTask();
+    const reconciled = reconcileStepWithCanonicalAllocation(candidate);
+    rec.task = reconciled ? buildMoneyTaskFromStep(reconciled) : buildFallbackMoneyTask();
     changed = true;
   }
   if(changed) persistPersistent();
@@ -13173,7 +13215,8 @@ function dismissMoneyTask(){
   if(!rec || !rec.task || rec.task.status !== 'pending') return;
   rec.handledSignatures.push(rec.task.signature);
   const nextStep = pickUnhandledStep(_planCache ? _planCache.steps : [], rec.handledSignatures);
-  rec.task = nextStep ? buildMoneyTaskFromStep(nextStep) : buildFallbackMoneyTask();
+  const reconciledNext = reconcileStepWithCanonicalAllocation(nextStep);
+  rec.task = reconciledNext ? buildMoneyTaskFromStep(reconciledNext) : buildFallbackMoneyTask();
   rec.showedFallbackNote = true;
   persistPersistent();
   renderMoneyTaskCard(rec);
@@ -14659,6 +14702,17 @@ function renderTop5(safeDaily, netWorth, monthlyCashFlow, priorityResult){
   const savEl = document.getElementById('top5Savings');
   animateNumberTo('top5Savings', monthlyCashFlow, v=>`${v<0?'-':''}${CUR}${fmt(Math.abs(v))}`);
   savEl.className = monthlyCashFlow<0 ? 'danger' : 'good';
+
+  // FAZ 3.2: bu kutudaki tutar (monthlyCashFlow) ile "Bu Ayki Planım"daki canonical planlanabilir
+  // tutar (distributableCash) yalnızca korunan likidite payı VARSA farklıdır. Fark yoksa
+  // (protectedCash<=0, iki rakam zaten eşit) not GÖSTERİLMEZ — yalnızca gerçekten fark olduğunda,
+  // o farkın nereden geldiğini açıklar. runMonthlyDecisionEngineLive() zaten çalıştırılmış
+  // canonical sonucu okur, YENİ bir hesap YAPMAZ.
+  const notEl = document.getElementById('top5KullanilabilirNot');
+  if(notEl){
+    const de2ForNote = runMonthlyDecisionEngineLive();
+    notEl.hidden = !(de2ForNote && de2ForNote.protectedCash > 1);
+  }
 
   // FAZ 3.1: "aktif hedef" = gap>0 olan, hâlâ devam eden bir hedef. Ne "hiç hedef yok" ne de
   // "eklenmiş ama gap'i kalmamış (tamamlanmış) hedefler var" durumu aktif hedef SAYILMAZ — bu
