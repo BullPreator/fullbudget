@@ -41,7 +41,7 @@
      piksellerle). Yarım piksel değerler bir ölçekten değil, tek tek göz kararından gelir ve
      kartlar arasında etiketlerin hafifçe farklı boyutlarda oturmasına yol açıyordu. 13 basamaklı
      tek bir ölçek: bundan sonra her yeni öğe bu tokenlardan birini kullanır. */
-  --fs-2xs:10px;
+  --fs-2xs:11px;
   --fs-xs:11px;
   --fs-sm:12px;
   --fs-md:13px;
@@ -83,6 +83,11 @@
   /* Kullanıcı isteği: ana metin artık tam saf siyah (#101418 değil #000000) — ikincil/soluk
      metin (muted/disabled) BİLEREK gri kalıyor, aksi halde başlık/etiket/ipucu ayrımı kaybolur. */
   --text:#000000; --muted:#66716D; --disabled:#8A9590;
+  /* FAZ 3.7 (2026-09) — okunabilirlik: --muted tek başına hem "ikincil açıklama" hem
+     "gerçekten teknik/önemsiz" metni taşıyordu, açık temada ikincisi solgun kalıyordu.
+     --text-secondary orta-kontrast bir basamak ekliyor (açıklama/sebep/yardımcı metin için);
+     --muted artık yalnızca gerçekten teknik/ikincil etiketler için kalıyor. Hesap/veri YOK. */
+  --text-secondary:#3A4640;
 
   /* — Marka — */
   --brand:#00B889; --brand-deep:#008F70; --brand-dark:#00674F;
@@ -113,6 +118,7 @@ html[data-theme="dark"]{
   --bg:#0B1110; --surface:#121A18; --surface-2:#17221F; --line:#26302D;
   /* Kullanıcı isteği: koyu temada ana metin artık tam saf beyaz (#F5F7F6 değil #FFFFFF). */
   --text:#FFFFFF; --muted:#9AA9A4; --disabled:#5F6E69;
+  --text-secondary:#D3E0DA;
 
   --brand:#00C995; --brand-deep:#00A87C; --brand-dark:#04291F;
   --brand-soft:rgba(0,201,149,0.10); --brand-soft-strong:rgba(0,201,149,0.17); --brand-ring:rgba(0,201,149,0.32);
@@ -331,15 +337,24 @@ h1{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-3xl);margin:0;font-
 .money-task-body{display:flex; flex-direction:column; gap:4px; min-width:0;}
 .money-task-title{font-size:var(--fs-lg); font-weight:700; color:var(--text); overflow-wrap:break-word;}
 .money-task-amount{color:var(--gold); font-variant-numeric:tabular-nums; margin-left:6px;}
-.money-task-desc{font-size:var(--fs-sm); color:var(--muted); line-height:1.5;}
+.money-task-desc{font-size:var(--fs-sm); color:var(--text-secondary); line-height:1.5;}
 .money-task-chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;}
 .money-task-chip{font-size:var(--fs-xs); letter-spacing:.03em; padding:3px 9px; border-radius:var(--r-pill); font-weight:650; background:var(--surface); border:1px solid var(--line); color:var(--muted);}
 .money-task-chip.pri-critical{color:var(--coral); border-color:var(--coral);}
 .money-task-chip.pri-medium{color:var(--amber); border-color:var(--amber);}
 .money-task-impact{font-size:var(--fs-sm); color:var(--text); background:var(--brand-soft); border-radius:var(--r-md); padding:10px 12px; line-height:1.5;}
 .money-task-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:2px;}
-.money-task-btn-primary{flex:1; min-width:160px; background:var(--brand); color:#FFFFFF; border:none; border-radius:var(--r-md); padding:12px 16px; font-weight:700; font-size:var(--fs-md); cursor:pointer; font-family:'Inter',sans-serif; min-height:44px;}
-.money-task-btn-secondary{background:none; border:none; color:var(--muted); font-size:var(--fs-sm); text-decoration:underline; cursor:pointer; font-family:'Inter',sans-serif; min-height:44px; padding:0 4px;}
+.money-task-btn-primary{flex:1; min-width:160px; background:var(--brand); color:#FFFFFF; border:1.5px solid transparent; border-radius:var(--r-md); padding:12px 16px; font-weight:700; font-size:var(--fs-md); cursor:pointer; font-family:'Inter',sans-serif; min-height:44px;}
+/* FAZ 3.7 (2026-09): "Başka bir öncelik göster" eskiden düz alt çizgili bir metin linkiydi —
+   gerçek bir buton gibi görünmüyordu. Artık "Anladım" ile aynı boyut/dolgu düzenini paylaşan,
+   yeşil aksanlı ÇERÇEVELİ (outline) ikincil bir buton: birincile göre görsel olarak hâlâ ikincil
+   (dolgu yok), ama en az onun kadar tıklanabilir görünüyor. id/click handler DEĞİŞMEDİ. */
+.money-task-btn-secondary{flex:1; min-width:160px; background:none; border:1.5px solid var(--brand-ring); color:var(--brand-deep); border-radius:var(--r-md); padding:12px 16px; font-weight:700; font-size:var(--fs-md); cursor:pointer; font-family:'Inter',sans-serif; min-height:44px;}
+.money-task-btn-secondary:hover{background:var(--brand-soft); border-color:var(--brand);}
+@media (max-width:480px){
+  .money-task-actions{flex-direction:column;}
+  .money-task-btn-primary, .money-task-btn-secondary{width:100%;}
+}
 .money-task-done{display:flex; align-items:flex-start; gap:10px;}
 .money-task-done svg{flex:none; width:20px; height:20px; stroke:var(--brand); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; margin-top:2px;}
 .money-task-done-text{display:flex; flex-direction:column; gap:2px;}
@@ -424,7 +439,7 @@ body.reorder-mode .reorder-done-bar{display:flex;}
 .hero-ledger-title{font-size:var(--fs-xs);letter-spacing:.1em;text-transform:uppercase;
   color:var(--muted);font-weight:700;margin-bottom:4px;}
 .hero-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:5px 0;}
-.hero-row span{font-size:var(--fs-md);color:var(--muted);}
+.hero-row span{font-size:var(--fs-md);color:var(--text-secondary);}
 .hero-row b{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-lg);font-weight:600;
   font-variant-numeric:tabular-nums;}
 /* P0 denetim düzeltmesi: "Gider" satırının altındaki açıklayıcı alt satır (kartla ödenen kısım) —
@@ -440,7 +455,7 @@ body.reorder-mode .reorder-done-bar{display:flex;}
 
 .hero-meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;
   border-top:1px solid var(--line);}
-.hero-meta span{font-size:var(--fs-sm);color:var(--muted);}
+.hero-meta span{font-size:var(--fs-sm);color:var(--text-secondary);}
 .hero-meta i{font-style:normal;}
 .hero-meta b{font-family:'Space Grotesk',sans-serif;font-variant-numeric:tabular-nums;
   color:var(--text);font-weight:600;}
@@ -456,7 +471,7 @@ body.reorder-mode .reorder-done-bar{display:flex;}
 .alert-row-dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:6px;}
 .alert-row-body{flex:1;min-width:0;}
 .alert-row-title{font-size:var(--fs-base);font-weight:600;color:var(--text);line-height:1.4;overflow-wrap:break-word;word-break:break-word;}
-.alert-row-why{font-size:var(--fs-sm);color:var(--muted);margin-top:2px;line-height:1.5;overflow-wrap:break-word;word-break:break-word;}
+.alert-row-why{font-size:var(--fs-sm);color:var(--text-secondary);margin-top:2px;line-height:1.5;overflow-wrap:break-word;word-break:break-word;}
 .alert-row-action{font-size:var(--fs-sm);color:var(--gold);margin-top:6px;line-height:1.5;overflow-wrap:break-word;word-break:break-word;}
 #alertSheetBody{display:flex;flex-direction:column;}
 #alertSheetBody .alert-row{padding:12px 6px;border-bottom:1px solid var(--line);border-radius:0;}
@@ -623,10 +638,13 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
 /* ---------- Bilgi rozeti (!) — yoğun açıklama metinlerini tek dokunuşla açılan tooltip'e taşır ---------- */
 .info-badge{
   display:inline-flex; align-items:center; justify-content:center; vertical-align:middle;
-  width:16px; height:16px; border-radius:50%; background:rgba(228,87,46,0.16); color:var(--coral);
-  font-size:var(--fs-2xs); font-weight:800; cursor:pointer; flex-shrink:0; margin-left:5px; position:relative;
-  font-family:'Space Grotesk',sans-serif; user-select:none;
+  width:18px; height:18px; border-radius:50%; background:rgba(227,77,89,0.16); color:var(--coral);
+  border:1.5px solid rgba(227,77,89,0.55);
+  font-size:12px; font-weight:800; cursor:pointer; flex-shrink:0; margin-left:5px; position:relative;
+  font-family:'Space Grotesk',sans-serif; user-select:none; line-height:1;
+  box-shadow:0 0 0 1px var(--surface);
 }
+.info-badge:hover{background:rgba(227,77,89,0.24);}
 .info-badge-pop{
   display:none; position:absolute; z-index:30; top:calc(100% + 8px); left:0;
   width:250px; max-width:78vw; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-md);
@@ -641,10 +659,10 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
 .info-badge-pop .ib-row:last-child{margin-bottom:0;}
 .info-badge-pop .ib-label{font-weight:700;color:var(--gold);display:block;font-size:var(--fs-xs);margin-bottom:1px;}
 /* Şiddet seviyesi varyantları — kritik/uyarı/izle/başarılı/bilgi */
-.info-badge.critical{background:rgba(228,87,46,0.18);color:var(--coral);}
-.info-badge.warning{background:rgba(232,162,61,0.18);color:var(--amber);}
-.info-badge.notice{background:rgba(232,184,75,0.16);color:var(--gold);}
-.info-badge.success{background:var(--brand-soft-strong);color:var(--teal);}
+.info-badge.critical{background:rgba(228,87,46,0.18);color:var(--coral);border-color:rgba(228,87,46,0.55);}
+.info-badge.warning{background:rgba(232,162,61,0.18);color:var(--amber);border-color:rgba(232,162,61,0.55);}
+.info-badge.notice{background:rgba(232,184,75,0.16);color:var(--gold);border-color:rgba(232,184,75,0.5);}
+.info-badge.success{background:var(--brand-soft-strong);color:var(--teal);border-color:var(--brand-ring);}
 /* Sekme/nav rozetleri (aktif uyarı sayısı) */
 .nav-alert-badge{
   position:absolute; top:2px; right:6px; min-width:15px; height:15px; padding:0 3px; border-radius:var(--r-pill);
@@ -1057,7 +1075,7 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
   stroke-linecap:round;stroke-linejoin:round;transition:transform .22s ease;}
 .disclosure-btn.open svg{transform:rotate(180deg);}
 .plan-summary-headline{font-size:var(--fs-base);line-height:1.5;margin:0;}
-.ring-note{font-size:var(--fs-xs);color:var(--muted);margin:6px 0 0;line-height:1.45;}
+.ring-note{font-size:var(--fs-xs);color:var(--text-secondary);margin:6px 0 0;line-height:1.45;}
 .priority-row{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start;}
 .priority-row:last-child{border-bottom:none;}
 .priority-num{flex-shrink:0; width:26px; display:flex; align-items:flex-start; justify-content:center; padding-top:1px;}
@@ -1269,7 +1287,7 @@ html[data-premium-gating="off"] [data-section="ayarlar-premium"]{display:none !i
 /* .goal-line yalnızca serbest metin notları için kaldı (enflasyon uyarısı gibi).
    Sayılar artık .goal-row defter satırlarında. Not: burada aynı seçici iki kez
    tanımlanmıştı (ikincisi yalnızca font-family'yi tekrar ediyordu) — birleştirildi. */
-.goal-line{font-size:var(--fs-md);color:var(--muted);line-height:1.6;margin-bottom:2px;}
+.goal-line{font-size:var(--fs-md);color:var(--text-secondary);line-height:1.6;margin-bottom:2px;}
 .goal-line b{color:var(--text);font-family:'Space Grotesk',sans-serif;font-weight:700;
   font-size:var(--fs-base);font-variant-numeric:tabular-nums;}
 .goal-ledger{margin:12px 0 10px;padding-top:10px;border-top:1px solid var(--line);}
@@ -2744,7 +2762,7 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
        içindeydi) burada kalmaya devam ediyor — aynı bilgi iki yerde tekrar etmesin diye. -->
   <div class="reorder-section" data-section="bu-ay-plan" id="jump-bu-ay-plan"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title featured"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-14h-7z" fill="currentColor" stroke="none"/></svg></span><span data-i18n="bu-ay-plan">Bu Ayki Planım</span></p>
   <div class="hero-meta" id="heroKararMeta">
-    <span id="acilFonMeta" hidden><i data-i18n="s-acil-fon-meta">Acil fon</i> <b id="acilFonStat">—</b></span>
+    <span id="acilFonMeta" hidden><i data-i18n="s-acil-fon-meta">Acil durum fonu:</i> <b id="acilFonStat">—</b></span>
     <span id="hedefMeta" hidden><i id="hedefMetaAd">Hedef</i> <b id="hedefStat">—</b></span>
   </div>
   <!-- FAZ 3.6 UI SADELEŞTİRME (2026-09): kullanıcı gerçek tarayıcıda bu kartın hâlâ "gereğinden
@@ -4069,7 +4087,7 @@ const TRANSLATIONS = {
      olarak birbirinden AYRI tutuluyor. */
   'finansal-durum': {tr:'Finansal Durum', en:'Financial Status'},
   's-bu-ay': {tr:'BU AY', en:'THIS MONTH'},
-  's-acil-fon-meta':{tr:'Acil fon', en:'Emergency fund'},
+  's-acil-fon-meta':{tr:'Acil durum fonu:', en:'Emergency fund:'},
   'd-rapor':{tr:'Bu ayın geliri, gideri ve paranın nereye gittiği.', en:"This month's income, spending and where the money went."},
   'd-sohbet':{tr:'Kendi verine bakarak cevap veren koçun.', en:'Your coach, answering from your own numbers.'},
   'd-skor':{tr:'Sadece bakiyen değil — gidişatın iyi mi?', en:'Not just your balance — is your direction good?'},
