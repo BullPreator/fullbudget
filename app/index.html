@@ -273,6 +273,15 @@ h1{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-3xl);margin:0;font-
   font-family:'Inter',sans-serif; font-size:var(--fs-sm); color:var(--muted);
   margin:0; line-height:1.5; max-width:54ch; text-wrap:pretty;
 }
+/* FAZ 3.8 (2026-09) — Ayarlar bilgi mimarisi: düz satır listesini HESABIM/TERCİHLER/GÜVENLİK/
+   VERİLERİM/HAKKINDA gruplarına ayıran sade eyebrow başlıklar (bkz. hazirlaAyarGruplari()).
+   Kart değil, .koc-ayrac'a benzer ama daha hafif — açıklama satırı yok, sadece ayrım. */
+.ayar-grup-baslik{
+  font-family:'Space Grotesk',sans-serif; font-size:var(--fs-xs); font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+  margin:28px 4px 10px; padding-top:20px; border-top:1px solid var(--line);
+}
+.ayar-grup-baslik.ilk{margin-top:0; padding-top:0; border-top:none;}
 /* Katlanmış bölümler alt alta dizildiği için başlıklar arası boşluk normalden dar:
    açıkken nefes alan 30px, kapalıyken 20px. Altın çizgi de çok satırlı başlıkta
    ortalanmasın diye ilk satıra hizalanıyor. */
@@ -3650,10 +3659,8 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <!-- AŞAMA 2: Hesap bölümü. İçeriği renderAccountSettings() duruma göre çizer
        (misafir / giriş yapılmış / çıkış yapılmış). Burada hiçbir sahte kullanıcı
        bilgisi yoktur; ad ve avatar yalnızca kullanıcı kendisi girerse dolar. -->
-  <div class="reorder-section" data-section="hesap"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.8 20.2a7.6 7.6 0 0 1 14.4 0"/></svg></span><span data-i18n="hesap-baslik">Hesap</span></p>
+  <div class="reorder-section" data-section="hesap"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
   <div class="card" id="accountCardBody"></div>
-  </div><div class="reorder-section" data-section="ayarlar"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span><span data-i18n="ayarlar">Ayarlar</span></p>
-
   </div><div class="reorder-section" data-section="ayarlar-premium"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><details class="settings-row-card"><summary class="settings-row-summary"><span class="settings-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.7 5.5 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.3 6.1-.9z"/></svg></span><span class="settings-row-label" data-i18n="ayarlar-premium-baslik">Premium</span><span class="settings-row-value" data-settings-value="premium"></span><svg class="settings-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary><div class="settings-row-body">
     <p style="font-size:var(--fs-sm);color:var(--muted);margin:0 0 14px;line-height:1.5;" data-i18n="ayarlar-premium-aciklama">Henüz gerçek bir ödeme/abonelik altyapısı yok. Bu anahtar sadece Hedefler sekmesindeki "Alabilir miyim?" analizinin premium özelliklerini bu cihazda denemek için bir demo/önizleme anahtarıdır — satın alma işlemi gerçekleştirmez.</p>
     <div class="toggle-pair" id="premiumSettingsToggle">
@@ -4409,6 +4416,14 @@ const TRANSLATIONS = {
   'avalanche-snowball': {tr:'Avalanche vs Snowball', en:'Avalanche vs Snowball'},
   'ayarlar': {tr:'Ayarlar', en:'Settings'},
   'gorunum': {tr:'Görünüm ve Dil', en:'Appearance & Language'},
+  /* FAZ 3.8 (2026-09): Ayarlar ekranı bilgi mimarisi sadeleştirmesi — düz, gruplandırılmamış
+     bir satır listesi yerine beş adlandırılmış grup (bkz. hazirlaAyarGruplari()). Hiçbir ayar
+     satırı taşınmadı/silinmedi; yalnızca aralarına görsel bir grup başlığı eklendi. */
+  'ayar-grup-hesabim': {tr:'HESABIM', en:'MY ACCOUNT'},
+  'ayar-grup-tercihler': {tr:'TERCİHLER', en:'PREFERENCES'},
+  'ayar-grup-guvenlik': {tr:'GÜVENLİK', en:'SECURITY'},
+  'ayar-grup-verilerim': {tr:'VERİLERİM', en:'MY DATA'},
+  'ayar-grup-hakkinda-baslik': {tr:'HAKKINDA', en:'ABOUT'},
   /* --- İNGİLİZCE TAMAMLAMA (lansman kararı: EN de yayında) ---
      Aşağıdaki anahtarlar, denetimde "EN modunda Türkçe kalıyor" diye işaretlenen statik
      metinlerin karşılıkları. Kullanıcının kendi girdiği veri (hesap adı, harcama notu,
@@ -4506,8 +4521,8 @@ const TRANSLATIONS = {
   'tum-islemler-ara-ph': {tr:'Kategori veya not ara...', en:'Search category or note...'},
   'varlik-dagilim': {tr:'Varlık Dağılımın', en:'Asset Distribution'},
   'yedekleme': {tr:'Yedekleme', en:'Backup'},
-  'csv-baslik': {tr:'CSV Dışa Aktarma', en:'CSV Export'},
-  'csv-aciklama-kisa': {tr:"Excel/Google Sheets'te açıp incelemen için", en:'For opening and reviewing in Excel/Google Sheets'},
+  'csv-baslik': {tr:'Verileri Dışa Aktar', en:'Export Data'},
+  'csv-aciklama-kisa': {tr:"Bir tabloda incelemen için", en:'To review as a spreadsheet'},
   'csv-aciklama': {tr:"JSON yedek uygulamaya geri yüklenmek içindir; bu CSV ise sadece incelemek için — bu ayki gelir/gider işlemlerini ve güncel borç/varlık/hesap özetini tek bir tabloda içerir.", en:"The JSON backup is for restoring into the app; this CSV is only for reviewing — it includes this month's income/expense transactions plus a current debt/asset/account summary in one table."},
   'csv-indirildi': {tr:'CSV indirildi', en:'CSV downloaded'},
   'opt-hesap-secme': {tr:'Hesap seçme (opsiyonel)', en:'No account (optional)'},
@@ -9494,6 +9509,7 @@ function render(){
   checkFounderCelebration();
   updateLiveRateStatusUI();
   hazirlaKocBolumleri(); // katlanmış bölümlerin başlık rozetlerini tazele
+  if(typeof hazirlaAyarGruplari==='function') hazirlaAyarGruplari(); // Ayarlar grup başlıklarını tazele
   if(typeof syncSettingsRowValues==='function') syncSettingsRowValues();
 }
 
@@ -9533,7 +9549,7 @@ function syncSettingsRowValues(){
      değer DEĞİL, sadece etiketin kısa açıklaması; hiçbir veriyi yansıtmadığı için yanıltıcı
      olma riski yok. */
   set('yedekleme', currentLang==='en' ? 'Export / Restore' : 'İndir / Geri Yükle');
-  set('csv', currentLang==='en' ? 'For spreadsheets' : 'Excel için');
+  set('csv', 'CSV');
   set('veri-yonetim', currentLang==='en' ? 'Reset this month' : 'Bu ayı sıfırla');
 }
 
@@ -19294,7 +19310,50 @@ const DEFAULT_SECTION_ORDER = {
   /* Kullanıcı isteği: Finans Koçu en üste alındı — Aylık Rapor'un önüne geçti. */
   coach: ['ai-koc-baslik','aylik-rapor','zenginleseme-skoru','net-durum','acil-fon','finansal-yol',
           'ya-olursa','oneriler','abonelikler','kisisel-enflasyon','gecmis-aylar'],
+  /* FAZ 3.8 (2026-09) — Ayarlar bilgi mimarisi sadeleştirmesi: kullanıcı ekranın "geliştirici
+     ayarları listesi" gibi hissettirdiğini bildirdi. Hiçbir satır silinmedi/taşınmadı bir işlev
+     kaybı anlamında — yalnızca HESABIM / TERCİHLER / GÜVENLİK / VERİLERİM / HAKKINDA sırasına
+     göre yeniden dizildi (bkz. hazirlaAyarGruplari() — aynı sıraya göre grup başlıkları ekler).
+     Eskiden 'uygulama-kilit' 'para-birimi' ile 'bildirimler' arasına sıkışmıştı; artık kendi
+     GÜVENLİK grubunda, TERCİHLER'den sonra. Kullanıcının kendi sıralaması varsa (persistent.
+     sectionOrder) o kazanır — bu yalnızca varsayılan, applySectionOrder() diğer sekmelerdeki
+     gibi burada da çalışır. */
+  settings: ['hesap','ayarlar-premium','gorunum','para-birimi','bildirimler','uygulama-kilit',
+             'yedekleme','csv-baslik','veri-yonetim','hakkinda'],
 };
+/* Her ayar satırının hangi bilgi-mimarisi grubuna ait olduğu — hazirlaAyarGruplari() bunu
+   okuyarak grup değiştiğinde bir başlık satırı ekler. Grup İSİMLERİ değil ANAHTARLARI: metin
+   t() ile diline göre okunur. */
+const AYAR_GRUP_ANAHTAR = {
+  'hesap':'ayar-grup-hesabim',
+  'ayarlar-premium':'ayar-grup-tercihler', 'gorunum':'ayar-grup-tercihler',
+  'para-birimi':'ayar-grup-tercihler', 'bildirimler':'ayar-grup-tercihler',
+  'uygulama-kilit':'ayar-grup-guvenlik',
+  'yedekleme':'ayar-grup-verilerim', 'csv-baslik':'ayar-grup-verilerim', 'veri-yonetim':'ayar-grup-verilerim',
+  'hakkinda':'ayar-grup-hakkinda-baslik',
+};
+/* Ayarlar sekmesinde, ardışık aynı-grup satırlarının en başına bir grup başlığı ekler — tıpkı
+   Koç sekmesindeki "Diğer Analizler" ayracı gibi (bkz. hazirlaKocBolumleri), SIRAYA bağlı, sabit
+   bir bölüme değil: kullanıcı "Bölümleri düzenle" ile satırları taşırsa başlıklar da onunla
+   birlikte doğru yerde kalır. Hiçbir satırı taşımaz/gizlemez/siler — salt görsel bir eklemedir. */
+function hazirlaAyarGruplari(){
+  const panel = document.querySelector('.tab-panel[data-tab="settings"]');
+  if(!panel) return;
+  panel.querySelectorAll(':scope > .ayar-grup-baslik').forEach(el=>el.remove());
+  const bolumler = [...panel.querySelectorAll(':scope > [data-section]')];
+  let sonAnahtar = null, ilk = true;
+  bolumler.forEach(bolum=>{
+    const anahtar = AYAR_GRUP_ANAHTAR[bolum.dataset.section];
+    if(!anahtar || anahtar===sonAnahtar) return;
+    sonAnahtar = anahtar;
+    const baslik = document.createElement('p');
+    baslik.className = 'ayar-grup-baslik' + (ilk ? ' ilk' : '');
+    baslik.setAttribute('data-i18n', anahtar);
+    baslik.textContent = t(anahtar);
+    bolum.parentNode.insertBefore(baslik, bolum);
+    ilk = false;
+  });
+}
 /* =========================================================
    KOÇ SAYFASI DÜZENİ
 
@@ -19449,6 +19508,7 @@ function applySectionOrder(tabName){
     prevEl = el;
   });
   if(tabName==='coach') hazirlaKocBolumleri();
+  if(tabName==='settings') hazirlaAyarGruplari();
 }
 function updateReorderButtonStates(tabName){
   const sections = getOrderedSections(tabName);
@@ -20066,9 +20126,14 @@ function renderAccountSettings(){
       + '<div class="acct-sub">'+(isOut ? t('auth-state-loggedout') : t('auth-state-guest'))+'</div></div>'
       + '<span class="acct-badge">'+t('auth-badge-local')+'</span>'
       + '</div>'
+      /* FAZ 3.8 (2026-09): misafir durumunda "Profili düzenle" CTA'sı burada anlamsal olarak
+         kafa karıştırıyordu (henüz düzenlenecek bir hesap profili yok). openProfileEditor()
+         işlevi/handler'ı SİLİNMEDİ — hâlâ authenticated dalda ve onboarding'de kullanılıyor;
+         burada sadece misafir için ikinci CTA "Giriş yap"a çevrildi (mevcut openAuthOverlay('login')
+         görünümünü açar, yeni bir auth akışı eklenmedi). */
       + '<div class="acct-actions">'
       + '<button class="mini-btn" type="button" id="acctCreateBtn">'+t('auth-acct-create')+'</button>'
-      + '<button class="mini-btn" type="button" id="acctEditProfileBtn">'+t('auth-acct-edit')+'</button>'
+      + '<button class="mini-btn" type="button" id="acctLoginBtn">'+t('auth-login-link')+'</button>'
       + '</div>'
       + '<p class="acct-note">'+t('auth-acct-guest-note')+'</p>';
   }
@@ -20076,6 +20141,8 @@ function renderAccountSettings(){
   if(cb) cb.addEventListener('click', ()=>openAuthOverlay('choice'));
   const eb = document.getElementById('acctEditProfileBtn');
   if(eb) eb.addEventListener('click', ()=>openProfileEditor('settings'));
+  const lgb = document.getElementById('acctLoginBtn');
+  if(lgb) lgb.addEventListener('click', ()=>openAuthOverlay('login'));
   const lb = document.getElementById('acctLogoutBtn');
   if(lb) lb.addEventListener('click', authLogout);
   const db = document.getElementById('acctDeleteBtn');
