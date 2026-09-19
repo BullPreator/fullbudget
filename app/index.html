@@ -13145,12 +13145,42 @@ function reconcileStepWithCanonicalAllocation(step){
   return {...step, amount: emergencyRow.amount, reason: emergencyRow.reason};
 }
 
+/* FAZ 3.4 UI DÜZELTMESİ (2026-09): FAZ 3.3'teki reconcileStepWithCanonicalAllocation() YALNIZCA
+   bir görev İLK KEZ kurulurken (`!rec.task` dalı) çalışıyordu. Ama persistent.dailyMoneyTask GÜN
+   İÇİNDE BİR KEZ kurulup persist edilir (bkz. ensureTodaysMoneyTask'ın kendi yorumu) — kullanıcının
+   tarayıcısında/localStorage'ında BUGÜN için ZATEN kurulmuş bir görev varsa (ör. bu düzeltmeden önce
+   oluşmuş, ya da gün içinde gelir/gider değişmeden önce oluşmuş), `!rec.task` dalı hiç çalışmaz ve
+   görev SONSUZA KADAR kendi kuruluş anındaki tutarı gösterirdi — tam olarak raporlanan hata
+   (ekranda hâlâ ₺19.500 görünmesi). BURADA DA YENİ BİR HESAP YOK: yalnızca, görev hâlâ 'pending'
+   iken (tamamlanmış bir görevin geçmişteki rakamı GERİYE DÖNÜK değiştirilmez) ve kategorisi acil
+   fonsa, zaten kurulmuş görevin amount/description/impact alanları HER render'da canonical
+   runMonthlyGoalCashAllocationLive() sonucuyla yeniden hizalanır. id/signature/status/createdAt/
+   completedAt DOKUNULMAZ — handledSignatures dedup mantığı (moneyTaskSignature ik+label'a bakar,
+   amount'a bakmaz) ETKİLENMEZ. */
+function reconcilePersistedEmergencyTask(task){
+  if(!task || task.status !== 'pending' || task.category !== 'acil_fon') return false;
+  let result;
+  try{ result = runMonthlyGoalCashAllocationLive(); }catch(e){ return false; }
+  const emergencyRow = result && Array.isArray(result.allocations)
+    ? result.allocations.find(a => a.type === 'emergency_fund_contribution' && a.amount > 1)
+    : null;
+  if(!emergencyRow) return false;
+  if(task.amount === emergencyRow.amount && task.description === emergencyRow.reason) return false;
+  task.amount = emergencyRow.amount;
+  task.description = emergencyRow.reason;
+  task.impact = moneyTaskImpactText({category:'acil_fon', amount: emergencyRow.amount});
+  return true;
+}
+
 /* TEK GİRİŞ NOKTASI: her render()'da çağrılır. Yeni gün ise (ya da hiç kayıt
    yoksa) planın ilk ele alınmamış adımından günün görevini kurar ve HEMEN
    kalıcı hale getirir (madde 9 - kullanıcı hiçbir şeye dokunmasa bile sayfa
    yenilendiğinde aynı görev durur). Aynı gün içinde tekrar tekrar
-   ÇAĞRILDIĞINDA (her render'da olduğu gibi) var olan görevi asla DEĞİŞTİRMEZ
-   - yalnızca completeMoneyTask/dismissMoneyTask bunu yapar. */
+   ÇAĞRILDIĞINDA (her render'da olduğu gibi) var olan görevin KİMLİĞİNİ (hangi adım seçildiği,
+   hangi görev olduğu) asla DEĞİŞTİRMEZ - yalnızca completeMoneyTask/dismissMoneyTask bunu yapar.
+   FAZ 3.4: zaten var olan bir acil-fon görevinin GÖSTERİLEN TUTARI, canonical kaynakla hizalı
+   kalsın diye her render'da reconcilePersistedEmergencyTask() ile tazelenir (bkz. yukarısı) — bu,
+   görevin KİMLİĞİNİ değiştirmez, yalnızca zaten aynı kararı temsil eden rakamı günceller. */
 function ensureTodaysMoneyTask(plan){
   const today = new Date().toISOString().slice(0,10);
   let rec = persistent.dailyMoneyTask;
@@ -13165,6 +13195,8 @@ function ensureTodaysMoneyTask(plan){
     const candidate = pickUnhandledStep(steps, rec.handledSignatures);
     const reconciled = reconcileStepWithCanonicalAllocation(candidate);
     rec.task = reconciled ? buildMoneyTaskFromStep(reconciled) : buildFallbackMoneyTask();
+    changed = true;
+  } else if(reconcilePersistedEmergencyTask(rec.task)){
     changed = true;
   }
   if(changed) persistPersistent();
