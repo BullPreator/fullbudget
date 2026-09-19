@@ -479,6 +479,12 @@ body.reorder-mode .reorder-done-bar{display:flex;}
 .networth-label{font-size:var(--fs-md);color:var(--text);}
 .networth-change{font-size:var(--fs-md);font-family:'Space Grotesk',sans-serif;font-weight:600;}
 .networth-value{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-4xl);font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:16px;}
+/* FAZ 3.5: "FİNANSAL DURUM" kartı içinde net varlık (üst bölüm) ile bu ayın nakit akışı
+   (alt bölüm) arasındaki ayraç — iki farklı kavramı (anlık durum vs. dönemsel akış) görsel
+   olarak net biçimde ayırmak için; hesaplama içermez, salt görünürlük. */
+.finansal-durum-ayrac{border-top:1px solid var(--line);margin:18px 0 14px;}
+.finansal-durum-alt-baslik{font-size:var(--fs-xs);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);font-weight:700;margin:0 0 2px;}
 .debt-hero{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;margin-bottom:18px;box-shadow:var(--shadow-hero);text-align:center;}
 /* Uyarı rozeti: eskiden yan yana üç kriptik "!1" pili vardı — sayıyı gösteriyor, anlamı
    göstermiyordu. Tek rozet, en ciddi seviyenin rengiyle, kaç uyarı olduğunu kelimeyle söylüyor.
@@ -2633,8 +2639,17 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
        niteliği YOK, applySectionOrder() bunu görmez ve her zaman en üstte sabit kalır. -->
   <div class="home-greeting" id="homeGreeting"></div>
 
-  <!-- AŞAMA 1 hiyerarşisi (1) Finansal durum/net varlık -->
-  <div class="reorder-section" data-section="networth"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
+  <!-- AŞAMA 1 hiyerarşisi (1) Finansal durum -- FAZ 3.5 HOME UX SADELEŞTİRME (2026-09):
+       eskiden burada İKİ ayrı kart vardı: "NET VARLIĞIN" (networth) ve hemen ring'in altında
+       "AYIN DEFTERİ" (ay-defteri). Kullanıcı isteğiyle TEK bir "FİNANSAL DURUM" kartında
+       birleştirildi (bkz. i18n notu: 'finansal-durum'). Bu SADECE bir görsel gruplama —
+       #netWorthValue/#sumAssets/#sumDebt (net varlık, ANLIK durum) ve #sumIncome/#sumExpense/
+       #sumDebtPay/#sumRemain/#savingsRateStat/#debtRatioStat (bu ayın nakit akışı, DÖNEMSEL
+       durum) elementleri, id'leri ve besleyen hiçbir hesaplama DEĞİŞMEDİ; net varlık ve aylık
+       nakit akışı kart içinde "BU AY" alt başlığı + bir ayraçla (.finansal-durum-ayrac) görsel
+       olarak birbirinden AÇIKÇA AYRI tutuluyor, kavramsal olarak birleştirilmiyor. -->
+  <div class="reorder-section" data-section="finansal-durum"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
+  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M5 3.5h11l3 3V20.5H5z"/><path d="M8.5 9.5h7M8.5 13h7M8.5 16.5h4"/></svg></span><span data-i18n="finansal-durum">Finansal Durum</span></p>
   <div class="networth-hero">
     <div class="networth-top">
       <span class="networth-label" data-i18n="nw-net-varligin">NET VARLIĞIN</span>
@@ -2652,6 +2667,24 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
     <div class="hero-split">
       <div class="hero-cell"><span data-i18n="s-toplam-varlik">Toplam varlık</span><b id="sumAssets" class="good">₺0</b></div>
       <div class="hero-cell"><span data-i18n="s-toplam-borc">Toplam borç</span><b id="sumDebt" class="danger">₺0</b></div>
+    </div>
+    <div class="finansal-durum-ayrac" role="separator"></div>
+    <p class="finansal-durum-alt-baslik" data-i18n="s-bu-ay">BU AY</p>
+    <div class="hero-ledger">
+      <div class="hero-row"><span data-i18n="s-bu-ay-gelir">Gelir</span><b id="sumIncome">₺0</b></div>
+      <div class="hero-row"><span data-i18n="s-bu-ay-gider">Gider</span><b id="sumExpense">₺0</b></div>
+      <!-- P0 denetim düzeltmesi: "Kalan" NAKİT esaslıdır — kartla finanse edilen harcama bu ay
+           cebinden çıkmaz (nakit karşılığı kartın ödemesidir, o da "Borç ödemesi" satırında).
+           Bu satır olmadan dört satır birbiriyle çelişiyordu (ör. 110.000 − 44.067 − 0 = 110.000
+           gibi görünüyordu). Yalnızca kartla finanse edilen harcama varsa gösterilir. -->
+      <div class="hero-row hero-row-sub" id="sumCardFundedRow" style="display:none;"><span data-i18n="s-kartla-odenen">bunun kartla ödenen kısmı</span><b id="sumCardFunded">₺0</b></div>
+      <div class="hero-row"><span data-i18n="s-borc-odemesi">Borç ödemesi</span><b id="sumDebtPay">₺0</b></div>
+      <div class="hero-row hero-row-sub" id="sumDebtPayEstRow" style="display:none;"><span data-i18n="s-borc-odemesi-tahmini">bunun içinde tahmini (henüz gerçek ödeme kaydı yok)</span><b id="sumDebtPayEst">₺0</b></div>
+      <div class="hero-row total"><span data-i18n="s-bu-ay-kalan">Kalan</span><b id="sumRemain">₺0</b></div>
+    </div>
+    <div class="hero-meta">
+      <span><i data-i18n="s-tasarruf-orani">Tasarruf oranı</i> <b id="savingsRateStat">%0</b></span>
+      <span><i data-i18n="s-borc-gelir-orani">Aylık borç ödeme yükü</i> <b id="debtRatioStat">%0</b></span>
     </div>
   </div>
   </div>
@@ -2691,29 +2724,6 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   </div>
   </div>
 
-  <!-- AŞAMA 1 hiyerarşisi (2) Bu ayki gelir/gider -->
-  <div class="reorder-section" data-section="ay-defteri"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M5 3.5h11l3 3V20.5H5z"/><path d="M8.5 9.5h7M8.5 13h7M8.5 16.5h4"/></svg></span><span data-i18n="s-ay-defteri">Ayın Defteri</span></p>
-  <div class="card">
-    <div class="hero-ledger">
-      <div class="hero-row"><span data-i18n="s-bu-ay-gelir">Gelir</span><b id="sumIncome">₺0</b></div>
-      <div class="hero-row"><span data-i18n="s-bu-ay-gider">Gider</span><b id="sumExpense">₺0</b></div>
-      <!-- P0 denetim düzeltmesi: "Kalan" NAKİT esaslıdır — kartla finanse edilen harcama bu ay
-           cebinden çıkmaz (nakit karşılığı kartın ödemesidir, o da "Borç ödemesi" satırında).
-           Bu satır olmadan dört satır birbiriyle çelişiyordu (ör. 110.000 − 44.067 − 0 = 110.000
-           gibi görünüyordu). Yalnızca kartla finanse edilen harcama varsa gösterilir. -->
-      <div class="hero-row hero-row-sub" id="sumCardFundedRow" style="display:none;"><span data-i18n="s-kartla-odenen">bunun kartla ödenen kısmı</span><b id="sumCardFunded">₺0</b></div>
-      <div class="hero-row"><span data-i18n="s-borc-odemesi">Borç ödemesi</span><b id="sumDebtPay">₺0</b></div>
-      <div class="hero-row hero-row-sub" id="sumDebtPayEstRow" style="display:none;"><span data-i18n="s-borc-odemesi-tahmini">bunun içinde tahmini (henüz gerçek ödeme kaydı yok)</span><b id="sumDebtPayEst">₺0</b></div>
-      <div class="hero-row total"><span data-i18n="s-bu-ay-kalan">Kalan</span><b id="sumRemain">₺0</b></div>
-    </div>
-    <div class="hero-meta">
-      <span><i data-i18n="s-tasarruf-orani">Tasarruf oranı</i> <b id="savingsRateStat">%0</b></span>
-      <span><i data-i18n="s-borc-gelir-orani">Aylık borç ödeme yükü</i> <b id="debtRatioStat">%0</b></span>
-    </div>
-  </div>
-  </div>
-
   <!-- AŞAMA 1 hiyerarşisi (3) "Şimdi ne yapmalıyım?" — ana sayfanın çekirdek amacı, bu yüzden
        .card-featured ile diğer kartlardan görsel olarak daha ağırlıklı (bkz. CSS). Mantık AYNI:
        hâlâ computePriorityPlan()/renderPriorityPlan() + runDecisionEngineV2()/
@@ -2737,13 +2747,32 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
     <span id="acilFonMeta" hidden><i data-i18n="s-acil-fon-meta">Acil fon</i> <b id="acilFonStat">—</b></span>
     <span id="hedefMeta" hidden><i id="hedefMetaAd">Hedef</i> <b id="hedefStat">—</b></span>
   </div>
+  <!-- FAZ 3.6 UI SADELEŞTİRME (2026-09): kullanıcı gerçek tarayıcıda bu kartın hâlâ "gereğinden
+       fazla teknik ve tekrarlı" göründüğünü bildirdi. Kök neden: #priorityBox eskiden BURADA,
+       collapsed görünümün DIŞINDA (her zaman görünür) duruyordu — "Sıradaki Adımım" zaten TEK
+       kararı gösterirken bu kart AYRICA "Diğer borçlara ödeme" gibi ikinci bir karar satırı
+       gösteriyordu. Üstüne, "Detayları gör" açılınca #decisionEngineV2Box + #goalCashAllocationBox
+       AYNI ₺53.000/₺12.000 rakamlarını (Dağıtılabilir/Bu ay dağıtılabilir/Acil durum fonuna ayır/
+       "Bunu atlarsam ne olur?") üç farklı çerçevede TEKRAR basıyordu. HİÇBİR HESAP DEĞİŞMEDİ:
+       - #priorityBox artık #planDetailWrap İÇİNDE (collapsed görünümde artık YOK, "Detayları gör"
+         ile açılınca hâlâ erişilebilir — renderPriorityPlan() TAMAMEN dokunulmadı).
+       - #decisionEngineV2Box/#goalCashAllocationBox render edilmeye (test'lerin beklediği gibi
+         .innerHTML dolu olmaya) DEVAM EDİYOR, ama artık `hidden` — insan gözünden tamamen
+         kaldırıldı, İÇERİKLERİ/HESAPLARI aynen duruyor (renderDecisionEngineV2()/
+         renderGoalCashAllocation() TEK SATIR değişmedi).
+       - Yerlerine TEK, sade bir #planPriorityGap eklendi: aynı üst tahsisatın (renderMonthlyPlanSummary
+         zaten hesaplamış "top") önceliğini ve açığın öncesi/sonrasını (SADECE zaten var olan
+         snapshot.emergencyGap/de2.protectedCash/top.amount okunarak, YENİ bir motor/hesap İCAT
+         EDİLMEDEN) ve TEK bir "Bunu atlarsam ne olur?" açılır notunu (top.whatIfSkipped, motorun
+         zaten ürettiği metin) gösterir — bkz. JS: renderPlanPriorityGap(). -->
   <div class="card card-featured">
     <div id="monthlyPlanSummary"></div>
-    <div id="priorityBox"></div>
     <div id="planDetailWrap" hidden>
       <div id="planDetailLedger"></div>
-      <div id="decisionEngineV2Box"></div>
-      <div id="goalCashAllocationBox"></div>
+      <div id="planPriorityGap"></div>
+      <div id="priorityBox"></div>
+      <div id="decisionEngineV2Box" hidden></div>
+      <div id="goalCashAllocationBox" hidden></div>
     </div>
     <button type="button" class="disclosure-btn" id="planDetailToggle" aria-expanded="false" aria-controls="planDetailWrap">
       <span data-i18n="plan-detay-ac">Detayları gör</span>
@@ -2793,10 +2822,21 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   </div>
 
   <!-- Brief'in 9 maddelik zorunlu hiyerarşisinde YER ALMAYAN ama kaldırılması istenmeyen bölümler
-       (hızlı ekle, ek istatistik kutusu, kategori dağılımı, "Yolculuğum" teaser'ı) — silinmedi,
+       (ek istatistik kutusu, kategori dağılımı, "Yolculuğum" teaser'ı) — silinmedi,
        sadece .home-secondary ile görsel ağırlığı azaltılmış ikincil bir blok halinde en alta
-       taşındı (bkz. CSS: .home-secondary > .section-title{opacity düşük}). Fonksiyonellik AYNI. -->
-  <div class="reorder-section home-secondary" data-section="hizli-ekle"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
+       taşındı (bkz. CSS: .home-secondary > .section-title{opacity düşük}). Fonksiyonellik AYNI.
+
+       FAZ 3.5 HOME UX SADELEŞTİRME (2026-09): "Hızlı Ekle" kartı ana sayfadan tamamen
+       KALDIRILDI (kullanıcı isteği: aynı sayfada zaten Sesle Ekle mikrofonu ve Gelir/Gider/
+       Borç/Varlık'ın kendi giriş formları var; ikinci bir ekleme paneli fazlalıktı). Ama bu
+       kart SİLİNMEDİ, yalnızca `hidden` ile görünmez yapıldı — çünkü sesleEkleAc()/
+       sesleEkleKapat() (bkz. JS) bu kartın .card düğümünü DOM'da bulup #sesSheet alt sayfasına
+       taşıyor/geri getiriyor (bkz. sesSheetIcerik yorumu); kart tamamen silinseydi ne bottom
+       nav'daki mikrofon ne de çekmecedeki "Sesle Ekle" girişi çalışırdı. initQuickAdd() da
+       #quickAddInput/#quickAddConfirmBtn üzerinden bu düğümlere bağlanıyor — hidden bir
+       elemente addEventListener bağlamak tamamen normal DOM davranışı, hiçbir fonksiyon
+       kaldırılmadı/değiştirilmedi. -->
+  <div class="reorder-section home-secondary" data-section="hizli-ekle" hidden><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
   <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-14h-7z" fill="currentColor" stroke="none"/></svg></span><span data-i18n="hizli-ekle">Hızlı Ekle</span></p>
   <div class="card">
     <div class="quick-add-hero">
@@ -4020,6 +4060,15 @@ const TRANSLATIONS = {
   'ph-zam-yuzdesi':{tr:'Zam yüzdesi (örn. 15)', en:'Raise percentage (e.g. 15)'},
   'ph-tutar-tl':{tr:'Tutar (₺)', en:'Amount (₺)'},
   's-ay-defteri':{tr:'Ayın Defteri', en:"This Month's Ledger"},
+  /* FAZ 3.5 HOME UX SADELEŞTİRME (2026-09): "NET VARLIĞIN" (networth) ve "AYIN DEFTERİ"
+     (ay-defteri) tek bir "FİNANSAL DURUM" kartında birleştirildi (bkz. HTML: data-section=
+     "finansal-durum"). Bu SADECE görsel bir gruplama — altındaki #netWorthValue/#sumAssets/
+     #sumDebt (net varlık, ANLIK durum) ve #sumIncome/#sumExpense/#sumDebtPay/#sumRemain
+     (bu ayın nakit akışı, DÖNEMSEL durum) hesapları ve elementleri AYNEN korunuyor, hiçbir
+     hesaplama değişmedi. İki kavram kart içinde "BU AY" alt başlığı ve bir ayraçla görsel
+     olarak birbirinden AYRI tutuluyor. */
+  'finansal-durum': {tr:'Finansal Durum', en:'Financial Status'},
+  's-bu-ay': {tr:'BU AY', en:'THIS MONTH'},
   's-acil-fon-meta':{tr:'Acil fon', en:'Emergency fund'},
   'd-rapor':{tr:'Bu ayın geliri, gideri ve paranın nereye gittiği.', en:"This month's income, spending and where the money went."},
   'd-sohbet':{tr:'Kendi verine bakarak cevap veren koçun.', en:'Your coach, answering from your own numbers.'},
@@ -11421,10 +11470,19 @@ function renderActiveGoalCard(){
   const box = document.getElementById('activeGoalBox');
   const primary = pickPrimaryGoal();
   const en = currentLang==='en';
+  /* FAZ 3.5 HOME UX SADELEŞTİRME (2026-09): gerçekten aktif (gap>0) bir hedef yoksa artık
+     ana sayfada koca bir "henüz hedefin yok" boş-durum kartı GÖSTERİLMİYOR — tüm bölüm
+     (data-section="activegoal") `hidden` ile DOM'dan görsel olarak kaldırılıyor. pickPrimaryGoal()
+     DEĞİŞMEDİ (aynı hesap: goals.filter(gap>0)), yalnızca "hiç sonuç yoksa ne gösterilir"
+     kararı değişti. Hedefler sekmesindeki asıl "hedef yok" durumu bundan ETKİLENMEZ — o ayrı
+     bir yerdeki ayrı bir boş-durum, burada dokunulmadı. */
+  const section = box ? box.closest('[data-section="activegoal"]') : null;
   if(!primary){
-    box.innerHTML = `<p class="empty">${t('empty-aktif-hedef-yok')}</p>`;
+    if(section) section.hidden = true;
+    if(box) box.innerHTML = '';
     return;
   }
+  if(section) section.hidden = false;
   const {g, info} = primary;
   const type = GOAL_TYPES.find(t=>t.key===g.typeKey)||GOAL_TYPES[0];
   const pct = info.neededTotal>0 ? Math.min(100,(info.alreadySaved/info.neededTotal)*100) : 0;
@@ -12711,11 +12769,13 @@ function renderMonthlyPlanSummary(){
   if (!el) return;
   const en = currentLang === 'en';
   const de2 = runMonthlyDecisionEngineLive();
-  const result = runGoalCashAllocationEngine(de2, buildMonthlySnapshot());
+  const snapshot = buildMonthlySnapshot();
+  const result = runGoalCashAllocationEngine(de2, snapshot);
 
   if (result.status === 'needs_more_data' || result.status === 'negative_cash_flow') {
     el.innerHTML = `<p class="empty">${escapeHtml(result.explanation)}</p>`;
     renderPlanDetailLedger(null, null);
+    renderPlanPriorityGap(null, null, null);
     return;
   }
 
@@ -12744,6 +12804,59 @@ function renderMonthlyPlanSummary(){
 
   el.innerHTML = `<p class="plan-summary-headline">${escapeHtml(headline)}</p>${subHtml}`;
   renderPlanDetailLedger(de2, result);
+  renderPlanPriorityGap(top, de2, snapshot);
+}
+
+/* FAZ 3.6 UI SADELEŞTİRME (2026-09): "Detayları gör" altında, #planDetailLedger'ın (Gelir→Gider→
+   Borç ödemesi→Kullanılabilir→Korunan→Planlanabilir zinciri) hemen ardından TEK SEFER gösterilen
+   kısa bir "hangi öncelik, ne kadar açık kaldı" özeti. renderMonthlyPlanSummary() zaten hesaplamış
+   olduğu `top` (en öncelikli tahsisat — runGoalCashAllocationEngine'in ÇIKTISI) ile de2/snapshot'ı
+   GİRDİ olarak alır; YENİ bir finansal hesap/motor İCAT ETMEZ — yalnızca zaten var olan
+   snapshot.emergencyGap / de2.protectedCash / top.amount (acil fon durumunda) ya da
+   snapshot.debts[].balanceTL / snapshot.goals[].gap (borç/hedef durumunda, yine snapshot'ın
+   ZATEN taşıdığı alanlar) üzerinden basit bir "öncesi − bu ayki tahsisat = sonrası" çıkarması
+   yapar; bu AYNI çıkarma zaten runGoalCashAllocationEngine()'in kendi `reason` metninin İÇİNDE
+   düz yazı olarak mevcuttur (bkz. o fonksiyondaki "stillShort"/"afterAmt") — burada sadece
+   kompakt, tek satırlık "Açık: A → B" biçiminde TEKRAR gösteriliyor, motor TEKRAR ÇAĞRILMIYOR/
+   DEĞİŞTİRİLMİYOR. "Bunu atlarsam ne olur?" burada TEK bir kez, motorun zaten ürettiği
+   top.whatIfSkipped metniyle gösterilir — #goalCashAllocationBox'taki (artık gizli) her tahsisat
+   için ayrı ayrı tekrarlanan aynı desenin YERİNE geçer, ikisi birden görünmez. */
+function renderPlanPriorityGap(top, de2, snapshot){
+  const el = document.getElementById('planPriorityGap');
+  if (!el) return;
+  if (!top) { el.innerHTML = ''; return; }
+  const en = currentLang === 'en';
+  let label = en ? 'Flexible amount' : 'Esnek tutar';
+  let before = null, after = null;
+  if (top.type === 'emergency_fund_contribution') {
+    label = en ? 'Emergency fund' : 'Acil durum fonu';
+    const emergencyGap = Number((snapshot||{}).emergencyGap) || 0;
+    const protectedCash = Number((de2||{}).protectedCash) || 0;
+    before = Math.max(0, emergencyGap - protectedCash);
+    after = Math.max(0, before - top.amount);
+  } else if (top.type === 'debt_reduction') {
+    const debt = ((snapshot||{}).debts || []).find(d => d.id === top.relatedDebtId);
+    label = (en ? 'Debt' : 'Borç') + (debt && debt.label ? `: ${debt.label}` : '');
+    if (debt) { before = Number(debt.balanceTL) || 0; after = Math.max(0, before - top.amount); }
+  } else if (top.relatedGoalId && top.type !== 'obligation_context') {
+    const goal = ((snapshot||{}).goals || []).find(g => g.id === top.relatedGoalId);
+    label = (en ? 'Goal' : 'Hedef') + (goal && goal.name ? `: ${goal.name}` : '');
+    if (goal && goal.gap != null) { before = Number(goal.gap) || 0; after = Math.max(0, before - top.amount); }
+  }
+  const gapHtml = (before != null)
+    ? `<div class="hero-row"><span>${en ? 'Gap' : 'Açık'}</span><b>${CUR}${fmt(before)} → ${CUR}${fmt(after)}</b></div>`
+    : '';
+  let whatIfHtml = '';
+  if (top.whatIfSkipped) {
+    whatIfHtml = `<p class="goal-line goal-note" style="cursor:pointer;text-decoration:underline;" data-plan-whatif-toggle="planPriorityWhatIf">${en ? 'What if I skip this?' : 'Bunu atlarsam ne olur?'}</p>`
+      + `<p id="planPriorityWhatIf" class="goal-line" style="display:none;color:var(--muted);">${escapeHtml(top.whatIfSkipped)}</p>`;
+  }
+  el.innerHTML = `<div class="hero-row"><span>${en ? 'Priority' : 'Öncelik'}</span><b>${escapeHtml(label)}</b></div>${gapHtml}${whatIfHtml}`;
+  const toggle = el.querySelector('[data-plan-whatif-toggle]');
+  if (toggle) toggle.addEventListener('click', () => {
+    const target = document.getElementById(toggle.dataset.planWhatifToggle);
+    if (target) target.style.display = target.style.display === 'none' ? 'block' : 'none';
+  });
 }
 
 /* Teknik zincir: Gelir → Gider → Borç ödemesi → Bu ay kullanılabilir → Korunan (likidite) →
@@ -19152,7 +19265,13 @@ const DEFAULT_SECTION_ORDER = {
      o kazanır; bu yalnızca varsayılan. */
   /* AŞAMA 3 (brief §13): Aylık Gelir+Gider, "bugün ne kadar harcayabilirim" halkasının
      ÜSTÜNE alındı — kullanıcı önce ayın tablosunu, sonra günün payını görüyor. */
-  home:  ['networth','bugunun-gorevi','ay-defteri','ring','bu-ay-plan','karar-motoru-v2','bugun-bilmen-gerekenler','afford-teaser',
+  /* FAZ 3.5 HOME UX SADELEŞTİRME (2026-09): 'networth' + 'ay-defteri' tek 'finansal-durum'
+     bölümünde birleşti (bkz. HTML). Kullanıcının eski persistent.sectionOrder kaydında hâlâ
+     'networth'/'ay-defteri' geçebilir — applySectionOrder() var olmayan bir data-section için
+     document.querySelector null döndüğünde sessizce atlar (bkz. o fonksiyondaki yorum), yani
+     eski kayıtlar kırılmadan yeni 'finansal-durum' en başa eklenir. 'karar-motoru-v2' zaten
+     FAZ 3.1'den beri DOM'da karşılığı olmayan, zararsız bir eski anahtardı — temizlendi. */
+  home:  ['finansal-durum','bugunun-gorevi','ring','bu-ay-plan','bugun-bilmen-gerekenler','afford-teaser',
           'yaklasan-odemeler','activegoal','son-islemler','hizli-ekle','top5','expense-donut','journey-teaser'],
   /* Kullanıcı isteği: Finans Koçu en üste alındı — Aylık Rapor'un önüne geçti. */
   coach: ['ai-koc-baslik','aylik-rapor','zenginleseme-skoru','net-durum','acil-fon','finansal-yol',

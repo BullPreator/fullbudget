@@ -219,7 +219,7 @@ test('FAZ3-7: "Bu Ayki Planım" shows one plain-language summary by default, wit
 test('FAZ3-8: #acilFonMeta/#hedefMeta badges live under "Bu Ayki Planım", not inside the net-worth hero card', async () => {
   const { page, pageErrors } = await newSession({ income: 100000, expenses: 40000, assets: 20000, goals: [] });
   const check = await page.evaluate(() => {
-    const networthSection = document.querySelector('[data-section="networth"]');
+    const networthSection = document.querySelector('[data-section="finansal-durum"]');
     const buAyPlanSection = document.querySelector('[data-section="bu-ay-plan"]');
     return {
       inNetworth: !!(networthSection && networthSection.querySelector('#acilFonMeta')),
