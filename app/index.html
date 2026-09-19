@@ -12391,11 +12391,34 @@ function renderDecisionEngineV2(){
     box.innerHTML = `<p class="empty">${escapeHtml(result.summary)}</p>`;
     return;
   }
-  const rows = result.actions.slice(0, 3).map(a => `
+  // TEK DOĞRULUK KAYNAĞI (single source of truth): DE2'nin kendi P4 "Kalan tutar" aksiyonu, bu
+  // paranın aslında NEREYE gittiğini bilmiyor (acil fon açığı kavramından habersiz — bkz. runDecisionEngineV2
+  // P4 yorumu). Burada YENİ bir hesap YAPILMIYOR — zaten var olan, saf runGoalCashAllocationEngine()
+  // ÇAĞRILIYOR ve P4 satırı, o motorun AYNI tutar için ürettiği GERÇEK sonuçla (acil fon tahsisatı /
+  // uzun vadeli-esnek kalan) değiştiriliyor. runDecisionEngineV2()'nin kendisi DOKUNULMADI/TEKRAR
+  // YAZILMADI — yalnızca bu render fonksiyonu, ikinci bir motorun sonucunu GÖSTERMEK için genişletildi.
+  // Motorun kendi P1/P2/P3'ü bu ay bir şey tahsis ettiyse (nadir durum, "Kalan tutar" havuzu farklı
+  // büyüklükte olabilir), tutarlar eşleşmiyorsa GÜVENLİ ŞEKİLDE orijinal DE2 satırına geri dönülür —
+  // uyuşmayan bir rakam asla gösterilmez.
+  const allocation = runGoalCashAllocationEngine(result, buildMonthlySnapshot());
+  const rows = result.actions.slice(0, 3).map(a => {
+    if (a.type === 'remaining_allocation') {
+      const tail = allocation.allocations.filter(x => (x.type === 'emergency_fund_contribution' || x.type === 'long_term_or_flexible') && x.amount > 1);
+      const tailSum = tail.reduce((s, x) => s + x.amount, 0);
+      if (tail.length && Math.abs(tailSum - a.amount) <= 1) {
+        return tail.map(x => `
+          <div class="hero-row" style="align-items:flex-start;">
+            <span style="max-width:70%;">${escapeHtml(x.type === 'emergency_fund_contribution' ? (en ? 'Add to emergency fund' : 'Acil durum fonuna ayır') : (en ? 'Remaining amount' : 'Kalan tutar'))}<br><span style="font-size:var(--fs-xs);color:var(--muted);">${escapeHtml(x.reason || '')}</span></span>
+            <b>${CUR}${fmt(x.amount)}</b>
+          </div>`).join('');
+      }
+    }
+    return `
     <div class="hero-row" style="align-items:flex-start;">
       <span style="max-width:70%;">${escapeHtml(a.title)}${a.confidence === 'estimated' ? ` <i style="color:var(--muted);font-size:var(--fs-xs);">(${en ? 'estimated' : 'tahmini'})</i>` : ''}<br><span style="font-size:var(--fs-xs);color:var(--muted);">${escapeHtml(a.reason || '')}</span></span>
       ${a.amount > 0 ? `<b>${CUR}${fmt(a.amount)}</b>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const negative = result.status === DECISION_STATUS.NEGATIVE_CASH_FLOW;
   box.innerHTML = `
     <div class="hero-row"><span>${en ? 'Status' : 'Durum'}</span><b class="${negative ? 'danger' : 'good'}">${STATUS_LABEL[result.status] || result.status}</b></div>

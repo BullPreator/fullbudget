@@ -506,3 +506,89 @@ test('GOAL-CASH-17: acil fon tahsisatı devreye girdiğinde bile runDecisionEngi
   assert.equal(out.same, true, 'GERÇEK acil fon tahsisatı dalı devrede olsa bile runDecisionEngineV2() TEKRAR hesaplanmaz/mutasyona uğramaz');
   await page.close();
 });
+
+// -----------------------------------------------------------------------
+// TEK DOĞRULUK KAYNAĞI (single source of truth): "NAKİT AKIŞI KARAR ÖZETİ" (#decisionEngineV2Box)
+// artık kendi P4 "Kalan tutar" aksiyonunu KÖRÜ KÖRÜNE göstermiyor — aynı tutar için zaten hesaplanmış
+// Allocation Engine sonucunu (acil fon tahsisatı / uzun vadeli-esnek) YENİDEN HESAPLAMADAN gösteriyor.
+// runDecisionEngineV2() KENDİSİ DOKUNULMADI — bu testler sadece RENDER çıktısını doğrular.
+test('GOAL-CASH-18: TAM MANUEL SENARYO — "Nakit Akışı Karar Özeti" artık ₺53.000\'i "Kalan tutar" olarak DEĞİL, Allocation Engine ile TUTARLI şekilde "acil fona ayır" olarak gösterir', async () => {
+  const { page, pageErrors } = await newPage();
+  const out = await page.evaluate(() => {
+    persistent.accounts = [{ id: 'inv1', name: 'Yatırım Hesabı', type: 'Yatırım', balance: 500000, currency: 'TRY' }];
+    persistent.debts = [];
+    // NOT: bakiye TAM OLARAK ödeme tutarına (15.000) eşit — ödeme sonrası kart TAMAMEN kapanır
+    // (currentBalance=0). Bu, GOAL-CASH-1'deki (bakiye 30.000, kısmi ödeme) senaryodan KASITLI
+    // olarak farklı: amacımız burada P0/render sırasını bozan İLGİSİZ bir "ekstreyi tam ödemek
+    // zorlayabilir" uyarısını (assessCardAffordability, likit=0 olduğu için tetiklenir) DEVREDE
+    // BIRAKMAMAK — o uyarı bu testin konusu (DE2 render <-> Allocation Engine tutarlılığı) ile
+    // İLGİSİZ, sadece #decisionEngineV2Box'ın ilk 3 aksiyon sınırını (slice(0,3)) doldurup asıl
+    // test edilen P4/acil-fon satırını görünümden dışarı iterdi. Nakit akışı rakamları (65.000/
+    // 53.000/12.000/60.000) BUNDAN ETKİLENMEZ — hepsi gerçek ödeme tutarına (15.000) bağlı.
+    persistent.creditCards = [{ id: 'c1', name: 'Kart', currentBalance: 15000, limit: 200000, currency: 'TRY', minPayment: 0, statementDay: 1, dueDay: 10, rate: 0 }];
+    const targetDate = (function () { const d = new Date(); d.setMonth(d.getMonth() + 6); return d.toISOString().slice(0, 10); })();
+    persistent.goals = [{
+      id: 'gEv', typeKey: 'ev', referenceId: 'custom', targetAmount: 5000000, currentSaved: 0,
+      targetDate, priceInflationPct: 0, downPaymentPct: 30, fullPriceInsteadOfDownPayment: false,
+    }];
+    persistent.dailyMoneyTask = null; persistent.cardPaymentLog = [];
+    month.incomes = [{ id: 'i1', category: 'Maaş', amount: 120000 }];
+    month.expenses = [
+      { id: 'e1', category: 'Kira', amount: 24000, fixed: true },
+      { id: 'e2', category: 'Diğer', amount: 16000, fixed: false },
+    ];
+    render();
+    const preInfo = computeGoalInfo(persistent.goals[0]);
+    persistent.goals[0].currentSaved = preInfo.neededTotal;
+    render();
+    applyCardPayment(persistent.creditCards[0], 15000, 'inv1');
+    render();
+    const de2Box = document.getElementById('decisionEngineV2Box').innerHTML;
+    const allocBox = document.getElementById('goalCashAllocationBox').innerHTML;
+    const de2 = runMonthlyDecisionEngineLive();
+    const allocation = runGoalCashAllocationEngine(de2, buildMonthlySnapshot());
+    return { de2Box, allocBox, de2, allocation };
+  });
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+  const { de2Box, allocation } = out;
+
+  // Kalıcı, doğru kalması gereken satır: korunan likidite (₺12.000) — bu AYRI, dokunulmamış bir kavram.
+  assert.match(de2Box, /12\.000|12000/, 'korunan likidite (₺12.000) hâlâ görünmeli — bu tahsisata dahil değil');
+
+  // ARTIK YANLIŞ OLMAMASI GEREKEN: "Kalan tutar" etiketiyle ₺53.000 serbest tutar gibi gösterilmemeli.
+  assert.ok(!/Kalan tutar[\s\S]{0,80}53\.000/.test(de2Box) && !/Remaining amount[\s\S]{0,80}53,000/.test(de2Box),
+    '"Kalan tutar: ₺53.000" artık serbest/yatırıma hazır tutar gibi GÖSTERİLMEMELİ');
+
+  // DOĞRU OLMASI GEREKEN: aynı ₺53.000, Allocation Engine ile TUTARLI şekilde acil fon tahsisatı olarak görünmeli.
+  assert.match(de2Box, /[Aa]cil durum fonuna ayır|[Aa]dd to emergency fund/, 'acil fon tahsisatı ETİKETİ görünmeli');
+  assert.match(de2Box, /53\.000|53000/, 'acil fon tahsisatı TUTARI (₺53.000) görünmeli');
+
+  // Çapraz doğrulama: iki kartın gösterdiği rakam AYNI kaynaktan (Allocation Engine) gelmeli.
+  const emerg = allocation.allocations.find(a => a.type === 'emergency_fund_contribution');
+  assert.ok(emerg, 'Allocation Engine gerçekten bir acil fon tahsisatı üretmiş olmalı');
+  assert.equal(emerg.amount, 53000);
+  assert.ok(de2Box.includes('53.000') || de2Box.includes('53000'),
+    '"Nakit Akışı Karar Özeti" kartındaki tutar, Allocation Engine sonucuyla (₺53.000) BİREBİR aynı olmalı');
+  await page.close();
+});
+
+test('GOAL-CASH-19: acil fon açığı YOKKEN davranış DEĞİŞMEZ — "Kalan tutar" hâlâ eskisi gibi doğru şekilde gösterilir (geriye dönük uyumluluk)', async () => {
+  const { page, pageErrors } = await newPage();
+  const out = await page.evaluate(() => {
+    persistent.accounts = [{ id: 'a1', name: 'Banka', type: 'Banka Hesabı', balance: 500000, currency: 'TRY' }];
+    persistent.debts = []; persistent.creditCards = [];
+    persistent.goals = []; persistent.dailyMoneyTask = null; persistent.cardPaymentLog = [];
+    month.incomes = [{ id: 'i1', category: 'Maaş', amount: 60000 }];
+    month.expenses = [{ id: 'e1', category: 'Diğer', amount: 5000, fixed: false }];
+    render();
+    const de2Box = document.getElementById('decisionEngineV2Box').innerHTML;
+    const de2 = runMonthlyDecisionEngineLive();
+    return { de2Box, distributableCash: de2.distributableCash };
+  });
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+  // Bu senaryoda likit varlık (500.000) zaten acil fon hedefinin çok üzerinde -> emergencyGap yok ->
+  // davranış TAMAMEN eskisi gibi kalmalı: tutar "Kalan tutar" olarak görünür (acil fon tahsisatı YOK).
+  assert.match(out.de2Box, /Kalan tutar|Remaining amount/, '"Kalan tutar" etiketi hâlâ (değişmeden) görünmeli');
+  assert.ok(!/[Aa]cil durum fonuna ayır|[Aa]dd to emergency fund/.test(out.de2Box), 'acil fon açığı yokken acil fon tahsisatı etiketi ÜRETİLMEMELİ');
+  await page.close();
+});
