@@ -654,6 +654,16 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
   box-shadow:0 0 0 1px var(--surface);
 }
 .info-badge:hover{background:rgba(227,77,89,0.24);}
+/* FAZ 3.9 BUG DÜZELTMESİ (2026-09): `.info-badge{display:inline-flex}` yukarıda tanımlı olduğu
+   için, JS'in verdiği `badge.hidden = true` (bkz. renderNetWorthLiquidityBadge) tarayıcının
+   varsayılan `[hidden]{display:none}` kuralıyla AYNI özgüllükte (specificity) yarışıyordu ve
+   kaynak sırası yüzünden bu class kuralı kazanıyordu — rozet "gizli" olması gerekirken görünür
+   kalıyor, içindeki .info-badge-pop ise HİÇBİR ZAMAN doldurulmadığı için (fonksiyon assets<=0
+   dalında pop.innerHTML'i hiç yazmadan erken dönüyor) tıklanınca BOŞ bir kutu açılıyordu. Aynı
+   düzeltme bu dosyada .ses-sheet/.confirm-backdrop/.confirm-modal/#groupSegments için zaten
+   var — burada da AYNEN uygulandı. Hiçbir finansal hesap ya da net varlık formülü değişmedi;
+   bu salt bir görünürlük/CSS düzeltmesidir. */
+.info-badge[hidden]{display:none;}
 .info-badge-pop{
   display:none; position:absolute; z-index:30; top:calc(100% + 8px); left:0;
   width:250px; max-width:78vw; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-md);
@@ -13270,26 +13280,54 @@ function pickUnhandledStep(steps, handledSignatures){
    "acil fona bu ay ne kadar ayırayım" sorusuna cevap verdiği için kullanıcı aynı kararla ilgili iki
    farklı rakam görüyordu (₺19.500 vs ₺53.000).
 
-   BU FONKSİYON YENİ BİR HESAP YAPMAZ: computePriorityPlan/_planKur'un kendi acil-fon formülü
-   AYNEN duruyor (adım hâlâ o formülle üretiliyor, hâlâ öncelik sırasına göre seçiliyor). Yalnızca
-   BU ADIM KULLANICIYA GÖSTERİLMEDEN HEMEN ÖNCE, eğer adım gerçekten acil fon katkısıysa
-   (moneyTaskCategoryFromStep ile AYNI sınıflandırma), zaten çalıştırılmış canonical GCAE sonucundan
-   (runMonthlyGoalCashAllocationLive — DEĞİŞTİRİLMEDİ) o anki gerçek emergency_fund_contribution
-   tutarı/nedeni okunup adımın GÖRÜNEN kopyasına (orijinal _planCache.steps nesnesi MUTASYONA
-   UĞRAMAZ — spread ile yeni bir kopya) yazılır. Böylece "Sıradaki Adımım" ve "Bu Ayki Planım" AYNI
-   canonical rakamı gösterir. Adımın kendisi acil fonla ilgili DEĞİLSE (borç/hedef/kritik uyarı vb.)
-   ya da canonical sonuçta bir emergency_fund_contribction YOKSA, adım OLDUĞU GİBİ döner — hiçbir
+   FAZ 3.9 UI DÜZELTMESİ (2026-09): AYNI kök neden — computePriorityPlan/_planKur'un kendi
+   waterfall'ı canonical GCAE'den BAĞIMSIZ hesap yapıyor — acil fon DIŞINDAKİ kategorilerde de
+   çıkıyordu (rapor edilen örnek: "Sıradaki Adımım" ₺45.500 gösterirken "Bu Ayki Planım" aynı
+   durum için canonical ₺53.000 gösteriyordu). Kök sebep: _planKur'un acil-fon adımı KENDİ
+   likidite hedefini (estimateMonthlyEssential()*3 − totalLiquidAssets()) kullanıyor; canonical
+   GCAE ise getAffordCapacityInfo()'nun (Decision Engine v1/"Alabilir miyim?" ile PAYLAŞILAN)
+   emergencyGap'ini kullanıyor. İki formül aynı soruya ("acil fon açığı var mı?") farklı cevap
+   verebiliyor; _planKur bu farkla kalan tutardan (remaining) gereksiz yere pay ayırınca, adım
+   zincirinin sonundaki "Planlanabilir tutar" (category:'yatirim') canonical'ın distributableCash
+   toplamının tamamının gittiği long_term_or_flexible satırından KÜÇÜK çıkabiliyordu. Aynı yapısal
+   uyumsuzluk borç/hedef kategorileri için de mümkündür — bu yüzden düzeltme tek bir kategoriye
+   özel değil, "Bu Ayki Planım"ın ZATEN kullandığı 4 canonical aday satırın (emergencyRow/debtRow/
+   goalRow/flexRow — bkz. renderMonthlyPlanSummary) TAMAMINA genelleştirildi.
+
+   BU FONKSİYON YENİ BİR HESAP YAPMAZ: computePriorityPlan/_planKur'un kendi formülü AYNEN duruyor
+   (adım hâlâ o formülle üretiliyor, hâlâ öncelik sırasına göre seçiliyor; _planCache MUTASYONA
+   UĞRAMAZ — spread ile yeni bir kopya döner). Yalnızca BU ADIM KULLANICIYA GÖSTERİLMEDEN HEMEN
+   ÖNCE, adımın kategorisi (moneyTaskCategoryFromStep — sınıflandırma DEĞİŞMEDİ) "Bu Ayki Planım"ın
+   4 canonical aday satırından biriyle eşleşiyorsa, zaten çalıştırılmış canonical GCAE sonucundan
+   (runMonthlyGoalCashAllocationLive — DEĞİŞTİRİLMEDİ) o satırın tutarı/nedeni okunup adımın
+   GÖRÜNEN kopyasına yazılır. Böylece "Sıradaki Adımım" ve "Bu Ayki Planım" AYNI canonical rakamı
+   gösterir. Adımın kategorisinin canonical bir karşılığı yoksa (kritik uyarı/kurulum/tasarruf/
+   harcama/döviz borcu vb.) ya da canonical sonuçta o satır YOKSA, adım OLDUĞU GİBİ döner — hiçbir
    ilgisiz rakam zorla eşleştirilmez. */
+const MONEY_TASK_CANONICAL_ROW_BY_CATEGORY = {
+  // "Bu Ayki Planım"daki top seçimiyle BİREBİR aynı filtreler (bkz. renderMonthlyPlanSummary).
+  acil_fon: (result) => result.allocations.find(a => a.type === 'emergency_fund_contribution' && a.amount > 1),
+  borc:     (result) => result.allocations.find(a => a.priority === 'P2' && a.relatedDebtId && a.amount > 1),
+  hedef:    (result) => result.allocations.find(a => a.relatedGoalId && a.amount > 1 && a.type !== 'obligation_context'),
+  yatirim:  (result) => result.allocations.find(a => a.type === 'long_term_or_flexible' && a.amount > 1),
+};
+/* Bir adımın/görevin kategorisine karşılık gelen canonical satırı okur — sınıflandırma
+   moneyTaskCategoryFromStep() ile AYNI (step.category önceden çözülmüşse onu, yoksa step/ik/
+   label sezgisini kullanır), yeni bir kategori sistemi İCAT EDİLMEDİ. */
+function canonicalRowForMoneyTask(stepOrTask){
+  const category = moneyTaskCategoryFromStep(stepOrTask);
+  const pick = MONEY_TASK_CANONICAL_ROW_BY_CATEGORY[category];
+  if(!pick) return null;
+  let result;
+  try{ result = runMonthlyGoalCashAllocationLive(); }catch(e){ return null; }
+  if(!result || !Array.isArray(result.allocations)) return null;
+  return pick(result) || null;
+}
 function reconcileStepWithCanonicalAllocation(step){
   if(!step) return step;
-  if(moneyTaskCategoryFromStep(step) !== 'acil_fon') return step;
-  let result;
-  try{ result = runMonthlyGoalCashAllocationLive(); }catch(e){ return step; }
-  const emergencyRow = result && Array.isArray(result.allocations)
-    ? result.allocations.find(a => a.type === 'emergency_fund_contribution' && a.amount > 1)
-    : null;
-  if(!emergencyRow) return step;
-  return {...step, amount: emergencyRow.amount, reason: emergencyRow.reason};
+  const row = canonicalRowForMoneyTask(step);
+  if(!row) return step;
+  return {...step, amount: row.amount, reason: row.reason};
 }
 
 /* FAZ 3.4 UI DÜZELTMESİ (2026-09): FAZ 3.3'teki reconcileStepWithCanonicalAllocation() YALNIZCA
@@ -13297,25 +13335,21 @@ function reconcileStepWithCanonicalAllocation(step){
    İÇİNDE BİR KEZ kurulup persist edilir (bkz. ensureTodaysMoneyTask'ın kendi yorumu) — kullanıcının
    tarayıcısında/localStorage'ında BUGÜN için ZATEN kurulmuş bir görev varsa (ör. bu düzeltmeden önce
    oluşmuş, ya da gün içinde gelir/gider değişmeden önce oluşmuş), `!rec.task` dalı hiç çalışmaz ve
-   görev SONSUZA KADAR kendi kuruluş anındaki tutarı gösterirdi — tam olarak raporlanan hata
-   (ekranda hâlâ ₺19.500 görünmesi). BURADA DA YENİ BİR HESAP YOK: yalnızca, görev hâlâ 'pending'
-   iken (tamamlanmış bir görevin geçmişteki rakamı GERİYE DÖNÜK değiştirilmez) ve kategorisi acil
-   fonsa, zaten kurulmuş görevin amount/description/impact alanları HER render'da canonical
-   runMonthlyGoalCashAllocationLive() sonucuyla yeniden hizalanır. id/signature/status/createdAt/
-   completedAt DOKUNULMAZ — handledSignatures dedup mantığı (moneyTaskSignature ik+label'a bakar,
-   amount'a bakmaz) ETKİLENMEZ. */
+   görev SONSUZA KADAR kendi kuruluş anındaki tutarı gösterirdi. BURADA DA YENİ BİR HESAP YOK:
+   yalnızca, görev hâlâ 'pending' iken (tamamlanmış bir görevin geçmişteki rakamı GERİYE DÖNÜK
+   değiştirilmez) zaten kurulmuş görevin amount/description/impact alanları HER render'da (FAZ 3.9:
+   artık acil fonla sınırlı değil — yukarıdaki MONEY_TASK_CANONICAL_ROW_BY_CATEGORY'nin kapsadığı
+   HER kategori için) canonical runMonthlyGoalCashAllocationLive() sonucuyla yeniden hizalanır.
+   id/signature/status/createdAt/completedAt DOKUNULMAZ — handledSignatures dedup mantığı
+   (moneyTaskSignature ik+label'a bakar, amount'a bakmaz) ETKİLENMEZ. */
 function reconcilePersistedEmergencyTask(task){
-  if(!task || task.status !== 'pending' || task.category !== 'acil_fon') return false;
-  let result;
-  try{ result = runMonthlyGoalCashAllocationLive(); }catch(e){ return false; }
-  const emergencyRow = result && Array.isArray(result.allocations)
-    ? result.allocations.find(a => a.type === 'emergency_fund_contribution' && a.amount > 1)
-    : null;
-  if(!emergencyRow) return false;
-  if(task.amount === emergencyRow.amount && task.description === emergencyRow.reason) return false;
-  task.amount = emergencyRow.amount;
-  task.description = emergencyRow.reason;
-  task.impact = moneyTaskImpactText({category:'acil_fon', amount: emergencyRow.amount});
+  if(!task || task.status !== 'pending') return false;
+  const row = canonicalRowForMoneyTask(task);
+  if(!row) return false;
+  if(task.amount === row.amount && task.description === row.reason) return false;
+  task.amount = row.amount;
+  task.description = row.reason;
+  task.impact = moneyTaskImpactText({category: task.category, amount: row.amount});
   return true;
 }
 
