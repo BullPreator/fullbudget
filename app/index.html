@@ -13491,15 +13491,59 @@ function reconcilePersistedEmergencyTask(task){
   return true;
 }
 
+/* FAZ 3.11 UI DÜZELTMESİ (2026-09): FAZ 3.10, pickTodaysStepReconciled()'ı yalnızca bir görev
+   İLK KEZ kurulurken (`!rec.task` dalı) çağırıyordu. Ama persistent.dailyMoneyTask GÜN İÇİNDE BİR
+   KEZ kurulup persist edilir ve HER SONRAKİ render'da (kullanıcı hiçbir şeye dokunmasa bile) AYNI
+   kayıt döndürülür — `!rec.task` dalı bir daha HİÇ ÇALIŞMAZ. Zaten var olan bir görev için yalnızca
+   reconcilePersistedEmergencyTask() çalışıyordu; o da SADECE görevin KENDİ kategorisi için canonical
+   satırı arar (moneyTaskCategoryFromStep(task) → task.category, DEĞİŞMEZ) — yani görevin TUTARINI
+   günceller ama KATEGORİSİNİ asla yeniden değerlendirmez. Sonuç: bu düzeltmeden ÖNCE (ya da bu
+   düzeltmeden önceki bir render'da, ör. henüz acil fon ihtiyacı doğmadan) 'yatirim' kategorisiyle
+   kurulmuş ve persist edilmiş bir görev, canonical sonradan ₺60.000'lık bir acil fon tahsisatı
+   istemeye başlasa BİLE sonsuza dek "Planlanabilir tutar" göstermeye devam ediyordu — reconcile
+   fonksiyonu her seferinde yalnızca kendi (yanlış) kategorisi içindeki tutarı (₺8.000) "doğru"
+   bulup hiçbir şey değiştirmiyordu. BU, canonical hesabın YANLIŞ olmasından değil, ZATEN KURULMUŞ
+   BİR GÖREVİN KİMLİĞİNİN (kategorisinin) bir daha asla yeniden değerlendirilmemesinden kaynaklanan
+   bir YAŞAM DÖNGÜSÜ hatasıydı.
+
+   DÜZELTME: pickTodaysStepReconciled'ın ZATEN kullandığı AYNI canonicalAllocationRankOfStep/
+   findHigherPriorityCanonicalStep mekanizması, artık HER render'da persist edilmiş 'pending' görev
+   için de çalıştırılır (upgradeStalePersistedMoneyTask). Görev, kendi kategorisinden DAHA öncelikli
+   ve henüz ele alınmamış bir canonical satır varsa (ör. 'yatirim' dururken 'acil_fon' artık
+   gerekiyorsa), dismiss/complete ile AYNI şekilde YENİ bir görevle değiştirilir — id/createdAt
+   yenilenir (kimliği gerçekten değişen bir kararı temsil ettiği için), ama handledSignatures/
+   completed geçmişi DOKUNULMAZ. Kritik uyarı/esnek-pahalı-borç gibi canonical'ın hiç modellemediği
+   görevler (canonicalAllocationRankOfStep === -1) ile zaten en öncelikli kategoride olan bir görev
+   (acil_fon, rank 0) HİÇBİR ZAMAN yükseltilmeye çalışılmaz — bu onların önceliğini bozmaz. YENİ BİR
+   HESAP YOK: yalnızca zaten çalıştırılmış canonical sonuçtan (runMonthlyGoalCashAllocationLive)
+   okunur. localStorage/persistent state SİLİNMEZ, kullanıcı verisi kaybolmaz — yalnızca sunum
+   katmanındaki günün görevi, halihazırda var olan aynı reconciliation deseniyle güncellenir. */
+function canonicalUpgradeRankForPersistedTask(task){
+  if(!task) return -1;
+  if(task.category === 'diger' && !task.ik) return CANONICAL_ALLOCATION_CATEGORY_ORDER.length; // rakam uydurmayan fallback görev — tüm kategoriler kontrol edilir
+  return canonicalAllocationRankOfStep(task);
+}
+function upgradeStalePersistedMoneyTask(rec, steps){
+  if(!rec || !rec.task || rec.task.status !== 'pending') return false;
+  const rank = canonicalUpgradeRankForPersistedTask(rec.task);
+  if(rank <= 0) return false; // zaten en öncelikli kategoride (acil_fon) ya da canonical'ın hiç modellemediği bir adım — yükseltilecek bir şey yok
+  const override = findHigherPriorityCanonicalStep(steps, rec.handledSignatures, rank);
+  if(!override) return false;
+  rec.task = buildMoneyTaskFromStep(override);
+  return true;
+}
+
 /* TEK GİRİŞ NOKTASI: her render()'da çağrılır. Yeni gün ise (ya da hiç kayıt
    yoksa) planın ilk ele alınmamış adımından günün görevini kurar ve HEMEN
    kalıcı hale getirir (madde 9 - kullanıcı hiçbir şeye dokunmasa bile sayfa
    yenilendiğinde aynı görev durur). Aynı gün içinde tekrar tekrar
    ÇAĞRILDIĞINDA (her render'da olduğu gibi) var olan görevin KİMLİĞİNİ (hangi adım seçildiği,
-   hangi görev olduğu) asla DEĞİŞTİRMEZ - yalnızca completeMoneyTask/dismissMoneyTask bunu yapar.
-   FAZ 3.4: zaten var olan bir acil-fon görevinin GÖSTERİLEN TUTARI, canonical kaynakla hizalı
-   kalsın diye her render'da reconcilePersistedEmergencyTask() ile tazelenir (bkz. yukarısı) — bu,
-   görevin KİMLİĞİNİ değiştirmez, yalnızca zaten aynı kararı temsil eden rakamı günceller. */
+   hangi görev olduğu) YALNIZCA ŞU İKİ DURUMDA değiştirir: (1) completeMoneyTask/dismissMoneyTask
+   kullanıcı eylemiyle, (2) FAZ 3.11: canonical, görevin KENDİ kategorisinden DAHA öncelikli, henüz
+   ele alınmamış bir tahsisat istemeye başladıysa (bkz. upgradeStalePersistedMoneyTask). Aksi halde
+   FAZ 3.4: zaten var olan bir görevin GÖSTERİLEN TUTARI, canonical kaynakla hizalı kalsın diye her
+   render'da reconcilePersistedEmergencyTask() ile tazelenir (bkz. yukarısı) — bu, görevin KİMLİĞİNİ
+   değiştirmez, yalnızca zaten aynı kararı temsil eden rakamı günceller. */
 function ensureTodaysMoneyTask(plan){
   const today = new Date().toISOString().slice(0,10);
   let rec = persistent.dailyMoneyTask;
@@ -13509,10 +13553,12 @@ function ensureTodaysMoneyTask(plan){
     persistent.dailyMoneyTask = rec;
     changed = true;
   }
+  const steps = (plan && plan.steps) || [];
   if(!rec.task){
-    const steps = (plan && plan.steps) || [];
     const reconciled = pickTodaysStepReconciled(steps, rec.handledSignatures);
     rec.task = reconciled ? buildMoneyTaskFromStep(reconciled) : buildFallbackMoneyTask();
+    changed = true;
+  } else if(upgradeStalePersistedMoneyTask(rec, steps)){
     changed = true;
   } else if(reconcilePersistedEmergencyTask(rec.task)){
     changed = true;
