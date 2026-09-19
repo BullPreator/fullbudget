@@ -2716,36 +2716,32 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
 
   <!-- AŞAMA 1 hiyerarşisi (3) "Şimdi ne yapmalıyım?" — ana sayfanın çekirdek amacı, bu yüzden
        .card-featured ile diğer kartlardan görsel olarak daha ağırlıklı (bkz. CSS). Mantık AYNI:
-       hâlâ computePriorityPlan()/renderPriorityPlan() besliyor. FAZ 3: ilk adım artık burada
-       TEKRAR EDİLMİYOR (yukarıdaki "Sıradaki Adımım" tek yüzeyi gösteriyor) — bkz. renderPriorityPlan,
-       plan.steps.slice(1). Acil fon ayı/hedef yüzdesi rozetleri de (eskiden net varlık kartının
-       içindeydi) buraya taşındı — aynı bilgi iki yerde tekrar etmesin diye (bkz. guncelleKararOzeti). -->
+       hâlâ computePriorityPlan()/renderPriorityPlan() + runDecisionEngineV2()/
+       runGoalCashAllocationEngine() besliyor — HESAP MOTORLARI DEĞİŞTİRİLMEDİ.
+       FAZ 3.1 UI REFACTOR (2026-09): eskiden BURASI ve hemen altındaki ayrı "karar-motoru-v2"
+       kartı İKİ FARKLI kart olarak render ediliyordu ve her biri kendi motorunun ürettiği
+       (birbirinden BAĞIMSIZ, farklı büyüklükte) bir "kalan tutar" rakamını gösteriyordu — kullanıcı
+       aynı anda "₺45.500" (computePriorityPlan'ın kendi kalanı), "₺65.000" (gelir−gider−borç sonrası
+       kullanılabilir tutar) ve "₺53.000" (canonical distributableCash) gibi üç farklı rakam
+       görüyordu. Bu TEK karta birleştirildi: #monthlyPlanSummary artık TEK ana rakamı (canonical
+       runGoalCashAllocationEngine().distributableCash) ve o rakamın nereye gitmesi önerildiğini
+       kısaca gösterir; #priorityBox (computePriorityPlan'ın kendi öncelik listesi, ilk adım hariç —
+       bkz. renderPriorityPlan) hemen altında kalır ama artık kendi "kalan tutar" özet satırlarını
+       BASMAZ (bkz. renderPriorityPlan: 'yatirim' kategorisi ve eklenen özet satırı kaldırıldı);
+       gelir/gider/borç/korunan/kullanılabilir/dağıtılabilir TAM zinciri ve DE2/Allocation Engine'in
+       kendi kutuları (#decisionEngineV2Box/#goalCashAllocationBox İÇERİKLERİ DEĞİŞMEDİ) yalnızca
+       "Detayları gör" ile açılır. Acil fon ayı/hedef yüzdesi rozetleri (eskiden net varlık kartının
+       içindeydi) burada kalmaya devam ediyor — aynı bilgi iki yerde tekrar etmesin diye. -->
   <div class="reorder-section" data-section="bu-ay-plan" id="jump-bu-ay-plan"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title featured"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-14h-7z" fill="currentColor" stroke="none"/></svg></span><span data-i18n="bu-ay-plan">Bu Ayki Planım</span></p>
   <div class="hero-meta" id="heroKararMeta">
     <span id="acilFonMeta" hidden><i data-i18n="s-acil-fon-meta">Acil fon</i> <b id="acilFonStat">—</b></span>
     <span id="hedefMeta" hidden><i id="hedefMetaAd">Hedef</i> <b id="hedefStat">—</b></span>
   </div>
-  <div class="card card-featured"><div id="priorityBox"></div></div>
-  </div>
-
-  <!-- DECISION ENGINE v2 + GOAL & CASH ALLOCATION ENGINE — "Bu ay paramla ne yapmalıyım?" sorusuna
-       YAPISAL cevap. "Bu Ayki Planım" kartının (computePriorityPlan) YERİNE GEÇMEZ, onu tekrar
-       etmez: burada gösterilen kullanılabilir/korunan/dağıtılabilir tutar kırılımı ve öncelik
-       nedenleri AYRI bir yapısal katmandan (runDecisionEngineV2/runGoalCashAllocationEngine, bkz.
-       JS "DECISION ENGINE v2" / "GOAL & CASH ALLOCATION ENGINE" blokları) gelir, ama AYNI canonical
-       nakit akışı/borç/hedef verisini okur — yeni bir finansal hesap YOK, HESAP MOTORLARI
-       DEĞİŞTİRİLMEDİ.
-       FAZ 3 UI REFACTOR: kullanıcı "Decision Engine" / "Allocation Engine" çalıştığını HİSSETMEMELİ.
-       Bu yüzden iki ayrı, teknik başlıklı kart ("Nakit Akışı Karar Özeti" + "Bu Ay Paramı Nasıl
-       Bölmeliyim?") kaldırıldı; yerine TEK bir sade özet cümlesi (renderMonthlyPlanSummary,
-       #monthlyPlanSummary — SADECE zaten hesaplanmış sonuçları düz dille anlatır, yeni hesap
-       YAPMAZ) ve altında varsayılan olarak KAPALI bir "Detayları gör" açılır alanı geldi.
-       #decisionEngineV2Box / #goalCashAllocationBox İÇERİKLERİ ve onları dolduran render
-       fonksiyonları DEĞİŞMEDİ — sadece DIŞARIDAN nasıl sunulduğu değişti. -->
-  <div class="reorder-section" data-section="karar-motoru-v2"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <div class="card">
+  <div class="card card-featured">
     <div id="monthlyPlanSummary"></div>
+    <div id="priorityBox"></div>
     <div id="planDetailWrap" hidden>
+      <div id="planDetailLedger"></div>
       <div id="decisionEngineV2Box"></div>
       <div id="goalCashAllocationBox"></div>
     </div>
@@ -4496,7 +4492,10 @@ const TRANSLATIONS = {
      dil YOK (brief madde 4): "atladın", "kaçırdın", "yapmalıydın" gibi ifadeler kasıtlı olarak
      kullanılmadı - nötr/destekleyici bir ton tercih edildi. */
   'gorev-baslik': {tr:'Sıradaki Adımım', en:'Your Next Step'},
-  'gorev-btn-tamamla': {tr:'Bunu Yaptım', en:'I Did This'},
+  // FAZ 3.1: "Bunu Yaptım" ("I Did This") görev-tamamlama hissini güçlendiriyordu — davranış
+  // (completeMoneyTask: handledSignatures'a ekler, sonraki adıma geçer) AYNI kaldı, yalnızca
+  // etiket nötrleşti.
+  'gorev-btn-tamamla': {tr:'Anladım', en:'Got it'},
   'gorev-btn-atla': {tr:'Başka bir öncelik göster', en:'Show a different priority'},
   'gorev-tamamlandi-baslik': {tr:'Bunu işaretledin.', en:"You've marked this done."},
   'gorev-ilerleme': {tr:'Bu ayki finansal ilerlemen', en:'Your financial progress this month'},
@@ -12681,52 +12680,87 @@ function renderGoalCashAllocation(){
    "BU AYKİ PLANIM" — SADE ÖZET (FAZ 3 UI REFACTOR, 2026-09)
    -----------------------------------------------------------------------
    Bu fonksiyon YENİ bir hesap YAPMAZ. Yalnızca zaten var olan, tek doğruluk
-   kaynağı olan runMonthlyGoalCashAllocationLive() (== runGoalCashAllocationEngine)
-   sonucunu, kullanıcıya "korunan tutar / acil fon açığı / planlanabilir tutar"
-   gibi teknik kavramları göstermeden, 1-2 cümlelik sade bir dille özetler.
-   Teknik kırılım (DE2 + Allocation Engine satır satır) aynı kartın altında
-   #planDetailWrap içinde, "Detayları gör" ile açılır — burada SİLİNMİYOR,
-   sadece varsayılan olarak GİZLİ. */
+   kaynağı olan runGoalCashAllocationEngine() sonucunu (== runMonthlyGoalCashAllocationLive'ın
+   içi, burada de2'yi de ayrıca elde etmek için AYNI şekilde açık çağrılıyor) kullanıcıya
+   TEK bir ana rakam + o rakamın önerilen gidişatı olarak gösterir.
+
+   FAZ 3.1 UI DÜZELTMESİ (2026-09): Önceki sürümde bu kart TEK canonical rakamı (distributableCash)
+   gösteriyordu ama hemen altındaki #priorityBox (computePriorityPlan/_planKur'un KENDİ, farklı
+   büyüklükteki "kalan/planlanabilir tutar" satırları) ve gelir−gider−borç sonrası "kullanılabilir
+   tutar" (availableCash) da AYRI AYRI, ana özet gibi görünür durumda basılıyordu — kullanıcı aynı
+   anda 3-4 farklı rakam görüyordu. Şimdi: (1) BURADA yalnızca canonical distributableCash + en
+   öncelikli tahsisatın kısa nedeni gösteriliyor, (2) availableCash/protectedCash/distributableCash
+   zinciri SADECE #planDetailLedger içinde (bkz. renderPlanDetailLedger, "Detayları gör" altında)
+   görünüyor, (3) #priorityBox artık kendi "kalan tutar" özet satırlarını basmıyor (bkz.
+   renderPriorityPlan). Hiçbiri bir hesap DEĞİŞİKLİĞİ değil — hepsi zaten var olan sonuçların NEREDE
+   gösterildiğine dair bir karar. */
 function renderMonthlyPlanSummary(){
   const el = document.getElementById('monthlyPlanSummary');
   if (!el) return;
   const en = currentLang === 'en';
-  const result = runMonthlyGoalCashAllocationLive();
+  const de2 = runMonthlyDecisionEngineLive();
+  const result = runGoalCashAllocationEngine(de2, buildMonthlySnapshot());
 
   if (result.status === 'needs_more_data' || result.status === 'negative_cash_flow') {
     el.innerHTML = `<p class="empty">${escapeHtml(result.explanation)}</p>`;
+    renderPlanDetailLedger(null, null);
     return;
   }
 
   const emergencyRow = result.allocations.find(a => a.type === 'emergency_fund_contribution' && a.amount > 1);
-  const flexRow = result.allocations.find(a => a.type === 'long_term_or_flexible' && a.amount > 1);
   const debtRow = result.allocations.find(a => a.priority === 'P2' && a.relatedDebtId && a.amount > 1);
   const goalRow = result.allocations.find(a => a.relatedGoalId && a.amount > 1 && a.type !== 'obligation_context');
+  const flexRow = result.allocations.find(a => a.type === 'long_term_or_flexible' && a.amount > 1);
+  const top = emergencyRow || debtRow || goalRow || flexRow || null;
 
-  let headline;
-  if (emergencyRow) {
-    headline = en
-      ? `This month you can plan ${CUR}${fmt(result.distributableCash)}. The suggestion: put it toward your emergency fund.`
-      : `Bu ay ${CUR}${fmt(result.distributableCash)} planlayabilirsin. Öneri: bunu acil durum fonuna ayır.`;
-  } else if (debtRow) {
-    headline = en
-      ? `This month you can plan ${CUR}${fmt(result.distributableCash)}. The suggestion: put it toward your debt.`
-      : `Bu ay ${CUR}${fmt(result.distributableCash)} planlayabilirsin. Öneri: bunu borcuna ayır.`;
-  } else if (goalRow) {
-    headline = en
-      ? `This month you can plan ${CUR}${fmt(result.distributableCash)}. The suggestion: put it toward your goal.`
-      : `Bu ay ${CUR}${fmt(result.distributableCash)} planlayabilirsin. Öneri: bunu hedefine ayır.`;
-  } else if (flexRow) {
-    headline = en
-      ? `This month you can plan ${CUR}${fmt(result.distributableCash)}. No urgent priority remains — how you use it is up to you.`
-      : `Bu ay ${CUR}${fmt(result.distributableCash)} planlayabilirsin. Öncelikli bir konu kalmadı — nasıl değerlendireceğine sen karar verirsin.`;
-  } else {
-    headline = en
-      ? `This month there is no extra amount to plan beyond what's already accounted for.`
-      : `Bu ay zaten hesaba katılanların dışında planlayacak ek bir tutar yok.`;
+  const headline = en
+    ? `Amount you can plan: ${CUR}${fmt(result.distributableCash)}`
+    : `Planlayabileceğin tutar: ${CUR}${fmt(result.distributableCash)}`;
+
+  let subHtml = '';
+  if (top) {
+    const label = top === emergencyRow
+      ? (en ? 'Put toward your emergency fund' : 'Acil durum fonuna ayır')
+      : top === debtRow
+        ? (en ? 'Put toward your debt' : 'Borcuna ayır')
+        : top === goalRow
+          ? (en ? 'Put toward your goal' : 'Hedefine ayır')
+          : (en ? 'This amount is free to plan — it\'s up to you' : 'Bu tutar planlamana açık — nasıl değerlendireceğine sen karar verirsin');
+    subHtml = `<div class="hero-row"><span>${escapeHtml(label)}</span><b>${CUR}${fmt(top.amount)}</b></div>`
+      + (top.reason ? `<p class="goal-line">${escapeHtml(top.reason)}</p>` : '');
   }
 
-  el.innerHTML = `<p class="plan-summary-headline">${escapeHtml(headline)}</p>`;
+  el.innerHTML = `<p class="plan-summary-headline">${escapeHtml(headline)}</p>${subHtml}`;
+  renderPlanDetailLedger(de2, result);
+}
+
+/* Teknik zincir: Gelir → Gider → Borç ödemesi → Bu ay kullanılabilir → Korunan (likidite) →
+   Planlanabilir tutar (distributableCash). HİÇBİR YENİ HESAP YOK: income/expenses/debtPay zaten
+   var olan totalIncome()/cashOutSpent()/monthlyDebtPayments() saf fonksiyonlarından (render()'ın
+   Ayın Defteri kartını doldururken kullandığı AYNI kaynaklar), availableCash/protectedCash zaten
+   çalıştırılmış de2'den, distributableCash zaten çalıştırılmış result'tan okunuyor. Yalnızca
+   #planDetailWrap içinde, "Detayları gör" ile açılınca görünür. */
+function renderPlanDetailLedger(de2, result){
+  const el = document.getElementById('planDetailLedger');
+  if (!el) return;
+  if (!de2 || !result || result.status === 'needs_more_data' || result.status === 'negative_cash_flow') {
+    el.innerHTML = '';
+    return;
+  }
+  const en = currentLang === 'en';
+  const income = totalIncome();
+  const expenses = cashOutSpent();
+  const debtPay = monthlyDebtPayments();
+  let html = '';
+  html += `<div class="hero-row"><span>${en ? 'Income' : 'Gelir'}</span><b>${CUR}${fmt(income)}</b></div>`;
+  html += `<div class="hero-row hero-row-sub"><span>${en ? 'Expenses' : 'Gider'}</span><b>-${CUR}${fmt(expenses)}</b></div>`;
+  html += `<div class="hero-row hero-row-sub"><span>${en ? 'Debt payments' : 'Borç ödemesi'}</span><b>-${CUR}${fmt(debtPay)}</b></div>`;
+  html += `<div class="hero-row total"><span>${en ? 'Available this month' : 'Bu ay kullanılabilir tutar'}</span><b>${CUR}${fmt(de2.availableCash)}</b></div>`;
+  if (de2.protectedCash > 0) {
+    html += `<div class="hero-row hero-row-sub"><span>${en ? 'Protected (liquidity)' : 'Korunan (likidite)'}</span><b>-${CUR}${fmt(de2.protectedCash)}</b></div>`;
+  }
+  html += `<div class="hero-row total"><span>${en ? 'Amount you can plan' : 'Planlanabilir tutar'}</span><b>${CUR}${fmt(result.distributableCash)}</b></div>`;
+  el.innerHTML = html;
 }
 
 /* =========================================================
@@ -12840,25 +12874,27 @@ function renderPriorityPlan(plan, monthlyCashFlow){
   const en = currentLang==='en';
   // FAZ 3 UI REFACTOR: plan.steps[0] artık burada TEKRAR EDİLMİYOR — o, tek karar yüzeyi olan
   // "Sıradaki Adımım" kartında gösteriliyor (bkz. renderMoneyTaskCard/ensureTodaysMoneyTask).
-  // Sıralama/öncelik mantığı ve amount hesapları (computePriorityPlan) DEĞİŞMEDİ — sadece bu
-  // listenin İLK öğeyi atlaması, salt bir SUNUM kararı.
-  const remainingSteps = plan.steps.slice(1);
+  // FAZ 3.1: "yatirim" kategorili adım (computePriorityPlan'ın kendi "kalan/planlanabilir tutar"
+  // satırı) da BURADA basılmıyor — bu tutar zaten #monthlyPlanSummary'de CANONICAL (GCAE'nin
+  // distributableCash'i) olarak gösteriliyor; iki farklı motorun kendi "kalan tutar" rakamını
+  // aynı ekranda yan yana göstermek kullanıcıyı yanıltıyordu (bkz. renderMonthlyPlanSummary).
+  // _planCache.steps'in kendisi/hesabı (computePriorityPlan) DEĞİŞMEDİ — bu satır, o adımın
+  // BURADA render edilip edilmeyeceğine dair salt bir SUNUM filtresi. "Sıradaki Adımım" veya
+  // moneyTaskCategoryFromStep gibi _planCache.steps'i doğrudan okuyan başka hiçbir yer etkilenmez.
+  const remainingSteps = plan.steps.slice(1).filter(s => s.category !== 'yatirim');
   const rows = remainingSteps.map((s,i)=>({act:!!s.action, html:`<div class="priority-row${s.action?' actionable':''}"${s.action?` data-action='${escapeHtml(JSON.stringify(s.action))}' role="button" tabindex="0"`:''}>
       <div class="priority-num">${adimIkonHtml(s, i)}</div>
       <div class="priority-body"><b>${escapeHtml(s.label)}${s.amount?` <span class="priority-amount">${CUR}${fmt(s.amount)}</span>`:''}</b><span>${escapeHtml(s.reason||'')}</span></div>
       ${s.action?'<div class="priority-go">›</div>':''}
     </div>`}));
-  // FAZ 3 UI REFACTOR: "Bu ay net varlığını en az ₺X artır" ifadesi muhasebesel olarak yanıltıcıydı
-  // (gelir−gider−borç kalanı harcamadan biriktirmek net varlığı GERÇEKTEN bu tutar kadar artırır,
-  // ama "artır" fiili bunun garanti/otomatik bir sonuç olduğu izlenimini veriyordu). Aynı tutar
-  // (monthlyCashFlow, DEĞİŞMEDİ) artık nötr bir "bu ay planlayabileceğin tutar" çerçevesiyle
-  // gösteriliyor — bu bir hesap değişikliği DEĞİL, salt kopya/dil değişikliği.
-  if(monthlyCashFlow > 0){
-    rows.push({act:false, html:`<div class="priority-row">
-      <div class="priority-num">${adimIkonHtml({ik:'ozet'}, 0)}</div>
-      <div class="priority-body"><b>${en ? "This month's plannable amount" : 'Bu ay planlayabileceğin tutar'} <span class="priority-amount">${CUR}${fmt(monthlyCashFlow)}</span></b><span>${en ? 'This is what remains if you save (rather than spend) this month\'s income minus expenses minus debt payments (excluding asset value gains). How you use it is up to you.' : 'Bu, bu ayki gelir − gider − borç ödemeni harcamadan biriktirirsen elinde kalan tutar (varlık değer artışları hariç). Bunu nasıl değerlendireceğine sen karar verirsin.'}</span></div>
-    </div>`});
-  }
+  // FAZ 3.1: eskiden burada AYRICA "Bu ay planlayabileceğin tutar ₺X" satırı ekleniyordu
+  // (monthlyCashFlow = gelir−gider−borç sonrası kullanılabilir tutar). Bu, #monthlyPlanSummary'nin
+  // gösterdiği canonical distributableCash'ten FARKLI bir rakamdı (protected/likidite düşülmeden
+  // önceki tutar) ve aynı kartta iki farklı "ana rakam" göstererek kafa karıştırıyordu. Bu satır
+  // kaldırıldı — AYNI tutar (monthlyCashFlow, DEĞİŞMEDİ) artık yalnızca "Detayları gör" altındaki
+  // #planDetailLedger'da "Bu ay kullanılabilir tutar" olarak, teknik zincirin bir parçası halinde
+  // gösteriliyor (bkz. renderPlanDetailLedger). monthlyCashFlow parametresi bu yüzden artık burada
+  // kullanılmıyor (imza geriye dönük uyumluluk için AYNEN korundu).
   /* Eskiden bütün adımlar tek blok halinde basılıyordu: ana ekranın en üstünde beş paragraflık,
      759px'lik bir tavsiye duvarı oluşuyor ve asıl sayılar ekranın çok altında kalıyordu. Artık ilk
      üçü açık, gerisi tek dokunuşla açılıyor. Gizlenen satırlar DOM'da kaldığı için tıklama ve
@@ -13195,8 +13231,12 @@ function renderMoneyTaskCard(rec){
         <div class="money-task-body">
           <div class="money-task-title">${escapeHtml(task.title)}${amountHtml}</div>
           <div class="money-task-desc">${escapeHtml(task.description)}</div>
+          <!-- FAZ 3.1: teknik "category" (backend taksonomisi — borc/harcama/hedef/acilfon/...)
+               chip'i kaldırıldı; kullanıcıya bir backend sınıflandırması sızdırıyordu. task.category
+               ALANI ve moneyTaskCategoryFromStep() SİLİNMEDİ — moneyTaskImpactText() hâlâ bunu
+               okuyor, yalnızca UI'da AYRI bir rozet olarak basılmıyor. Öncelik rozeti kalıyor
+               (kullanıcı için anlamlı: kritik/orta/düşük). -->
           <div class="money-task-chips">
-            <span class="money-task-chip">${escapeHtml(t('gorev-kat-' + task.category))}</span>
             <span class="money-task-chip pri-${task.priority}">${escapeHtml(t('gorev-oncelik-' + task.priority))}</span>
           </div>
         </div>
@@ -14620,23 +14660,26 @@ function renderTop5(safeDaily, netWorth, monthlyCashFlow, priorityResult){
   animateNumberTo('top5Savings', monthlyCashFlow, v=>`${v<0?'-':''}${CUR}${fmt(Math.abs(v))}`);
   savEl.className = monthlyCashFlow<0 ? 'danger' : 'good';
 
+  // FAZ 3.1: "aktif hedef" = gap>0 olan, hâlâ devam eden bir hedef. Ne "hiç hedef yok" ne de
+  // "eklenmiş ama gap'i kalmamış (tamamlanmış) hedefler var" durumu aktif hedef SAYILMAZ — bu
+  // ikisinde de eskiden "Hedeflerine ulaştın"/"Hedef eklemedin" gibi bir METİN gösteriliyordu,
+  // bu da olmayan bir hedef sonucu varmış izlenimi veriyordu. Artık aktif hedef yoksa bu istatistik
+  // HİÇ basılmıyor (satır gizleniyor) — computeGoalInfo()/gap hesabı DEĞİŞMEDİ, salt görünürlük.
   const goals = persistent.goals||[];
   const goalLeftEl = document.getElementById('top5GoalLeft');
-  if(goals.length){
-    const infos = goals.map(g=>({g,info:computeGoalInfo(g)})).filter(x=>x.info.gap>0);
-    if(infos.length){
-      infos.sort((a,b)=>{
-        const am = isFinite(a.info.projectedMonths)?a.info.projectedMonths:9999;
-        const bm = isFinite(b.info.projectedMonths)?b.info.projectedMonths:9999;
-        return am-bm;
-      });
-      const nearest = infos[0];
-      goalLeftEl.textContent = `${CUR}${fmt(nearest.info.gap)} (${goalDisplayName(nearest.g)})`;
-    } else {
-      goalLeftEl.textContent = currentLang==='en' ? 'You reached your goals' : 'Hedeflerine ulaştın';
-    }
-  } else {
-    goalLeftEl.textContent = currentLang==='en' ? "You haven't added a goal" : 'Hedef eklemedin';
+  const goalLeftStat = goalLeftEl ? goalLeftEl.closest('.stat') : null;
+  const infos = goals.map(g=>({g,info:computeGoalInfo(g)})).filter(x=>x.info.gap>0);
+  if(infos.length){
+    infos.sort((a,b)=>{
+      const am = isFinite(a.info.projectedMonths)?a.info.projectedMonths:9999;
+      const bm = isFinite(b.info.projectedMonths)?b.info.projectedMonths:9999;
+      return am-bm;
+    });
+    const nearest = infos[0];
+    goalLeftEl.textContent = `${CUR}${fmt(nearest.info.gap)} (${goalDisplayName(nearest.g)})`;
+    if(goalLeftStat) goalLeftStat.hidden = false;
+  } else if(goalLeftStat) {
+    goalLeftStat.hidden = true;
   }
 }
 
