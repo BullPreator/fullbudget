@@ -1050,6 +1050,8 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
 .disclosure-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round;transition:transform .22s ease;}
 .disclosure-btn.open svg{transform:rotate(180deg);}
+.plan-summary-headline{font-size:var(--fs-base);line-height:1.5;margin:0;}
+.ring-note{font-size:var(--fs-xs);color:var(--muted);margin:6px 0 0;line-height:1.45;}
 .priority-row{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start;}
 .priority-row:last-child{border-bottom:none;}
 .priority-num{flex-shrink:0; width:26px; display:flex; align-items:flex-start; justify-content:center; padding-top:1px;}
@@ -2645,39 +2647,35 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
          kilitliyse). Var olan veri modeli (totalLiquidAssets/totalAssets) DEĞİŞMEDİ - yalnızca bu
          ayrımı gösteren küçük, tıklanabilir bir bilgi rozeti eklendi (mevcut .info-badge deseniyle). -->
     <span class="info-badge" id="netWorthLiquidityBadge" style="margin-left:6px;vertical-align:2px;" hidden>!<span class="info-badge-pop" id="netWorthLiquidityPop"></span></span>
-    <!-- Ekranın üstündeki soru "bugün ne yapmalısın?" — cevabı da burada olmalı.
-         Aynı öncelik motorundan (computePriorityPlan) besleniyor, ayrı bir mantık yok. -->
-    <div id="siradakiAdim"></div>
     <!-- Varlık / borç: eskiden iki ayrı kutuydu. Aynı ölçekteki iki sayı, kutu yerine tek ince
          dikey ayraçla karşılaştırılıyor — göz ikisini bir arada okuyor. -->
     <div class="hero-split">
       <div class="hero-cell"><span data-i18n="s-toplam-varlik">Toplam varlık</span><b id="sumAssets" class="good">₺0</b></div>
       <div class="hero-cell"><span data-i18n="s-toplam-borc">Toplam borç</span><b id="sumDebt" class="danger">₺0</b></div>
     </div>
-    <!-- Karar bağlamı: acil fon ve hedef. Tasarruf oranı/borç-gelir gibi teşhis sayıları
-         aşağıdaki "Ayın Defteri" bölümüne taşındı — ilk ekran teşhis değil karar ekranı. -->
-    <div class="hero-meta" id="heroKararMeta">
-      <span id="acilFonMeta" hidden><i data-i18n="s-acil-fon-meta">Acil fon</i> <b id="acilFonStat">—</b></span>
-      <span id="hedefMeta" hidden><i id="hedefMetaAd">Hedef</i> <b id="hedefStat">—</b></span>
-    </div>
   </div>
   </div>
 
-  <!-- BUGÜNÜN PARA GÖREVİ — brief: "kullanıcıya sadece finansal durumunu göstermemeli, her gün
-       tamamlayabileceği TEK ve SOMUT bir finansal aksiyon vermeli". Veri kaynağı computePriorityPlan
-       (Bu Ay Ne Yapmalısın? ile AYNI motor) - burada yeni bir hesaplama motoru YOK, yalnızca o
-       motorun ilk (en öncelikli) adımı günlük bir görev olarak sarmalanıp sunuluyor; tamamlanma/
-       atlama durumu persistent.dailyMoneyTask içinde kalıcı tutuluyor (bkz. JS: ensureTodaysMoneyTask/
-       renderMoneyTaskCard, computePriorityPlan()'ın hemen altında tanımlı). -->
+  <!-- FAZ 3 UI REFACTOR (2026-09): "SIRADAKİ ADIMIM" — tek karar yüzeyi. Eskiden AYNI
+       computePriorityPlan()/plan.steps[0] kararı üç yerde tekrar ediyordu: net varlık kartı
+       içindeki "SIRADAKİ ADIMIN" satırı (guncelleKararOzeti), bu kart ("Bugünün Para Görevi")
+       ve "Bu Ay Ne Yapmalısın?" listesinin ilk satırı. Artık TEK yüzey burası — net varlık
+       kartındaki ayrı satır kaldırıldı, "Bu Ayki Planım" listesi artık ilk adımı ATLAR (bkz.
+       renderPriorityPlan). "Görev" çerçevesi ve "Görevi Tamamladım" dili de kaldırıldı — FullBudget
+       kullanıcıya görev vermiyor; mevcut persistence (persistent.dailyMoneyTask,
+       ensureTodaysMoneyTask/completeMoneyTask/dismissMoneyTask) davranışı AYNEN korunuyor, yalnızca
+       sunum dili nötrleşti (bkz. JS: renderMoneyTaskCard, computePriorityPlan()'ın hemen altında). -->
   <div class="reorder-section" data-section="bugunun-gorevi"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title featured"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-14h-7z" fill="currentColor" stroke="none"/></svg></span><span data-i18n="gorev-baslik">Bugünün Para Görevi</span></p>
+  <p class="section-title featured"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-14h-7z" fill="currentColor" stroke="none"/></svg></span><span data-i18n="gorev-baslik">Sıradaki Adımım</span></p>
   <div class="card card-featured"><div id="moneyTaskBox"></div></div>
   </div>
 
   <!-- AŞAMA 1 hiyerarşisi (1b) net varlığın günlük arkadaşı: bugün güvenle harcanabilecek tutar.
        Brief'in 9 maddesinde ayrı bir madde olarak yok ama silinmedi — net varlıkla aynı soruya
        (finansal durumum nasıl?) farklı zaman ölçeğinde cevap verdiği için hemen altına, ona
-       yakın bir "eş" olarak taşındı; artık tek başına ekranın en baskın elemanı değil. -->
+       yakın bir "eş" olarak taşındı; artık tek başına ekranın en baskın elemanı değil.
+       FAZ 3: bu, AYLIK planlanabilir tutarla (aşağıdaki "Bu Ayki Planım") KARIŞTIRILMAMASI için
+       tek cümlelik statik bir açıklama eklendi — formül/hesap DEĞİŞMEDİ, yalnızca bağlam. -->
   <div class="reorder-section" data-section="ring"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
   <p class="section-title"><span data-i18n="bugunku-butce">Bugünkü Güvenli Bütçen</span></p>
   <div class="hero">
@@ -2689,6 +2687,7 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
       <div class="ring-center"><div class="ring-amount"><span id="dailyAmountNum">—</span><span id="dailyAmountLabel">bugünkü tahmini güvenli harcama alanın</span></div></div>
     </div>
     <div class="hero-sub" id="heroSub">Bilgiler yükleniyor…</div>
+    <p class="ring-note" data-i18n="ring-aylik-fark-not">Bu tutar yalnızca bugün için tahmini güvenli harcama alanını gösterir; aşağıdaki "Bu Ayki Planım" bölümündeki aylık planlanabilir tutarla aynı şey değildir.</p>
   </div>
   </div>
 
@@ -2717,26 +2716,44 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
 
   <!-- AŞAMA 1 hiyerarşisi (3) "Şimdi ne yapmalıyım?" — ana sayfanın çekirdek amacı, bu yüzden
        .card-featured ile diğer kartlardan görsel olarak daha ağırlıklı (bkz. CSS). Mantık AYNI:
-       hâlâ computePriorityPlan()/renderPriorityPlan() besliyor. -->
-  <div class="reorder-section" data-section="bu-ay-plan" id="jump-bu-ay-plan"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title featured"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-14h-7z" fill="currentColor" stroke="none"/></svg></span><span data-i18n="bu-ay-plan">Bu Ay Ne Yapmalısın?</span></p>
+       hâlâ computePriorityPlan()/renderPriorityPlan() besliyor. FAZ 3: ilk adım artık burada
+       TEKRAR EDİLMİYOR (yukarıdaki "Sıradaki Adımım" tek yüzeyi gösteriyor) — bkz. renderPriorityPlan,
+       plan.steps.slice(1). Acil fon ayı/hedef yüzdesi rozetleri de (eskiden net varlık kartının
+       içindeydi) buraya taşındı — aynı bilgi iki yerde tekrar etmesin diye (bkz. guncelleKararOzeti). -->
+  <div class="reorder-section" data-section="bu-ay-plan" id="jump-bu-ay-plan"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title featured"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-14h-7z" fill="currentColor" stroke="none"/></svg></span><span data-i18n="bu-ay-plan">Bu Ayki Planım</span></p>
+  <div class="hero-meta" id="heroKararMeta">
+    <span id="acilFonMeta" hidden><i data-i18n="s-acil-fon-meta">Acil fon</i> <b id="acilFonStat">—</b></span>
+    <span id="hedefMeta" hidden><i id="hedefMetaAd">Hedef</i> <b id="hedefStat">—</b></span>
+  </div>
   <div class="card card-featured"><div id="priorityBox"></div></div>
   </div>
 
-  <!-- DECISION ENGINE v2 — "Bu ay paramla ne yapmalıyım?" sorusuna YAPISAL cevap. YUKARIDAKİ
-       "Bu Ay Ne Yapmalısın?" kartının (computePriorityPlan) YERİNE GEÇMEZ, onu tekrar etmez:
-       burada gösterilen kullanılabilir/korunan/dağıtılabilir tutar kırılımı ve öncelik nedenleri
-       AYRI bir yapısal katmandan (runDecisionEngineV2, bkz. JS "DECISION ENGINE v2" bloğu) gelir,
-       ama AYNI canonical nakit akışı/borç/hedef verisini okur — yeni bir finansal hesap YOK. -->
+  <!-- DECISION ENGINE v2 + GOAL & CASH ALLOCATION ENGINE — "Bu ay paramla ne yapmalıyım?" sorusuna
+       YAPISAL cevap. "Bu Ayki Planım" kartının (computePriorityPlan) YERİNE GEÇMEZ, onu tekrar
+       etmez: burada gösterilen kullanılabilir/korunan/dağıtılabilir tutar kırılımı ve öncelik
+       nedenleri AYRI bir yapısal katmandan (runDecisionEngineV2/runGoalCashAllocationEngine, bkz.
+       JS "DECISION ENGINE v2" / "GOAL & CASH ALLOCATION ENGINE" blokları) gelir, ama AYNI canonical
+       nakit akışı/borç/hedef verisini okur — yeni bir finansal hesap YOK, HESAP MOTORLARI
+       DEĞİŞTİRİLMEDİ.
+       FAZ 3 UI REFACTOR: kullanıcı "Decision Engine" / "Allocation Engine" çalıştığını HİSSETMEMELİ.
+       Bu yüzden iki ayrı, teknik başlıklı kart ("Nakit Akışı Karar Özeti" + "Bu Ay Paramı Nasıl
+       Bölmeliyim?") kaldırıldı; yerine TEK bir sade özet cümlesi (renderMonthlyPlanSummary,
+       #monthlyPlanSummary — SADECE zaten hesaplanmış sonuçları düz dille anlatır, yeni hesap
+       YAPMAZ) ve altında varsayılan olarak KAPALI bir "Detayları gör" açılır alanı geldi.
+       #decisionEngineV2Box / #goalCashAllocationBox İÇERİKLERİ ve onları dolduran render
+       fonksiyonları DEĞİŞMEDİ — sadece DIŞARIDAN nasıl sunulduğu değişti. -->
   <div class="reorder-section" data-section="karar-motoru-v2"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M4 19h16M7 15v4M12 10v9M17 6v13"/></svg></span><span data-i18n="karar-v2-baslik">Nakit Akışı Karar Özeti</span></p>
-  <div class="card"><div id="decisionEngineV2Box"></div></div>
-  <!-- HEDEF & NAKİT DAĞILIM MOTORU — Decision Engine v2'nin distributableCash'ini TEKRAR
-       HESAPLAMADAN alıp adım adım böler (bkz. JS "GOAL & CASH ALLOCATION ENGINE" bloğu,
-       runGoalCashAllocationEngine()). runDecisionEngineV2()'ye DOKUNULMADI; bu, onun P4
-       ("Kalan tutar") tek satırını YAPISAL bir kırılıma açan AYRI, ek bir katman. Yatırım için
-       hiçbir yüzde/getiri İCAT EDİLMEZ; artan tutar otomatik olarak yatırıma zorlanmaz. -->
-  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg></span><span data-i18n="karar-v2-tahsis-baslik">Bu Ay Paramı Nasıl Bölmeliyim?</span></p>
-  <div class="card"><div id="goalCashAllocationBox"></div></div>
+  <div class="card">
+    <div id="monthlyPlanSummary"></div>
+    <div id="planDetailWrap" hidden>
+      <div id="decisionEngineV2Box"></div>
+      <div id="goalCashAllocationBox"></div>
+    </div>
+    <button type="button" class="disclosure-btn" id="planDetailToggle" aria-expanded="false" aria-controls="planDetailWrap">
+      <span data-i18n="plan-detay-ac">Detayları gör</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+  </div>
   </div>
 
   <!-- BUGÜN BİLMEN GEREKENLER — eskiden .networth-hero'nun içinde küçük bir "2 acil uyarı" rozetiydi;
@@ -4292,7 +4309,9 @@ const TRANSLATIONS = {
   'aylik-hedef': {tr:'Aylık Hedefin', en:'Monthly Goal'},
   'borc-plan': {tr:'Borç Ödeme Planı', en:'Debt Payoff Plan'},
   'borclar': {tr:'Borçların', en:'Your Debts'},
-  'bu-ay-plan': {tr:'Bu Ay Ne Yapmalısın?', en:'What To Do This Month?'},
+  'bu-ay-plan': {tr:'Bu Ayki Planım', en:"This Month's Plan"},
+  'ring-aylik-fark-not': {tr:'Bu tutar yalnızca bugün için tahmini güvenli harcama alanını gösterir; aşağıdaki "Bu Ayki Planım" bölümündeki aylık planlanabilir tutarla aynı şey değildir.', en:'This is only today’s estimated safe-spending amount — it is not the same as the monthly plannable amount shown below in "This Month\'s Plan".'},
+  'plan-detay-ac': {tr:'Detayları gör', en:'See details'},
   'karar-v2-baslik': {tr:'Nakit Akışı Karar Özeti', en:'Cash Flow Decision Summary'},
   'karar-v2-tahsis-baslik': {tr:'Bu Ay Paramı Nasıl Bölmeliyim?', en:'How Should I Split My Money This Month?'},
   'bu-ayki-harcama': {tr:'Bu ayki harcamalar', en:'This Month\'s Expenses'},
@@ -4476,10 +4495,10 @@ const TRANSLATIONS = {
   /* BUGÜNÜN PARA GÖREVİ — bkz. ensureTodaysMoneyTask/renderMoneyTaskCard. Suçluluk hissettiren
      dil YOK (brief madde 4): "atladın", "kaçırdın", "yapmalıydın" gibi ifadeler kasıtlı olarak
      kullanılmadı - nötr/destekleyici bir ton tercih edildi. */
-  'gorev-baslik': {tr:'Bugünün Para Görevi', en:"Today's Money Task"},
-  'gorev-btn-tamamla': {tr:'Görevi Tamamladım', en:'I Completed This'},
-  'gorev-btn-atla': {tr:'Bugün yapamıyorum', en:"I can't today"},
-  'gorev-tamamlandi-baslik': {tr:'Bu görev tamamlandı.', en:'This task is complete.'},
+  'gorev-baslik': {tr:'Sıradaki Adımım', en:'Your Next Step'},
+  'gorev-btn-tamamla': {tr:'Bunu Yaptım', en:'I Did This'},
+  'gorev-btn-atla': {tr:'Başka bir öncelik göster', en:'Show a different priority'},
+  'gorev-tamamlandi-baslik': {tr:'Bunu işaretledin.', en:"You've marked this done."},
   'gorev-ilerleme': {tr:'Bu ayki finansal ilerlemen', en:'Your financial progress this month'},
   'gorev-geri-al': {tr:'Geri al', en:'Undo'},
   'gorev-fallback-not': {tr:'Sorun değil — küçük bir adım da işe yarar:', en:'No worries — a smaller step still counts:'},
@@ -9359,8 +9378,12 @@ function render(){
   // Goal & Cash Allocation Engine: DE2'nin distributableCash'ini GİRDİ olarak alır, TEKRAR
   // hesaplamaz — DE2'nin P4 tek satırını çok adımlı bir kırılıma açan ek, ayrı bir katman.
   renderGoalCashAllocation();
+  // FAZ 3 UI REFACTOR: yukarıdaki iki motorun sonucunu düz dille TEK bir cümleye özetler —
+  // YENİ bir hesap YAPMAZ, #decisionEngineV2Box/#goalCashAllocationBox zaten doldurulduktan
+  // SONRA aynı (zaten hesaplanmış) sonuçları okur.
+  renderMonthlyPlanSummary();
   guncelleKararOzeti(priorityResult, safeDaily, income);
-  // Bugünün Para Görevi: AYNI priorityResult'tan besleniyor, ikinci bir hesaplama yok.
+  // Sıradaki Adımım: AYNI priorityResult'tan besleniyor, ikinci bir hesaplama yok.
   renderMoneyTaskCard(ensureTodaysMoneyTask(priorityResult));
   renderAllocation(priorityResult ? priorityResult.investable : monthlyCashFlow);
   renderAdvice(monthlyCashFlow, totalDebt, interestCost, netWorth, debtRatio);
@@ -12093,18 +12116,22 @@ function _planKur(monthlyCashFlow){
       }
     }
   }
-  // 6) Kalan: yatırım (risk profiline göre yönlendirme notuyla)
+  // 6) Kalan: serbest/planlanabilir tutar.
+  // FAZ 3 UI REFACTOR (2026-09): FullBudget yatırım tavsiyesi vermez, belirli bir araç/yüzde
+  // dağılımı önermez. Eskiden burada risk profiline göre "mevduat + hisse karışımı" / "önerilen
+  // dağılım için Yatırım sekmesine bak" gibi yönlendirici bir metin vardı — kaldırıldı. `amount`
+  // (investable = remaining, ÖNCEKİ adımlardan kalan) ve öncelik sırası TAMAMEN AYNI, sadece
+  // label/reason nötrleşti. `category:'yatirim'` alanı EKLENDİ (salt sınıflandırma/sunum
+  // amaçlı) — moneyTaskCategoryFromStep() eskiden bunu label içindeki "yatır"/"invest"
+  // kelimesinden çıkarıyordu; metin nötrleşince o anahtar kelime kalmadığı için doğrudan bir
+  // sınıflandırma alanı eklendi (bkz. moneyTaskCategoryFromStep). RISK_PROFILES/activeRiskProfile
+  // davranışı DEĞİŞMEDİ — burada artık hiç okunmuyor bile, çünkü bir tahsisat/öneri üretmiyor.
   const investable = Math.max(0, remaining);
   if(investable>1){
-    const riskNote = {
-      temkinli: en ? 'Since your risk profile is Conservative, favor lower-volatility options (deposits/liquid funds) for this amount.' : 'Risk profilin Temkinli olduğu için bu tutarda düşük oynaklıklı seçenekleri (mevduat/likit fon) tercih et.',
-      dengeli: en ? 'With a Balanced risk profile, a mix of deposits and equities fits — see the Investing tab for a suggested split.' : 'Dengeli risk profiline uygun olarak mevduat + hisse karışımı mantıklı — önerilen dağılım için Yatırım sekmesine bak.',
-      atak: en ? 'With an Aggressive risk profile you can lean more toward equities/higher-volatility assets — see the Investing tab for the suggested split.' : 'Atak risk profiline uygun olarak hisseye/daha oynak varlıklara daha çok ağırlık verebilirsin — önerilen dağılım için Yatırım sekmesine bak.',
-    }[activeRiskProfile] || '';
-    steps.push({ik:'artis',
-      label: en ? 'Invest the remaining amount' : 'Kalan tutarı yatırıma yönlendir',
+    steps.push({ik:'artis', category:'yatirim',
+      label: en ? 'Amount available to plan' : 'Planlanabilir tutar',
       amount: investable,
-      reason: riskNote || (en ? 'No urgent debt/emergency-fund/goal priority left this month — this amount is available to invest.' : 'Bu ay öncelikli borç/acil fon/hedef kalmadı — bu tutar yatırıma açık.')});
+      reason: en ? 'No urgent debt/emergency-fund/goal priority left this month. This amount is plannable/flexible — how you use it is up to you; you can also look at the Investing tab for options.' : 'Bu ay öncelikli borç/acil fon/hedef kalmadı. Bu tutar planlanabilir/serbest — nasıl değerlendireceğine sen karar verirsin; Yatırım sekmesinden seçeneklerini de ayrıca inceleyebilirsin.'});
   }
   return {steps, investable, hedefeAyrilabilir, monthlyCashFlow};
 }
@@ -12651,44 +12678,75 @@ function renderGoalCashAllocation(){
 }
 
 /* =========================================================
-   ANA EKRAN — KARAR ÖZETİ
+   "BU AYKİ PLANIM" — SADE ÖZET (FAZ 3 UI REFACTOR, 2026-09)
+   -----------------------------------------------------------------------
+   Bu fonksiyon YENİ bir hesap YAPMAZ. Yalnızca zaten var olan, tek doğruluk
+   kaynağı olan runMonthlyGoalCashAllocationLive() (== runGoalCashAllocationEngine)
+   sonucunu, kullanıcıya "korunan tutar / acil fon açığı / planlanabilir tutar"
+   gibi teknik kavramları göstermeden, 1-2 cümlelik sade bir dille özetler.
+   Teknik kırılım (DE2 + Allocation Engine satır satır) aynı kartın altında
+   #planDetailWrap içinde, "Detayları gör" ile açılır — burada SİLİNMİYOR,
+   sadece varsayılan olarak GİZLİ. */
+function renderMonthlyPlanSummary(){
+  const el = document.getElementById('monthlyPlanSummary');
+  if (!el) return;
+  const en = currentLang === 'en';
+  const result = runMonthlyGoalCashAllocationLive();
 
-   Ürün kuralı: ana ekran özellik sergilemez, SONUÇ söyler. Kullanıcı uygulamayı
-   açtığında aşağı kaydırmadan üç şeyi görmeli: nerede olduğunu (net varlık),
-   bugün ne yapabileceğini (güvenli harcama) ve sıradaki doğru adımı.
+  if (result.status === 'needs_more_data' || result.status === 'negative_cash_flow') {
+    el.innerHTML = `<p class="empty">${escapeHtml(result.explanation)}</p>`;
+    return;
+  }
 
-   Buradaki hiçbir sayı yeni değil — hepsi zaten var olan motorlardan geliyor:
-     sıradaki adım → computePriorityPlan (Bu Ay Ne Yapmalısın? ile AYNI kaynak)
-     acil fon      → acilFonDurumu     (Koç'taki acil fon kartı ile AYNI kaynak)
-     hedef         → pickPrimaryGoal   (Aktif Hedefin kartı ile AYNI kaynak)
+  const emergencyRow = result.allocations.find(a => a.type === 'emergency_fund_contribution' && a.amount > 1);
+  const flexRow = result.allocations.find(a => a.type === 'long_term_or_flexible' && a.amount > 1);
+  const debtRow = result.allocations.find(a => a.priority === 'P2' && a.relatedDebtId && a.amount > 1);
+  const goalRow = result.allocations.find(a => a.relatedGoalId && a.amount > 1 && a.type !== 'obligation_context');
+
+  let headline;
+  if (emergencyRow) {
+    headline = en
+      ? `This month you can plan ${CUR}${fmt(result.distributableCash)}. The suggestion: put it toward your emergency fund.`
+      : `Bu ay ${CUR}${fmt(result.distributableCash)} planlayabilirsin. Öneri: bunu acil durum fonuna ayır.`;
+  } else if (debtRow) {
+    headline = en
+      ? `This month you can plan ${CUR}${fmt(result.distributableCash)}. The suggestion: put it toward your debt.`
+      : `Bu ay ${CUR}${fmt(result.distributableCash)} planlayabilirsin. Öneri: bunu borcuna ayır.`;
+  } else if (goalRow) {
+    headline = en
+      ? `This month you can plan ${CUR}${fmt(result.distributableCash)}. The suggestion: put it toward your goal.`
+      : `Bu ay ${CUR}${fmt(result.distributableCash)} planlayabilirsin. Öneri: bunu hedefine ayır.`;
+  } else if (flexRow) {
+    headline = en
+      ? `This month you can plan ${CUR}${fmt(result.distributableCash)}. No urgent priority remains — how you use it is up to you.`
+      : `Bu ay ${CUR}${fmt(result.distributableCash)} planlayabilirsin. Öncelikli bir konu kalmadı — nasıl değerlendireceğine sen karar verirsin.`;
+  } else {
+    headline = en
+      ? `This month there is no extra amount to plan beyond what's already accounted for.`
+      : `Bu ay zaten hesaba katılanların dışında planlayacak ek bir tutar yok.`;
+  }
+
+  el.innerHTML = `<p class="plan-summary-headline">${escapeHtml(headline)}</p>`;
+}
+
+/* =========================================================
+   ANA EKRAN — KARAR BAĞLAMI (acil fon / hedef rozetleri)
+
+   FAZ 3 UI REFACTOR (2026-09): bu fonksiyon eskiden AYRICA #siradakiAdim'i
+   plan.steps[0] ile dolduruyordu — bu, "Sıradaki Adımım" kartının (renderMoneyTaskCard,
+   ensureTodaysMoneyTask) gösterdiği AYNI kararın üçüncü bir tekrarıydı (üçü de
+   computePriorityPlan/_planCache'ten besleniyordu). O satır kaldırıldı; plan.steps[0]
+   artık YALNIZCA "Sıradaki Adımım" kartında gösteriliyor. Günlük güvenli harcama tutarı
+   da burada AYRICA tekrar edilmiyordu — Ring kartı (bkz. "Bugünkü Güvenli Bütçen") zaten
+   tek kaynak. Hesap YOK, hiçbir finansal formül değişmedi — bu salt bir SUNUM sadeleştirmesi.
+
+   Kalan iş: acil fon ayı ve birincil hedef yüzdesi — eskiden net varlık kartının içindeydi,
+   artık "Bu Ayki Planım" kartına taşındı (aynı bilgi iki yerde tekrar etmesin diye).
+     acil fon → acilFonDurumu     (Koç'taki acil fon kartı ile AYNI kaynak)
+     hedef    → pickPrimaryGoal   (Aktif Hedefin kartı ile AYNI kaynak)
    Böylece aynı veri iki ekranda iki farklı cevaba dönüşmüyor. */
 function guncelleKararOzeti(plan, safeDaily, income){
   const en = currentLang==='en';
-  const kutu = document.getElementById('siradakiAdim');
-  if(kutu){
-    const adim = plan && plan.steps && plan.steps[0];
-    if(!adim){
-      kutu.innerHTML = '';
-    } else {
-      /* Emoji taşımıyoruz: adım nesnesinde emoji var ama kalıcı arayüzde emoji kullanmıyoruz
-         (her cihazda başka çiziliyor). Kritik adımlar kırmızı, diğerleri marka yeşili. */
-      const kritik = adim.ik==='kritik' || adim.ik==='uyari';
-      const tutar = adim.amount ? ` <b class="ka-tutar">${CUR}${fmt(adim.amount)}</b>` : '';
-      const gunluk = (income>0 && safeDaily>0)
-        ? `<p class="ka-gunluk">${en
-             ? `Estimated safe spending today: <b>${CUR}${fmt(safeDaily)}</b>.`
-             : `Bugün için tahmini güvenli harcama alanın: <b>${CUR}${fmt(safeDaily)}</b>.`}</p>`
-        : '';
-      kutu.innerHTML = `<div class="karar-adim${kritik?' kritik':''}">
-          <span class="ka-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 5 13.5h5.5L9.5 22 19 10.5h-5.5z"/></svg></span>
-          <span class="ka-metin">
-            <span class="ka-ust">${en?'YOUR NEXT STEP':'SIRADAKİ ADIMIN'}</span>
-            <b class="ka-ad">${escapeHtml(adim.label)}${tutar}</b>
-            <span class="ka-neden">${escapeHtml(adim.reason||'')}</span>
-          </span>
-        </div>${gunluk}`;
-    }
-  }
   /* Acil fon ve hedef: ana ekrandaki en karar-değeri yüksek iki bağlam sayısı. */
   const af = acilFonDurumu();
   const afKutu = document.getElementById('acilFonMeta');
@@ -12780,17 +12838,25 @@ function renderPriorityPlan(plan, monthlyCashFlow){
     return;
   }
   const en = currentLang==='en';
-  const rows = plan.steps.map((s,i)=>({act:!!s.action, html:`<div class="priority-row${s.action?' actionable':''}"${s.action?` data-action='${escapeHtml(JSON.stringify(s.action))}' role="button" tabindex="0"`:''}>
+  // FAZ 3 UI REFACTOR: plan.steps[0] artık burada TEKRAR EDİLMİYOR — o, tek karar yüzeyi olan
+  // "Sıradaki Adımım" kartında gösteriliyor (bkz. renderMoneyTaskCard/ensureTodaysMoneyTask).
+  // Sıralama/öncelik mantığı ve amount hesapları (computePriorityPlan) DEĞİŞMEDİ — sadece bu
+  // listenin İLK öğeyi atlaması, salt bir SUNUM kararı.
+  const remainingSteps = plan.steps.slice(1);
+  const rows = remainingSteps.map((s,i)=>({act:!!s.action, html:`<div class="priority-row${s.action?' actionable':''}"${s.action?` data-action='${escapeHtml(JSON.stringify(s.action))}' role="button" tabindex="0"`:''}>
       <div class="priority-num">${adimIkonHtml(s, i)}</div>
       <div class="priority-body"><b>${escapeHtml(s.label)}${s.amount?` <span class="priority-amount">${CUR}${fmt(s.amount)}</span>`:''}</b><span>${escapeHtml(s.reason||'')}</span></div>
       ${s.action?'<div class="priority-go">›</div>':''}
     </div>`}));
-  // Bu kapanış satırı ancak biriktirilecek bir tutar varsa anlamlı. Sıfır/negatif nakit akışında
-  // "net varlığını en az ₺0 artır" yazmak, özellikle hiç veri girmemiş yeni kullanıcıda saçma duruyordu.
+  // FAZ 3 UI REFACTOR: "Bu ay net varlığını en az ₺X artır" ifadesi muhasebesel olarak yanıltıcıydı
+  // (gelir−gider−borç kalanı harcamadan biriktirmek net varlığı GERÇEKTEN bu tutar kadar artırır,
+  // ama "artır" fiili bunun garanti/otomatik bir sonuç olduğu izlenimini veriyordu). Aynı tutar
+  // (monthlyCashFlow, DEĞİŞMEDİ) artık nötr bir "bu ay planlayabileceğin tutar" çerçevesiyle
+  // gösteriliyor — bu bir hesap değişikliği DEĞİL, salt kopya/dil değişikliği.
   if(monthlyCashFlow > 0){
     rows.push({act:false, html:`<div class="priority-row">
       <div class="priority-num">${adimIkonHtml({ik:'ozet'}, 0)}</div>
-      <div class="priority-body"><b>${en ? 'Grow your net worth by at least' : 'Bu ay net varlığını en az'} <span class="priority-amount">${CUR}${fmt(monthlyCashFlow)}</span> ${en ? 'this month' : 'artır'}</b><span>${en ? 'This is the minimum increase you will reach if you save (rather than spend) this month\'s income minus expenses minus debt payments (excluding asset value gains).' : 'Bu, bu ayki gelir − gider − borç ödemeni harcamadan biriktirirsen ulaşacağın minimum artış (varlık değer artışları hariç).'}</span></div>
+      <div class="priority-body"><b>${en ? "This month's plannable amount" : 'Bu ay planlayabileceğin tutar'} <span class="priority-amount">${CUR}${fmt(monthlyCashFlow)}</span></b><span>${en ? 'This is what remains if you save (rather than spend) this month\'s income minus expenses minus debt payments (excluding asset value gains). How you use it is up to you.' : 'Bu, bu ayki gelir − gider − borç ödemeni harcamadan biriktirirsen elinde kalan tutar (varlık değer artışları hariç). Bunu nasıl değerlendireceğine sen karar verirsin.'}</span></div>
     </div>`});
   }
   /* Eskiden bütün adımlar tek blok halinde basılıyordu: ana ekranın en üstünde beş paragraflık,
@@ -12873,9 +12939,14 @@ function moneyTaskSignature(step){
 /* Kategori: kullanıcının istediği taksonomiye (borç/harcama/tasarruf/hedef/
    acil fon/yatırım/kurulum) computePriorityPlan'ın ik alanı + adım metni
    üzerinden en iyi çaba (best-effort) ile eşlenir. Motorun kendisi
-   DEĞİŞMEDİ - bu salt bir SUNUM sınıflandırması. */
+   DEĞİŞMEDİ - bu salt bir SUNUM sınıflandırması.
+   FAZ 3: "yatırım" adımının label'ı artık nötrleştiği için (bkz. computePriorityPlan, madde 6)
+   "yatır"/"invest" anahtar kelimesi metinde kalmıyor — o adım artık kendi `step.category` alanını
+   AÇIKÇA taşıyor, burada önce o okunuyor. Eski keyword-heuristic diğer (etiketlenmemiş) adımlar
+   için AYNEN korunuyor - geriye dönük uyumluluk. */
 function moneyTaskCategoryFromStep(step){
   if(!step) return 'diger';
+  if(step.category) return step.category;
   const label = String(step.label || '').toLowerCase();
   if(step.ik === 'hedef') return 'hedef';
   if(step.ik === 'nakit') return 'borc'; // döviz borcuna ayırma
@@ -12936,9 +13007,11 @@ function moneyTaskImpactText(step){
         ? `This sets aside about ${amount}. Moving money into savings is a transfer, so your net worth does not increase by itself — what improves is how much of your plan is already funded.`
         : `Bu adım yaklaşık ${amount} tutarı kenara ayırır. Parayı birikime taşımak bir transfer olduğu için net varlığın kendiliğinden ARTMAZ — iyileşen şey planının ne kadarının fonlanmış olduğudur.`;
     case 'yatirim':
+      // FAZ 3: "yatırıma yönlendirir" gibi yönlendirici bir ifade yerine nötr bir çerçeve —
+      // FullBudget bu tutarın NEREYE gideceğine karar vermez, yalnızca muhasebesel gerçeği açıklar.
       return en
-        ? `This directs about ${amount} into investments. It is a transfer (cash becomes an investment), so your net worth does not change at that moment; the potential gain is future return, which is not guaranteed.`
-        : `Bu adım yaklaşık ${amount} tutarı yatırıma yönlendirir. Bu bir transferdir (nakit, yatırım varlığına dönüşür); dolayısıyla net varlığın o anda DEĞİŞMEZ — olası kazanç gelecekteki getiridir ve getiri garanti değildir.`;
+        ? `About ${amount} is plannable this month — how you use it (spending, savings, or investing) is your choice. Whatever you choose, moving cash into another asset is a transfer, so your net worth does not change at that moment; any investment gain is a future, non-guaranteed return.`
+        : `Bu ay yaklaşık ${amount} tutar planlanabilir — bunu nasıl kullanacağın (harcama, birikim ya da yatırım) senin tercihin. Ne seçersen seç, nakdi başka bir varlığa taşımak bir transferdir; bu yüzden net varlığın o anda DEĞİŞMEZ — olası yatırım kazancı gelecekteki, garanti OLMAYAN bir getiridir.`;
     case 'harcama':
       // Gider kısmak parayı gerçekten korur: bu ay cebinde kalır -> net varlık gerçekten artar.
       return en
@@ -19164,7 +19237,23 @@ function initReorderControls(tabName){
   });
   updateReorderButtonStates(tabName);
 }
+/* FAZ 3 UI REFACTOR (2026-09): "Bu Ayki Planım" kartındaki teknik kırılım
+   (#decisionEngineV2Box + #goalCashAllocationBox) varsayılan olarak GİZLİ —
+   yalnızca "Detayları gör" ile açılır/kapanır. Hiçbir hesaplama içermez,
+   salt görünürlük anahtarıdır. */
+function initPlanDetailToggle(){
+  const btn = document.getElementById('planDetailToggle');
+  const wrap = document.getElementById('planDetailWrap');
+  if(!btn || !wrap) return;
+  btn.addEventListener('click', ()=>{
+    const open = wrap.hidden;
+    wrap.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    btn.classList.toggle('open', open);
+  });
+}
 initReorderMode();
+initPlanDetailToggle();
 // Tüm sekmelerde sıralama sistemini başlat (kayıtlı özel sırayı uygula, sonra buton dinleyicilerini bağla)
 ['home','income','expenses','debts','assets','goals','invest','coach','journey','settings'].forEach(tabName=>{
   applySectionOrder(tabName);
