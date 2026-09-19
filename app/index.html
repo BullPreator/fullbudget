@@ -13330,6 +13330,144 @@ function reconcileStepWithCanonicalAllocation(step){
   return {...step, amount: row.amount, reason: row.reason};
 }
 
+/* FAZ 3.10 UI DÜZELTMESİ (2026-09): FAZ 3.9, _planKur'un SEÇTİĞİ adımın TUTARINI canonical
+   sonuçla hizalıyordu — ama HANGİ adımın "Sıradaki Adımım" olarak gösterileceğine hâlâ _planKur'un
+   KENDİ waterfall'ı karar veriyordu. _planKur'un acil-fon/diğer-borç/hedef adımları KENDİ eşiklerine
+   göre var/yok olur (ör. acil fon adımı yalnızca kendi "likit < 3 aylık zorunlu gider" testini
+   geçerse listeye girer). Canonical GCAE bu ay nakdin BÜYÜK KISMINI (ör. ₺60.000) acil fona
+   ayırmış olsa bile, _planKur bunu hiç bir ADIM olarak üretmeyebiliyor — bu durumda sırada
+   otomatik olarak zincirin en sonundaki "Planlanabilir tutar" (category:'yatirim') adımı seçiliyor.
+   FAZ 3.9 sayesinde o adımın TUTARI zaten canonical'ın flexRow'una hizalanmış oluyordu (₺8.000)
+   AMA ETİKET/ANLAM YANLIŞTI: "Planlanabilir tutar", bu ayki TOPLAM dağıtılabilir nakit (₺68.000)
+   gibi okunuyordu; oysa yalnızca acil fona ayrıldıktan SONRA kalan serbest kısımdı.
+
+   DÜZELTME (yalnızca SEÇİM/SIRALAMA — yeni bir hesap YOK): "Sıradaki Adımım" artık, _planKur'un
+   kendi listesinden bir adım seçmeden ÖNCE, "Bu Ayki Planım"ın zaten kullandığı 4 canonical
+   kategoriyi (acil_fon > borc > hedef > yatirim — bkz. CANONICAL_ALLOCATION_CATEGORY_ORDER, AYNI
+   öncelik sırası renderMonthlyPlanSummary'deki emergencyRow||debtRow||goalRow||flexRow ile BİREBİR
+   aynı) _planKur'un DOĞAL seçiminden DAHA YÜKSEK öncelikli olup olmadığına bakar. _planKur'un
+   doğal seçimi zaten bu 4 kategoriden biriyse ve bu kategori o an canonical'ın en öncelikli
+   ele-alınmamış satırıysa (normal/beklenen durum), davranış TAMAMEN AYNI kalır. _planKur'un
+   doğal seçimi kritik uyarı/danışma/kurulum/döviz-borcu gibi bu 4 kategoriye HİÇ girmeyen bir
+   adımsa, o adım HER ZAMAN önceliğini korur (canonical bunları hiç modellemiyor zaten) — bu
+   düzeltme onlara ASLA dokunmaz. Yalnızca _planKur'un doğal seçimi bu 4 kategoriden DAHA DÜŞÜK
+   öncelikli biriyse (ör. 'yatirim') VE canonical'ın hâlâ ele alınmamış DAHA YÜKSEK öncelikli bir
+   satırı varsa (ör. acil_fon), o zaman "Sıradaki Adımım" o daha öncelikli canonical satırı
+   gösterir — mümkünse _planKur'un ZATEN ürettiği aynı kategorideki adımın etiket/eylem
+   metadata'sını (action, goalId, ikon) ödünç alarak, yoksa _planKur'un AYNI kategori için zaten
+   kullandığı BİREBİR AYNI sabit metinlerle (bkz. _planKur adım 3/4/5/6 — "Acil durum fonuna ekle",
+   "Diğer borçlara ödeme", "<hedef> hedefin için ayır", "Planlanabilir tutar"; yeni bir terminoloji
+   İCAT EDİLMEDİ). Tutar ve neden HER ZAMAN zaten hesaplanmış canonical satırdan
+   (runMonthlyGoalCashAllocationLive — DEĞİŞTİRİLMEDİ) gelir. */
+const CANONICAL_ALLOCATION_CATEGORY_ORDER = ['acil_fon','borc','hedef','yatirim'];
+
+/* _planKur'un KENDİ ürettiği, henüz ele alınmamış bir adımı verilen kategoriden arar — yeni bir
+   adım İCAT ETMEZ, sadece zaten üretilmiş listede arar.
+   ÖNEMLİ İNCELİK: moneyTaskCategoryFromStep()'in 'borc' sınıflandırması hem ACİL/kritik esnek borç
+   adımını (ik:'kritik' — mevduat getirisinden pahalı borca ekstra ödeme, HER ZAMAN en öncelikli)
+   hem de rutin "diğer borçlara ödeme" adımını (ik:'orta') kapsar — ama canonical'ın 'borc' satırı
+   (P2/debt_reduction) yalnızca İKİNCİSİYLE aynı anlama gelir. Kritik/esnek borç adımının önceliği
+   BU FONKSİYONDAN dolayı ASLA gasp edilmemeli, bu yüzden 'borc' için özel olarak sadece ik:'orta'
+   aranır (bkz. canonicalAllocationRankOfStep — aynı ayrım orada da uygulanıyor). */
+function stepMatchingCategory(steps, category){
+  if(category === 'borc'){
+    return (steps||[]).find(s => s && s.label && s.ik === 'orta') || null;
+  }
+  return (steps||[]).find(s => s && s.label && moneyTaskCategoryFromStep(s) === category) || null;
+}
+
+/* Bir _planKur adımının, 4 canonical tahsis kategorisinden (CANONICAL_ALLOCATION_CATEGORY_ORDER)
+   HANGİSİNE karşılık geldiğini (0..3) döndürür — yalnızca _planKur'un adım 3/4/5/6'da ürettiği
+   TÜRDEKİ (ik'e göre) adımlar için. Kritik uyarılar, esnek/pahalı borca ekstra ödeme (ik:'kritik'),
+   danışma uyarıları (ik:'uyari'), döviz borcu (ik:'nakit') ve kurulum adımları (ik:'banka'/'para'/
+   'fis'/'pusula') için -1 döner — bunlar canonical'ın HİÇ modellemediği ya da HER ZAMAN kendi
+   önceliğini koruması gereken adımlardır; -1 dönmesi bu adımların ASLA canonical bir kategoriyle
+   değiştirilmeyeceği (öncelik gaspı olmayacağı) anlamına gelir. moneyTaskCategoryFromStep()'İN
+   AKSİNE, burada 'borc' YALNIZCA ik:'orta' (rutin "diğer borçlara ödeme") için döner — esnek/kritik
+   borç adımı moneyTaskCategoryFromStep ile AYNI 'borc' etiketini taşısa bile burada -1 kalır. */
+function canonicalAllocationRankOfStep(step){
+  if(!step) return -1;
+  if(step.ik === 'iyi' && /acil|emergency/i.test(String(step.label||''))) return 0; // acil_fon
+  if(step.ik === 'orta') return 1; // borc (yalnızca rutin "diğer borçlara ödeme")
+  if(step.ik === 'hedef') return 2; // hedef
+  if(step.ik === 'artis' && step.category === 'yatirim') return 3; // yatirim
+  return -1;
+}
+
+/* _planKur'un AYNI kategori için zaten kullandığı BİREBİR AYNI sabit metinlerle (bkz. _planKur
+   adım 3/4/5/6) minimal bir adım nesnesi kurar — yalnızca _planKur'un KENDİ o kategori için hiç
+   adım üretmediği (kendi eşiğini geçmediği) durumlarda kullanılır. Tutar/neden canonical satırdan
+   gelir; burada YENİ bir finansal hesap YOK. */
+function synthesizeCanonicalStep(category, row){
+  const en = currentLang === 'en';
+  switch(category){
+    case 'acil_fon':
+      return {ik:'iyi', label: en ? 'Add to emergency fund' : 'Acil durum fonuna ekle',
+        amount: row.amount, reason: row.reason};
+    case 'borc':
+      return {ik:'orta', label: en ? 'Pay other debts' : 'Diğer borçlara ödeme',
+        amount: row.amount, reason: row.reason};
+    case 'hedef': {
+      const goal = (persistent.goals||[]).find(g => g.id === row.relatedGoalId);
+      if(!goal) return null; // hangi hedef olduğu bilinmiyorsa uydurma bir etiket YAZILMAZ
+      return {ik:'hedef', goalId: goal.id,
+        label: en ? `Set aside for your ${goalDisplayName(goal)} goal` : `${goalDisplayName(goal)} hedefin için ayır`,
+        amount: row.amount, reason: row.reason};
+    }
+    case 'yatirim':
+      return {ik:'artis', category:'yatirim', label: en ? 'Amount available to plan' : 'Planlanabilir tutar',
+        amount: row.amount, reason: row.reason};
+    default:
+      return null;
+  }
+}
+
+/* Verilen kategori için gösterilecek adımı kurar: önce _planKur'un KENDİ ürettiği aynı kategorideki
+   adımı arar (varsa onun etiket/eylem metadata'sını korur, tutar/neden canonical ile hizalanır —
+   reconcileStepWithCanonicalAllocation ile AYNI davranış), yoksa yukarıdaki sabit metinlerle
+   minimal bir adım kurar. */
+function buildStepForCanonicalCategory(steps, category, row){
+  const existing = stepMatchingCategory(steps, category);
+  if(existing) return {...existing, amount: row.amount, reason: row.reason};
+  return synthesizeCanonicalStep(category, row);
+}
+
+/* CANONICAL_ALLOCATION_CATEGORY_ORDER'daki ilk `beforeRank` kategori içinde, henüz ele
+   alınmamış (handledSignatures'ta olmayan) VE canonical'da karşılığı olan bir satır arar. Yeni bir
+   hesap yapmaz — yalnızca zaten çalıştırılmış runMonthlyGoalCashAllocationLive() sonucunu okur. */
+function findHigherPriorityCanonicalStep(steps, handledSignatures, beforeRank){
+  let result;
+  try{ result = runMonthlyGoalCashAllocationLive(); }catch(e){ return null; }
+  if(!result || !Array.isArray(result.allocations)) return null;
+  for(let i=0; i<beforeRank; i++){
+    const category = CANONICAL_ALLOCATION_CATEGORY_ORDER[i];
+    const row = MONEY_TASK_CANONICAL_ROW_BY_CATEGORY[category](result);
+    if(!row) continue;
+    const candidate = buildStepForCanonicalCategory(steps, category, row);
+    if(candidate && !(handledSignatures||[]).includes(moneyTaskSignature(candidate))) return candidate;
+  }
+  return null;
+}
+
+/* TEK GİRİŞ NOKTASI (FAZ 3.10): "Sıradaki Adımım" için gösterilecek adımı seçer. _planKur'un
+   doğal (liste sırasına göre ilk ele-alınmamış) seçimi kritik uyarı/danışma/kurulum/döviz-borcu
+   gibi canonical'ın hiç modellemediği bir kategorideyse, davranış AYNEN korunur. Doğal seçim
+   4 canonical kategoriden biriyse ama canonical'da ondan DAHA öncelikli, henüz ele alınmamış bir
+   satır varsa (_planKur'un kendi eşiği o kategoriyi hiç üretmediği için), o daha öncelikli
+   canonical satır gösterilir. _planKur'un listesinde hiç ele-alınmamış adım kalmadıysa (ör. hepsi
+   dismiss/complete edilmiş), canonical'ın kendisinde hâlâ ele alınmamış bir satır olup olmadığına
+   bakılır (spec: "yalnızca serbest/plannable tutar kaldıysa onu göster"). */
+function pickTodaysStepReconciled(steps, handledSignatures){
+  const natural = pickUnhandledStep(steps, handledSignatures);
+  if(!natural){
+    return findHigherPriorityCanonicalStep(steps, handledSignatures, CANONICAL_ALLOCATION_CATEGORY_ORDER.length);
+  }
+  const naturalRank = canonicalAllocationRankOfStep(natural);
+  if(naturalRank === -1) return reconcileStepWithCanonicalAllocation(natural);
+  const override = findHigherPriorityCanonicalStep(steps, handledSignatures, naturalRank);
+  return override || reconcileStepWithCanonicalAllocation(natural);
+}
+
 /* FAZ 3.4 UI DÜZELTMESİ (2026-09): FAZ 3.3'teki reconcileStepWithCanonicalAllocation() YALNIZCA
    bir görev İLK KEZ kurulurken (`!rec.task` dalı) çalışıyordu. Ama persistent.dailyMoneyTask GÜN
    İÇİNDE BİR KEZ kurulup persist edilir (bkz. ensureTodaysMoneyTask'ın kendi yorumu) — kullanıcının
@@ -13373,8 +13511,7 @@ function ensureTodaysMoneyTask(plan){
   }
   if(!rec.task){
     const steps = (plan && plan.steps) || [];
-    const candidate = pickUnhandledStep(steps, rec.handledSignatures);
-    const reconciled = reconcileStepWithCanonicalAllocation(candidate);
+    const reconciled = pickTodaysStepReconciled(steps, rec.handledSignatures);
     rec.task = reconciled ? buildMoneyTaskFromStep(reconciled) : buildFallbackMoneyTask();
     changed = true;
   } else if(reconcilePersistedEmergencyTask(rec.task)){
@@ -13427,8 +13564,7 @@ function dismissMoneyTask(){
   const rec = persistent.dailyMoneyTask;
   if(!rec || !rec.task || rec.task.status !== 'pending') return;
   rec.handledSignatures.push(rec.task.signature);
-  const nextStep = pickUnhandledStep(_planCache ? _planCache.steps : [], rec.handledSignatures);
-  const reconciledNext = reconcileStepWithCanonicalAllocation(nextStep);
+  const reconciledNext = pickTodaysStepReconciled(_planCache ? _planCache.steps : [], rec.handledSignatures);
   rec.task = reconciledNext ? buildMoneyTaskFromStep(reconciledNext) : buildFallbackMoneyTask();
   rec.showedFallbackNote = true;
   persistPersistent();
