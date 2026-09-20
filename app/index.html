@@ -6001,6 +6001,12 @@ function normalizeMonthFinancialFields(m){
       catConfidence: (typeof e.catConfidence==='number') ? e.catConfidence : null,
     })),
     goal: (m.goal && typeof m.goal==='object') ? { type: m.goal.type||'save', amount: guvenliSayi(m.goal.amount) } : {type:'save', amount:0},
+    // EMERGENCY-OVERRIDE migrasyonu: eski/bozuk bir değer varsa (string, negatif, NaN, obje vb.)
+    // güvenle null'a düşürülür (= "override yok, hesaplanan varsayılana dön" — madde 11/12'nin
+    // gerektirdiği güvenli geri dönüş). `m`'de hiç alan yoksa da (yeni ay / eski persist) sonuç
+    // zaten null — YENİ bir migrasyon akışı İCAT EDİLMEDİ, yalnızca defansif bir normalizasyon.
+    emergencyAllocationOverride: (m.emergencyAllocationOverride != null && isFinite(Number(m.emergencyAllocationOverride)) && Number(m.emergencyAllocationOverride) >= 0)
+      ? Number(m.emergencyAllocationOverride) : null,
   };
 }
 function normalizePersistentFinancialFields(data){
@@ -6193,6 +6199,9 @@ async function loadState(){
       month.incomes = m.incomes || [];
       month.expenses = m.expenses || [];
       month.goal = m.goal || {type:'save', amount:0};
+      // EMERGENCY-OVERRIDE: bu ay için kaydedilmiş override'ı da taşı — aksi halde storage'dan
+      // yüklenen tutar hiçbir zaman `month`'a kopyalanmaz ve sayfa yenilemesinde kaybolur.
+      month.emergencyAllocationOverride = (m.emergencyAllocationOverride != null) ? m.emergencyAllocationOverride : null;
       // Çok eski (tekil "income" sayısı) formattan geçiş
       if(m.income && (!month.incomes || month.incomes.length===0)){
         month.incomes = [{id:uid(), category:'Diğer', amount:m.income, note:'', recurring:false, accountId:''}];
@@ -12532,6 +12541,16 @@ function buildMonthlySnapshot(){
     title: a.title,
     reason: a.tooltip ? [a.tooltip.why, a.tooltip.meaning, a.tooltip.action].filter(Boolean).join(' ') : '',
   }));
+  // EMERGENCY-OVERRIDE (2026-09): kullanıcının "bu ay gerçekçi olarak ayırabileceğim tutar" olarak
+  // girdiği, YALNIZCA bu aya ait (month.emergencyAllocationOverride — ay değişince month sıfırlanır,
+  // bkz. MONTH_KEY rotasyonu) isteğe bağlı bir değer. emergencyTarget3/emergencyGap/emergencyReserve
+  // (protectedCash'in kaynağı) HİÇBİR ŞEKİLDE bu alandan etkilenmez — yalnızca aşağıda
+  // runGoalCashAllocationEngine()'ın ADIM 2'sinde, hesaplanan varsayılan tahsisatın YERİNE
+  // (waterfall'ın kendisi bozulmadan) okunur. null/geçersizse (kullanıcı override girmemiş ya da
+  // kaldırmışsa) sistem hesaplanan varsayılana döner.
+  const rawOverride = month && month.emergencyAllocationOverride;
+  const emergencyAllocationOverride = (rawOverride != null && isFinite(Number(rawOverride)) && Number(rawOverride) >= 0)
+    ? Number(rawOverride) : null;
   return {
     income,
     monthlyCashFlow: Number(cap.monthlyCashFlow) || 0,
@@ -12539,6 +12558,7 @@ function buildMonthlySnapshot(){
     emergencyTarget3: Number(cap.emergencyTarget3) || 0,
     emergencyGap: Number(cap.emergencyGap) || 0,
     emergencyReserve: Number(cap.emergencyReserve) || 0,
+    emergencyAllocationOverride,
     debtPay: Number(monthlyDebtPayments()) || 0,
     debts, goals, criticalAlerts,
     depositMonthlyRate: Number(mevduatAylikBilesikNet()) || 0,
@@ -12848,15 +12868,29 @@ function runGoalCashAllocationEngine(de2, snapshot){
     const stillShort = Math.max(0, emergencyGap - protectedCash);
     if (stillShort > 1) {
       if (remaining > 1) {
-        const amt = Math.min(remaining, stillShort);
+        // EMERGENCY-OVERRIDE: hesaplanan varsayılan (calculatedAmt — waterfall'ın kendi mantığı,
+        // DEĞİŞMEDİ: stillShort'a kadar, elden geldiğince) HER ZAMAN üretilir. Kullanıcı bu ay için
+        // bir override girmişse (snapshot.emergencyAllocationOverride — yalnızca BU AYA ait, bkz.
+        // buildMonthlySnapshot), waterfall'ın GERÇEK girdisi olarak varsayılanın YERİNE geçer;
+        // distributableCash'i aşamaz (remaining ile sınırlı) ve negatif olamaz. Override yoksa
+        // (null) davranış TAMAMEN eskisiyle aynıdır. Tahsis edilmeyen fark (calculatedAmt - amt)
+        // burada AYRICA bir yere yazılmaz — zaten `remaining`'in İÇİNDE kalır ve waterfall'ın
+        // sonraki adımlarına (borç/hedef/esnek-kalan) doğal olarak akar.
+        const calculatedAmt = Math.min(remaining, stillShort);
+        const override = snapshot.emergencyAllocationOverride;
+        const hasOverride = override != null && isFinite(Number(override));
+        const amt = hasOverride ? Math.max(0, Math.min(remaining, Number(override))) : calculatedAmt;
         remaining -= amt;
         const afterAmt = stillShort - amt;
         const closesFully = afterAmt <= 1;
         allocations.push({
           type: 'emergency_fund_contribution', amount: amt, priority: 'P1',
-          reason: closesFully
-            ? (en ? `Your emergency fund was ${CUR}${fmt(stillShort)} short. Putting ${CUR}${fmt(amt)} toward it this month closes that gap completely.` : `Acil durum fonun ${CUR}${fmt(stillShort)} eksikti. Bu ay ${CUR}${fmt(amt)} ayırarak açığını tamamen kapatabilirsin.`)
-            : (en ? `Your emergency fund is still ${CUR}${fmt(stillShort)} short. Putting all of this month’s ${CUR}${fmt(amt)} distributable cash toward it brings the gap down to ${CUR}${fmt(afterAmt)}.` : `Acil durum fonun hâlâ ${CUR}${fmt(stillShort)} eksik. Bu ay dağıtılabilir ${CUR}${fmt(amt)}’nin tamamını acil fona ayırırsan açığın ${CUR}${fmt(afterAmt)}’ye düşer.`),
+          calculatedAmount: calculatedAmt, isOverridden: hasOverride,
+          reason: hasOverride
+            ? (en ? `You set aside ${CUR}${fmt(amt)} toward your emergency fund this month (the calculated amount was ${CUR}${fmt(calculatedAmt)}).` : `Bu ay acil fonuna ${CUR}${fmt(amt)} ayırdın (hesaplanan tutar ${CUR}${fmt(calculatedAmt)} idi).`)
+            : closesFully
+              ? (en ? `Your emergency fund was ${CUR}${fmt(stillShort)} short. Putting ${CUR}${fmt(amt)} toward it this month closes that gap completely.` : `Acil durum fonun ${CUR}${fmt(stillShort)} eksikti. Bu ay ${CUR}${fmt(amt)} ayırarak açığını tamamen kapatabilirsin.`)
+              : (en ? `Your emergency fund is still ${CUR}${fmt(stillShort)} short. Putting all of this month’s ${CUR}${fmt(amt)} distributable cash toward it brings the gap down to ${CUR}${fmt(afterAmt)}.` : `Acil durum fonun hâlâ ${CUR}${fmt(stillShort)} eksik. Bu ay dağıtılabilir ${CUR}${fmt(amt)}’nin tamamını acil fona ayırırsan açığın ${CUR}${fmt(afterAmt)}’ye düşer.`),
           whatIfSkipped: en ? 'Your emergency runway grows more slowly and you stay more exposed to needing high-interest debt for surprises.' : 'Acil durum rezervin daha yavaş büyür, beklenmedik giderlerde yüksek faizli borca başvurma riskin daha uzun sürer.',
           remainingAfterThisStep: remaining, confidence: 'actual', relatedGoalId: null, relatedDebtId: null,
         });
@@ -13130,6 +13164,19 @@ function renderMonthlyPlanSummary(){
    DEĞİŞTİRİLMİYOR. "Bunu atlarsam ne olur?" burada TEK bir kez, motorun zaten ürettiği
    top.whatIfSkipped metniyle gösterilir — #goalCashAllocationBox'taki (artık gizli) her tahsisat
    için ayrı ayrı tekrarlanan aynı desenin YERİNE geçer, ikisi birden görünmez. */
+// EMERGENCY-OVERRIDE: month.emergencyAllocationOverride'ı yazar. `rawValue` boş/geçersiz/negatifse
+// override KALDIRILIR (null) — madde 11'in gerektirdiği "varsayılana dön" davranışı. Yalnızca BU AYI
+// (mevcut `month` nesnesini) etkiler; hiçbir şekilde emergencyGap/protectedCash/emergencyTarget3'e
+// dokunmaz (bunlar `month`'ta değil, canonical getAffordCapacityInfo() zincirinde yaşar). Persist
+// edilir (aynı ay içinde sayfa yenilense de korunur) ve render() çağrılarak canonical waterfall
+// (runGoalCashAllocationEngine → "Sıradaki Adımım"/"Bu Ayki Planım"/günlük tempo) hemen güncellenir.
+function setEmergencyAllocationOverride(rawValue){
+  const n = Number(String(rawValue).replace(/[^\d.,-]/g, '').replace(',', '.'));
+  month.emergencyAllocationOverride = (rawValue !== '' && rawValue != null && isFinite(n) && n >= 0) ? n : null;
+  persistMonth();
+  render();
+}
+
 function renderPlanPriorityGap(top, de2, snapshot){
   const el = document.getElementById('planPriorityGap');
   if (!el) return;
@@ -13137,12 +13184,40 @@ function renderPlanPriorityGap(top, de2, snapshot){
   const en = currentLang === 'en';
   let label = en ? 'Flexible amount' : 'Esnek tutar';
   let before = null, after = null;
+  let emergencyOverrideHtml = '';
   if (top.type === 'emergency_fund_contribution') {
     label = en ? 'Emergency fund' : 'Acil durum fonu';
+    const emergencyTarget3 = Number((snapshot||{}).emergencyTarget3) || 0;
     const emergencyGap = Number((snapshot||{}).emergencyGap) || 0;
     const protectedCash = Number((de2||{}).protectedCash) || 0;
     before = Math.max(0, emergencyGap - protectedCash);
     after = Math.max(0, before - top.amount);
+    // EMERGENCY-OVERRIDE UI: hedef/korunan/kalan-ihtiyaç zaten yukarıdaki (KORUNMAMIŞ) canonical
+    // alanlardan okunuyor — override bunları hiç etkilemiyor, yalnızca aşağıdaki inputun yazdığı
+    // amount'u etkiliyor (bkz. runGoalCashAllocationEngine ADIM 2). "Zorunlu"/"yeterli"/"doğru
+    // karar" gibi ifadeler kasıtlı olarak kullanılmadı.
+    const calculatedAmount = Number(top.calculatedAmount) || 0;
+    const resetHtml = top.isOverridden
+      ? `<p class="goal-line goal-note" style="cursor:pointer;text-decoration:underline;" data-emergency-override-reset="1">${en ? 'Reset to calculated amount' : 'Hesaplanan tutara dön'}</p>`
+      : '';
+    // "Hesaplanan tutar" satırı yalnızca kullanıcı gerçekten override girmişken gösteriliyor —
+    // override yokken top.amount zaten calculatedAmount'un AYNISI, bu yüzden bu satır yukarıdaki
+    // dört gösterimin (başlık/karar satırı/gerekçe cümlesi/defter toplamı) birebir tekrarı olurdu
+    // (bkz. FAZ3.6-4 regresyon testi — "en fazla 4 meşru tekrar"). Override varken ise gerçekten
+    // yeni bilgi taşıyor: kullanıcının girdiği tutarla hesaplanan varsayılan farklı.
+    const calculatedAmountHtml = top.isOverridden
+      ? `<p class="goal-line" style="color:var(--muted);">${en ? `Calculated amount: ${CUR}${fmt(calculatedAmount)}` : `Hesaplanan tutar: ${CUR}${fmt(calculatedAmount)}`}</p>`
+      : '';
+    emergencyOverrideHtml = `
+      <div class="hero-row"><span>${en ? 'Target' : 'Hedef'}</span><b>${CUR}${fmt(emergencyTarget3)}</b></div>
+      <div class="hero-row"><span>${en ? 'Protected cash' : 'Korunan nakit'}</span><b>${CUR}${fmt(protectedCash)}</b></div>
+      <div class="hero-row"><span>${en ? 'Remaining need' : 'Kalan ihtiyaç'}</span><b>${CUR}${fmt(before)}</b></div>
+      <label class="field-label" for="emergencyAllocOverrideInput" style="margin-top:10px;display:block;">${en ? 'I\'ll set aside this month' : 'Bu ay ayıracağım'}</label>
+      <input type="text" id="emergencyAllocOverrideInput" class="money-input" inputmode="decimal" value="${Math.round(top.amount)}">
+      <p class="goal-line" style="color:var(--muted);">${en ? 'You can adjust this based on this month\'s cash situation.' : 'Bu ayki nakit durumuna göre tutarı değiştirebilirsin.'}</p>
+      ${calculatedAmountHtml}
+      ${resetHtml}
+    `;
   } else if (top.type === 'debt_reduction') {
     const debt = ((snapshot||{}).debts || []).find(d => d.id === top.relatedDebtId);
     label = (en ? 'Debt' : 'Borç') + (debt && debt.label ? `: ${debt.label}` : '');
@@ -13152,7 +13227,10 @@ function renderPlanPriorityGap(top, de2, snapshot){
     label = (en ? 'Goal' : 'Hedef') + (goal && goal.name ? `: ${goal.name}` : '');
     if (goal && goal.gap != null) { before = Number(goal.gap) || 0; after = Math.max(0, before - top.amount); }
   }
-  const gapHtml = (before != null)
+  // Acil fon için "Açık: before → after" satırı basılmıyor — emergencyOverrideHtml zaten
+  // Hedef/Korunan nakit/Kalan ihtiyaç kırılımını (aynı `before` değeri dahil) ayrıntılı gösteriyor;
+  // ikisini üst üste basmak tekrar olurdu. Borç/hedef için davranış AYNEN korunuyor.
+  const gapHtml = (before != null && top.type !== 'emergency_fund_contribution')
     ? `<div class="hero-row"><span>${en ? 'Gap' : 'Açık'}</span><b>${CUR}${fmt(before)} → ${CUR}${fmt(after)}</b></div>`
     : '';
   let whatIfHtml = '';
@@ -13160,12 +13238,23 @@ function renderPlanPriorityGap(top, de2, snapshot){
     whatIfHtml = `<p class="goal-line goal-note" style="cursor:pointer;text-decoration:underline;" data-plan-whatif-toggle="planPriorityWhatIf">${en ? 'What if I skip this?' : 'Bunu atlarsam ne olur?'}</p>`
       + `<p id="planPriorityWhatIf" class="goal-line" style="display:none;color:var(--muted);">${escapeHtml(top.whatIfSkipped)}</p>`;
   }
-  el.innerHTML = `<div class="hero-row"><span>${en ? 'Priority' : 'Öncelik'}</span><b>${escapeHtml(label)}</b></div>${gapHtml}${whatIfHtml}`;
+  el.innerHTML = `<div class="hero-row"><span>${en ? 'Priority' : 'Öncelik'}</span><b>${escapeHtml(label)}</b></div>${gapHtml}${emergencyOverrideHtml}${whatIfHtml}`;
   const toggle = el.querySelector('[data-plan-whatif-toggle]');
   if (toggle) toggle.addEventListener('click', () => {
     const target = document.getElementById(toggle.dataset.planWhatifToggle);
     if (target) target.style.display = target.style.display === 'none' ? 'block' : 'none';
   });
+  // EMERGENCY-OVERRIDE olay bağlama: input'tan çıkınca (blur) veya Enter'a basınca yazılır — her
+  // tuş vuruşunda render() tetiklemek input'u kapatır/odağı kaybettirirdi. Reset linki override'ı
+  // temizler (madde 11).
+  const overrideInput = el.querySelector('#emergencyAllocOverrideInput');
+  if (overrideInput) {
+    const commit = () => setEmergencyAllocationOverride(overrideInput.value);
+    overrideInput.addEventListener('blur', commit);
+    overrideInput.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); overrideInput.blur(); } });
+  }
+  const resetLink = el.querySelector('[data-emergency-override-reset]');
+  if (resetLink) resetLink.addEventListener('click', () => setEmergencyAllocationOverride(''));
 }
 
 /* Teknik zincir: Gelir → Gider → Borç ödemesi → Bu ay kullanılabilir → Korunan (likidite) →
