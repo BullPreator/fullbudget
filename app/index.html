@@ -3519,7 +3519,7 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
 
   </div><div class="reorder-section" data-section="piyasa-veri"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="4" y2="13"/><line x1="10" y1="20" x2="10" y2="6"/><line x1="16" y1="20" x2="16" y2="15"/><line x1="20" y1="20" x2="20" y2="10"/></svg></span><span data-i18n="piyasa-veri">Piyasa Verileri</span></p>
   <div class="card">
-    <p style="font-size:var(--fs-sm);color:var(--muted);margin:0 0 12px;line-height:1.5;" data-i18n="hedef-piyasa-not">Bu veriler yaklaşık piyasa referansıdır. Gerçek fiyat; şehir, model, yaş, konum, özellikler ve piyasa koşullarına göre değişir. Kendi fiyatını girmek istersen hedef eklerken "kendi fiyatımı gireceğim" seçeneğini kullan.</p>
+    <p style="font-size:var(--fs-sm);color:var(--muted);margin:0 0 12px;line-height:1.5;" data-i18n="hedef-piyasa-not">Bu değerler yaklaşık piyasa fiyat referanslarıdır. Gerçek fiyat; şehir, model, yaş, konum, özellikler ve piyasa koşullarına göre değişir. Kendi fiyatını girmek istersen hedef eklerken "kendi fiyatımı gireceğim" seçeneğini kullan.</p>
     <div id="marketRefList"></div>
     <div class="field-label" style="margin-top:14px;" data-i18n="hedef-enflasyon-lbl">Hedef fiyatlarında kullanılan varsayımsal yıllık fiyat artışı (%)</div>
     <div class="form-row"><input id="goalInflationGlobalInput" type="number" inputmode="decimal"></div>
@@ -4496,7 +4496,7 @@ const TRANSLATIONS = {
                         en:'A scenario for how your net worth could change under various assumptions if you keep this pace.'},
   'yat-senaryo-uyari': {tr:'Bunlar varsayımdır, gerçek getiri garantisi değildir.',
                         en:'These are assumptions, not a guarantee of actual returns.'},
-  'hedef-piyasa-not': {tr:'Bu veriler yaklaşık piyasa referansıdır. Gerçek fiyat; şehir, model, yaş, konum, özellikler ve piyasa koşullarına göre değişir. Kendi fiyatını girmek istersen hedef eklerken "kendi fiyatımı gireceğim" seçeneğini kullan.',
+  'hedef-piyasa-not': {tr:'Bu değerler yaklaşık piyasa fiyat referanslarıdır. Gerçek fiyat; şehir, model, yaş, konum, özellikler ve piyasa koşullarına göre değişir. Kendi fiyatını girmek istersen hedef eklerken "kendi fiyatımı gireceğim" seçeneğini kullan.',
                        en:'These figures are approximate market references. Real prices vary by city, model, age, location, features and market conditions. To enter your own figure, pick "I\'ll enter my own price" when adding a goal.'},
   'hedef-enflasyon-lbl': {tr:'Hedef fiyatlarında kullanılan varsayımsal yıllık fiyat artışı (%)',
                           en:'Assumed yearly price increase used in goal prices (%)'},
@@ -4511,8 +4511,8 @@ const TRANSLATIONS = {
                     en:'Shows a notification on this device as a card or debt due date approaches'},
   'yedek-kisa': {tr:'Tek bir dosyaya indirip başka cihazda geri yükleyebilirsin',
                  en:'Download everything as one file and restore it on another device'},
-  'hedef-ev-ref': {tr:'Ev Referansları', en:'House references'},
-  'hedef-araba-ref': {tr:'Araba Referansları', en:'Car references'},
+  'hedef-ev-ref': {tr:'Ev Fiyat Referansları', en:'House references'},
+  'hedef-araba-ref': {tr:'Araç Fiyat Referansları', en:'Car references'},
   'iki-yontem-fark': {tr:'İki yöntem arasındaki fark', en:'The difference between the two methods'},
   'limit-girilmedi': {tr:'limit girilmedi', en:'no limit set'},
   'bu-ay-harcanan': {tr:'Bu ay harcanan', en:'Spent this month'},
@@ -11925,7 +11925,7 @@ function renderGoalList(){
     const row = (label, value, cls) => `<div class="goal-row${cls?' '+cls:''}"><span>${label}</span><b>${value}</b></div>`;
     const priceLine = info.priceLabel
       ? row(en ? 'Reference' : 'Referans', escapeHtml(info.priceLabel))
-        + (info.basePrice ? row(en ? "Today's price" : 'Bugünkü fiyat', `${CUR}${fmt(info.basePrice)}`) : '')
+        + (info.basePrice ? row(en ? "Today's price" : 'Referans fiyat', `${CUR}${fmt(info.basePrice)}`) : '')
       : '';
     const inflationLine = info.inflationWarning
       ? (en ? `<div class="goal-line goal-note">${uyariIkonSvg()}The price of this goal may change over time. Assuming a ${info.inflationPct}% yearly increase, the estimated price by your target date could be ${CUR}${fmt(info.inflatedPrice)} (this is a <b>scenario/assumption</b>, not a certainty).</div>` : `<div class="goal-line goal-note">${uyariIkonSvg()}Bu hedefin fiyatı zaman içinde değişebilir. Yıllık ${yzd(info.inflationPct)} varsayımsal artışla hedef tarihinde tahmini fiyat ${CUR}${fmt(info.inflatedPrice)} olabilir (bir <b>senaryo/varsayımdır</b>, kesin değildir).</div>`)
