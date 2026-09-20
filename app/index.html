@@ -8419,7 +8419,15 @@ function renderQuickAddPreview(reparse){
   if(reparse!==false) quickAddParsed = parseQuickAddText(input.value);
   const p = quickAddParsed;
   if(!p || !p.amount){
-    box.innerHTML = input.value.trim() ? `<p style="font-size:var(--fs-sm);color:var(--muted);margin:8px 0 0;">${en ? 'No amount found — try something like "250 lira groceries".' : 'Bir tutar bulunamadı, "250 lira market" gibi yazmayı dene.'}</p>` : '';
+    /* FAZ 3.16 — belirsiz/algılanamayan tutar İÇİN hiçbir zaman kayıt oluşturulmaz
+       (actionsRow gizli kalır, confirmBtn zaten !amount durumunda no-op'tur). Burada
+       yalnızca mesajı netleştiriyoruz: sesle geldiyse ürün ilkesindeki "Ne kadar olduğunu
+       anlayamadım" diliyle, net bir tekrar deneme yoluyla (mikrofona tekrar dokun ya da
+       yaz) — teknik terim yok, tutar/kategori UYDURULMUYOR. */
+    const msg = !input.value.trim() ? '' : (quickAddWasVoice
+      ? (en ? 'I couldn\'t catch the amount you said. Try the mic again, or type it below.' : 'Ne kadar olduğunu anlayamadım. Mikrofona tekrar dokunup tekrar dener misin, ya da aşağıya yazabilirsin.')
+      : (en ? 'No amount found — try something like "250 lira groceries".' : 'Bir tutar bulunamadı, "250 lira market" gibi yazmayı dene.'));
+    box.innerHTML = msg ? `<p style="font-size:var(--fs-sm);color:var(--muted);margin:8px 0 0;">${msg}</p>` : '';
     actionsRow.style.display = 'none';
     return;
   }
@@ -15511,6 +15519,14 @@ let quickAddWasVoice = false;
       // API tarayıcıda hiç yok (örn. Firefox, çoğu masaüstü Safari) — buton gösterip
       // kullanıcıyı boşuna tıklatmak yerine baştan gizle.
       if(micWrap) micWrap.style.display = 'none'; else micBtn.style.display = 'none';
+      /* DENETİM DÜZELTMESİ (FAZ 3.16): mikrofon gizlenince başlık/alt metin hâlâ "Sesle Ekle" /
+         "Dokun ve harcamanı anlat" diyordu — var olmayan bir mikrofonu aramaya yönlendiren
+         yanıltıcı bir metin. Bu tarayıcıda gerçekte kullanılabilir olan tek yol (yazarak
+         ekleme) hâlâ tamamen çalışıyor; yalnızca ekrandaki metin bunu doğru yansıtıyor. */
+      if(statusText) statusText.textContent = en ? 'Add by Typing' : 'Yazarak Ekle';
+      if(statusSub) statusSub.textContent = en
+        ? 'Voice input isn\'t supported in this browser — describe your expense below instead, e.g. "850 lira groceries".'
+        : 'Bu tarayıcı sesle girişi desteklemiyor — açıklamanı aşağıya yazabilirsin, örn. "850 lira market".';
     } else if(window.isSecureContext===false){
       // API VAR ama sayfa güvenli bağlamda değil (file:// ile yerelden açılmış, ya da
       // http:// — https/localhost dışı). Bu durumda tarayıcı mikrofonu SESSİZCE reddeder;
