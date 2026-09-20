@@ -3544,6 +3544,12 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
       </div>
       <button class="reorder-btn" id="refreshRatesBtn" type="button" data-i18n-aria="aria-kur-yenile" data-i18n-title="aria-kur-yenile" title="Kurları şimdi güncelle" aria-label="Kurları şimdi güncelle" style="width:36px;height:36px;flex:none;"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21,3 21,9 15,9"/></svg></button>
     </div>
+    <!-- FAZ 3.14 (2026-09): "Dengeli" seçili başlıyor olması (statik varsayılan, hesaplanmış bir
+         öneri değil) ile birleşince, üç seçenekten biri "doğru/önerilen profil"miş gibi
+         okunabiliyordu. Hesap/varsayılan seçim DEĞİŞMEDİ — yalnızca üstüne, hangisinin seçili
+         olduğundan bağımsız olarak bunun bir SENARYO seçimi olduğunu netleştiren kısa bir satır
+         eklendi. -->
+    <p class="afford-scn-note" style="font-size:var(--fs-xs);color:var(--muted);margin:0 0 8px;" data-i18n="yat-senaryo-sec-not">Bir senaryo seç — hiçbiri "doğru" profil değildir, üçü de örnek dağılımdır.</p>
     <div class="toggle-pair" id="riskToggle">
       <button data-risk="temkinli" type="button" data-i18n="tg-temkinli">Temkinli</button>
       <button data-risk="dengeli" class="active" type="button" data-i18n="tg-dengeli">Dengeli</button>
@@ -4484,6 +4490,8 @@ const TRANSLATIONS = {
   'yat-veri-not': {tr:', yaklaşık piyasa verileridir. Bu kesin bir yatırım tavsiyesi değildir — senaryo ve risk analizi amaçlıdır.',
                    en:' — approximate market data. This is not precise investment advice; it is for scenario and risk analysis.'},
   'yat-veri-onek': {tr:'Veri: ', en:'Data: '},
+  'yat-senaryo-sec-not': {tr:'Bir senaryo seç — hiçbiri "doğru" profil değildir, üçü de örnek dağılımdır.',
+                          en:'Pick a scenario — none of them is the "correct" profile, all three are example allocations.'},
   'yat-senaryo-giris': {tr:'Bu tempoyla devam edersen çeşitli varsayımlar altında net varlığının nasıl değişebileceğinin senaryosu.',
                         en:'A scenario for how your net worth could change under various assumptions if you keep this pace.'},
   'yat-senaryo-uyari': {tr:'Bunlar varsayımdır, gerçek getiri garantisi değildir.',
@@ -8295,7 +8303,18 @@ function renderRoundUpSavings(){
   const box = document.getElementById('roundUpBox');
   if(!box) return;
   const en = currentLang==='en';
-  if(!month.expenses.length){ box.innerHTML = `<p class="empty">${en ? "As you add expenses, you'll see your round-up savings potential here." : 'Harcama ekledikçe burada yuvarlama tasarruf potansiyelini göreceksin.'}</p>`; return; }
+  /* FAZ 3.14 BAĞLAMSAL UX (2026-09): bu ikincil analiz kartı (Hedefler sekmesi), hiç harcama
+     yokken tek satırlık bir metinle birlikte tam boy bir kart olarak açık kalıyordu. Hesap
+     DEĞİŞMEDİ (computeRoundUpSavings() aynen çağrılıyor) — yalnızca veri yokken tüm bölüm
+     (başlık+kart) FAZ 3.12/3.14'te kurulan aynı desenle gizleniyor; harcama eklenince
+     normal şekilde geri döner. */
+  const section = box.closest('[data-section="yuvarlama-tasarruf"]');
+  if(!month.expenses.length){
+    if(section) section.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+  if(section) section.hidden = false;
   const r = computeRoundUpSavings(50);
   const primary = pickPrimaryGoal();
   const goalNote = (primary && primary.info.gap>0)
@@ -9044,7 +9063,12 @@ function updateLiveRateStatusUI(){
   if(MARKET_DATA.liveRatesOk && MARKET_DATA.liveRatesAt){
     const hh = String(MARKET_DATA.liveRatesAt.getHours()).padStart(2,'0');
     const mm = String(MARKET_DATA.liveRatesAt.getMinutes()).padStart(2,'0');
-    statusEl.textContent = en ? `Live · updated ${hh}:${mm}` : `Canlı · son güncelleme ${hh}:${mm}`;
+    // FAZ 3.14 (2026-09): "Canlı" yalnızca burada gösterilen dolar/altın KURUNUN canlı çekildiğini
+    // belirtir — hemen üstündeki "Veri: [ay], yaklaşık piyasa verileridir" notu (enflasyon/getiri
+    // varsayımları gibi dağılım hesabının GERİ KALANI) ayrı ve periyodik güncellenen bir kaynaktır.
+    // İkisi aynı kartta yan yana durunca "Canlı" tüm analizin canlı olduğu izlenimini verebiliyordu;
+    // veri kaynağı/mantık DEĞİŞMEDİ, yalnızca etiket neyin canlı olduğunu netleştirdi.
+    statusEl.textContent = en ? `Rate live · updated ${hh}:${mm}` : `Kur canlı · son güncelleme ${hh}:${mm}`;
     statusEl.style.color = 'var(--teal)';
   } else if(MARKET_DATA.liveRatesOk===false){
     statusEl.textContent = en
@@ -11138,6 +11162,20 @@ function renderDebtTrendChart(currentTotalDebt){
   const chartBox = document.getElementById('debtTrendChart');
   const emptyBox = document.getElementById('debtTrendEmpty');
   if(!chartBox) return;
+  /* FAZ 3.14 BAĞLAMSAL UX (2026-09): borcu HİÇ olmayan bir kullanıcı için "Borç Trendin"
+     kartının sıfırda düz bir çizgi (ya da yalnızca "veri biriktikçe" notu) göstermesi,
+     ilgilenilecek bir borç-analizi varmış izlenimi veriyordu. Hesap/veri kaynağı DEĞİŞMEDİ —
+     yalnızca hiç borç/kart yokken tüm bölüm (başlık+kart) gizleniyor; en az bir borç/kart
+     eklendiğinde bölüm normal şekilde geri döner (yeterli geçmiş yoksa mevcut "veri biriktikçe"
+     notunu göstermeye devam eder). */
+  const section = chartBox.closest('[data-section="borc-trend"]');
+  if(allDebts().length===0){
+    if(section) section.hidden = true;
+    chartBox.innerHTML = '';
+    if(emptyBox) emptyBox.style.display = 'none';
+    return;
+  }
+  if(section) section.hidden = false;
 
   const merged = [...history.filter(h=>h.monthKey!==monthKey), {monthKey, label:`${monthNames[now.getMonth()].slice(0,3)} ${String(now.getFullYear()).slice(2)}`, totalDebt: currentTotalDebt}]
     .sort((a,b)=>a.monthKey.localeCompare(b.monthKey))
@@ -11324,7 +11362,19 @@ function renderDebtStrategy(){
      da "hepsi sabit taksitli kredi, sıralanacak bir şey yok" diyordu — oysa sıralanacak
      en pahalı borcu tam da kartıydı. allDebts() uygulamanın tek borç kaynağı. */
   const debts = allDebts().filter(d=>d.balanceTL>0);
-  if(!debts.length){ box.innerHTML=''; return; }
+  /* FAZ 3.14 BAĞLAMSAL UX (2026-09): "Borç Ödeme Planı" bölümü (#debtStrategyBox +
+     #payoffList, aynı data-section="borc-plan") hiç borç/kart yokken boş bir kart olarak
+     açık kalıyordu. Hesap DEĞİŞMEDİ — yalnızca borç yokken tüm bölüm gizleniyor; en az bir
+     borç/kart eklendiğinde normal şekilde geri döner. renderPayoffPlan() kendi payoffList
+     içeriğini AYNI şekilde dolduruyor/boşaltıyor, burada yalnızca bölümün görünürlüğü
+     yönetiliyor. */
+  const section = box ? box.closest('[data-section="borc-plan"]') : null;
+  if(!debts.length){
+    if(section) section.hidden = true;
+    box.innerHTML='';
+    return;
+  }
+  if(section) section.hidden = false;
   const en = currentLang==='en';
   /* Sabit taksitli krediler bu tavsiyenin DIŞINDA. "Fazla paranı en pahalı borca yükle"
      ancak ödemesini değiştirebildiğin borçlar için geçerli; kredinin taksidi sözleşmede yazar,
@@ -11413,6 +11463,21 @@ function renderDebtStrategyCompare(){
   const box = document.getElementById('debtStrategyCompareBox');
   if(!box) return;
   const en = currentLang==='en';
+  /* FAZ 3.14 BAĞLAMSAL UX (2026-09): hiç borç/kart yokken "Avalanche vs Snowball" kartı,
+     iki stratejiyi anlatan uzun bir açıklama metniyle birlikte açık kalıyordu — borcu
+     olmayan bir kullanıcının ilgilenmesi gereken bir "borç analizi" varmış izlenimi
+     veriyordu. Hesap DEĞİŞMEDİ (computeDebtStrategyComparison() aynen çağrılıyor) —
+     yalnızca HİÇ borç/kart yokken tüm bölüm (açıklama+kart) gizleniyor. Tek bir borç/kart
+     eklendiğinde (karşılaştırma için yetersiz olsa bile) bölüm normal şekilde geri döner ve
+     mevcut "en az 2 borç gerekir" notunu göstermeye devam eder. */
+  const section = box.closest('[data-section="avalanche-snowball"]');
+  const hasAnyDebt = allDebts().some(d=>d.balanceTL>0);
+  if(!hasAnyDebt){
+    if(section) section.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+  if(section) section.hidden = false;
   const cmp = computeDebtStrategyComparison();
   if(!cmp){
     box.innerHTML = `<p class="empty">${t('empty-strateji-2borc')}</p>`;
@@ -14852,10 +14917,19 @@ function renderInstallmentBurden(){
   const en = currentLang==='en';
   const burden = computeUpcomingInstallmentBurden();
   const hasAny = burden.some(b=>b.amount>0);
+  /* FAZ 3.14 BAĞLAMSAL UX (2026-09): bu kart CSV/PDF'ten taksit etiketiyle içe aktarılmış
+     işlemlere dayanır — gösterecek bir şey yokken (henüz borç/kart eklenmemiş ya da hiç
+     taksitli işlem tespit edilmemişken) koca bir "taksit yükü" kartının açık durması,
+     kullanıcıya bu bölümle ilgilenmesi gerektiği izlenimini veriyordu. Hesap DEĞİŞMEDİ
+     (computeUpcomingInstallmentBurden() aynen çağrılıyor) — yalnızca veri yokken TÜM bölüm
+     (başlık+kart) FAZ 3.12'de renderActiveGoalCard()'da kurulan aynı desenle gizleniyor. */
+  const section = box.closest('[data-section="taksit-yuku"]');
   if(!hasAny){
-    box.innerHTML = `<p class="empty">${en ? 'No ongoing installment purchases found. This is built from CSV/PDF-imported transactions tagged with installment info (e.g. "3/6") — this month and earlier months are both included.' : 'Devam eden bir taksitli alışveriş bulunamadı. Bu bölüm, taksit bilgisi ("3/6" gibi) etiketlenmiş CSV/PDF içe aktarılan işlemlerden oluşur — bu ay ve geçmiş aylar birlikte taranır.'}</p>`;
+    if(section) section.hidden = true;
+    box.innerHTML = '';
     return;
   }
+  if(section) section.hidden = false;
   const rows = burden.map(b=>`<div class="report-row"><span>${b.label}</span><b class="val">${CUR}${fmt(b.amount)}</b></div>`).join('');
   box.innerHTML = `
     <p style="font-size:var(--fs-sm);color:var(--muted);margin:0 0 10px;line-height:1.5;">${en ? "Based on your tagged installment purchases (this month and earlier) — amounts you're already committed to paying, even before any new spending." : 'Etiketlenmiş taksitli alışverişlerine göre (bu ay ve geçmiş aylar) — yeni bir harcama yapmasan bile zaten ödemekle yükümlü olduğun tutarlar.'}</p>
@@ -16969,8 +17043,13 @@ function affordVerdictMeta(verdict, en){
      Renk zaten .verdict-* sınıfından geliyor, ikon şekliyle de ayrışıyor — renk körlüğünde
      üç sonucu yalnızca renkle ayırmak yetmiyordu. */
   const ik = d=>`<svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-  if(verdict==='green') return {icon: ik('<circle cx="12" cy="12" r="9"/><polyline points="8 12.2 11 15.2 16 9.4"/>'), title: en ? 'YES, THIS LOOKS AFFORDABLE' : 'EVET, UYGUN GÖRÜNÜYOR', cls:'verdict-green'};
-  if(verdict==='yellow') return {icon: ik('<path d="M12 3.4 21.4 19.8H2.6z"/><path d="M12 9.6v4.2"/><circle cx="12" cy="17" r="1.05" fill="currentColor" stroke="none"/>'), title: en ? 'YOU CAN, BUT BE CAREFUL' : 'ALABİLİRSİN AMA DİKKATLİ OLMALISIN', cls:'verdict-yellow'};
+  /* FAZ 3.14 (2026-09): yeşil/sarı başlıklar eskiden "EVET, UYGUN GÖRÜNÜYOR" / "ALABİLİRSİN AMA
+     DİKKATLİ OLMALISIN" diyordu — bu, FullBudget'ın satın alma iznini VERDİĞİ izlenimini
+     yaratıyordu (kırmızının kendi metni zaten etki-odaklıydı, "RİSKLİ" diyordu, "HAYIR" demiyordu).
+     Hesap/verdict eşiği DEĞİŞMEDİ (aynı 'green'/'yellow'/'red' değerleri) — yalnızca başlık dili,
+     kırmızının zaten kullandığı etki-odaklı (bütçeye etkisi) çerçeveye çekildi. */
+  if(verdict==='green') return {icon: ik('<circle cx="12" cy="12" r="9"/><polyline points="8 12.2 11 15.2 16 9.4"/>'), title: en ? 'FITS YOUR BUDGET' : 'BÜTÇENE UYUYOR', cls:'verdict-green'};
+  if(verdict==='yellow') return {icon: ik('<path d="M12 3.4 21.4 19.8H2.6z"/><path d="M12 9.6v4.2"/><circle cx="12" cy="17" r="1.05" fill="currentColor" stroke="none"/>'), title: en ? 'STRETCHES YOUR BUDGET' : 'BÜTÇENİ ZORLAR', cls:'verdict-yellow'};
   return {icon: ik('<circle cx="12" cy="12" r="9"/><line x1="8.4" y1="8.4" x2="15.6" y2="15.6"/><line x1="15.6" y1="8.4" x2="8.4" y2="15.6"/>'), title: en ? 'FINANCIALLY RISKY RIGHT NOW' : 'ŞU AN İÇİN FİNANSAL OLARAK RİSKLİ', cls:'verdict-red'};
 }
 
