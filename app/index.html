@@ -2940,7 +2940,7 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <div class="reorder-section" data-section="ai-koc-baslik" id="jump-ai-koc-baslik"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2"/><circle cx="9" cy="13" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.3" fill="currentColor" stroke="none"/><line x1="12" y1="8" x2="12" y2="4"/><circle cx="12" cy="3" r="1" fill="currentColor" stroke="none"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span data-i18n="ai-koc-baslik">Finans Koçun</span></p>
   <div class="card">
     <div class="ai-chat-header-row">
-      <p style="font-size:var(--fs-sm);color:var(--muted);margin:0;line-height:1.5;flex:1;" data-i18n="ai-koc-not">Finans Koçuna sor. Gerçek verilerin üzerinden sana kişiselleştirilmiş öneriler sunar.</p>
+      <p style="font-size:var(--fs-sm);color:var(--muted);margin:0;line-height:1.5;flex:1;" data-i18n="ai-koc-not">Finans Koçuna sor. Gerçek verilerine bakarak sana senaryolar ve karşılaştırmalar sunar — kararı sen verirsin.</p>
       <button id="aiChatClearBtn" type="button" class="ai-chat-clear-btn" title="Sohbeti temizle" style="display:none;">
         <svg viewBox="0 0 24 24" class="btn-icon"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
       </button>
@@ -4061,7 +4061,7 @@ const TRANSLATIONS = {
   'ob-n1-title': {tr:'Tüm finansın tek yerde', en:'All your finances in one place'},
   'ob-n1-body': {tr:'Gelir, gider, varlık, borç ve hedeflerini kolayca yönet.', en:'Manage your income, expenses, assets, debts and goals with ease.'},
   'ob-n2-title': {tr:'Daha iyi kararlar al', en:'Make better decisions'},
-  'ob-n2-body': {tr:'Gelişmiş analizler, finans koçu ve \u201cAlabilir miyim?\u201d ile daha doğru kararlar ver.', en:'Advanced analytics, a finance coach and \u201cCan I afford it?\u201d help you decide.'},
+  'ob-n2-body': {tr:'Gelişmiş analizler, finans koçu ve \u201cAlabilir miyim?\u201d ile kararlarını netleştir.', en:'Advanced analytics, a finance coach and \u201cCan I afford it?\u201d help you decide.'},
   'ob-n3-title': {tr:'Geleceğini güvence altına al', en:'Secure your future'},
   'ob-n3-body': {tr:'Bugünün küçük adımları, yarının finansal özgürlüğüne dönüşür.', en:"Today's small steps become tomorrow's financial freedom."},
   'ob-m-goal': {tr:'Ev peşinatı', en:'Home down payment'},
@@ -4548,7 +4548,12 @@ const TRANSLATIONS = {
   'lbl-tekrar-sikligi': {tr:'Tekrar sıklığı', en:'Frequency'},
   'aylik-rapor': {tr:'Aylık Rapor', en:'Monthly Report'},
   'ai-koc-baslik': {tr:'Finans Koçun', en:'Your Financial Coach'},
-  'ai-koc-not': {tr:'Finans Koçuna sor. Gerçek verilerin üzerinden sana kişiselleştirilmiş öneriler sunar.', en:'Ask your AI coach. Get personalized guidance based on your real financial data.'},
+  /* FAZ 3.13 ÜRÜN SESİ (2026-09): "kişiselleştirilmiş öneriler" ifadesi, uygulamanın başka
+     yerlerde (Yatırım sekmesi, hk-uyari vb.) tekrar tekrar "kişiselleştirilmiş yatırım tavsiyesi
+     VERMEDİĞİNİ" açıkça belirtmesiyle çelişiyordu. Koç HÂLÂ verilerine bakarak senaryo/karşılaştırma
+     sunuyor — yalnızca etiket "öneri" yerine "senaryo/karşılaştırma" diline çekildi, AI/backend
+     mantığı DEĞİŞMEDİ. */
+  'ai-koc-not': {tr:'Finans Koçuna sor. Gerçek verilerine bakarak sana senaryolar ve karşılaştırmalar sunar — kararı sen verirsin.', en:'Ask your Finance Coach. It looks at your real data to offer scenarios and comparisons — you make the call.'},
   /* Privacy & Data Storage Audit (2026-09) — AI Coach kartına eklenen kısa veri işleme notu.
      Sadece bilgilendirme metni; hiçbir hesaplama/backend mantığına dokunmuyor. */
   'ai-koc-veri-bilgi': {tr:'Sorduğun soruyla birlikte finansal özetin (gelir, gider, borç ve hedef durumun) cevap üretmek için sunucumuz üzerinden işlenir. İsim, telefon, IBAN veya kart numarası bu özete dahil edilmez.', en:'Your question and a summary of your finances (income, expenses, debts, and goal progress) are processed through our server to generate a reply. Your name, phone number, IBAN, or card number is not included in this summary.'},
@@ -8529,10 +8534,14 @@ let _hasExportedBackup = false;
    computeAchievements() bilerek ellenmiyor, yolculuk onun ÜSTÜNE kuruluyor.
    Blueprint = kurulum: hesap + gelir/gider + ilk hedef. "Yedeğini aldın" açılış yayının parçası
    değil (iyi bir alışkanlık ama kurulum değil), o yüzden Momentum'a taşındı. */
+/* FAZ 3.13 ÜRÜN SESİ (2026-09): faz adları eskiden İngilizce jargon olarak (BLUEPRINT/MOMENTUM/
+   PRESTIGE) her iki dilde de AYNI şekilde basılıyordu — sıradan bir kullanıcı için anlamsız kalan
+   ürün-içi terimlerdi. Faz sırası/kilometre taşları/hesap DEĞİŞMEDİ, yalnızca görünen isim
+   dile göre sade Türkçe/İngilizce karşılığa çevrildi (bkz. computeJourney()'deki çözümleme). */
 const JOURNEY_PHASES = [
-  {key:'blueprint', no:1, title:'BLUEPRINT', ids:['v-hesap','ilk-adim','ilk-hedef']},
-  {key:'momentum',  no:2, title:'MOMENTUM',  ids:['v-chain-breaker','streak-3','acil-fon','borc-yari','ilk-yedek','streak-6']},
-  {key:'prestige',  no:3, title:'PRESTIGE',  ids:['streak-12','borcsuz','nw-100k','dengeli-yatirim','nw-1m']},
+  {key:'blueprint', no:1, title:{tr:'KURULUM', en:'SETUP'}, ids:['v-hesap','ilk-adim','ilk-hedef']},
+  {key:'momentum',  no:2, title:{tr:'İSTİKRAR', en:'CONSISTENCY'},  ids:['v-chain-breaker','streak-3','acil-fon','borc-yari','ilk-yedek','streak-6']},
+  {key:'prestige',  no:3, title:{tr:'OLGUNLUK', en:'MATURITY'},  ids:['streak-12','borcsuz','nw-100k','dengeli-yatirim','nw-1m']},
 ];
 /* Rozet motorunda olmayan, yolculuğa özel kilometre taşları */
 function virtualMilestones(){
@@ -8627,7 +8636,7 @@ function computeJourney(){
     // Hedeften türeyen taşlar en üst faza eklenir (ev/araba yıllar süren işler)
     if(p.key==='prestige') items.push(...extras);
     const done = items.filter(i=>i.unlocked).length;
-    return {...p, items, done, total: items.length, pct: items.length ? Math.round(done/items.length*100) : 0};
+    return {...p, title: en0 ? p.title.en : p.title.tr, items, done, total: items.length, pct: items.length ? Math.round(done/items.length*100) : 0};
   });
   let activeIdx = phases.findIndex(p=>p.done < p.total);
   if(activeIdx === -1) activeIdx = phases.length - 1; // hepsi bittiyse son faz "aktif" kalsın
@@ -8782,7 +8791,7 @@ function launchRewardCardHtml(){
       <div class="jl-privacy">${en?'The image shows no amounts — only your active days and milestones.':'Görselde hiçbir tutar yok — sadece aktif gün ve kilometre taşı sayın.'}</div></div>`;
   }
   const steps = !s.setupDone
-    ? (en ? 'Finish Phase 1 (Blueprint) first.' : 'Önce Faz 1 (Blueprint) adımlarını tamamla.')
+    ? (en ? 'Finish Phase 1 (Setup) first.' : 'Önce Faz 1 (Kurulum) adımlarını tamamla.')
     : (LAUNCH_REWARD_DAYS>0
         ? (en ? `${s.days}/${LAUNCH_REWARD_DAYS} active days — ${s.daysLeft} to go.` : `${s.days}/${LAUNCH_REWARD_DAYS} aktif gün — ${s.daysLeft} gün kaldı.`)
         : (en ? 'Almost there.' : 'Az kaldı.'));
@@ -9973,7 +9982,18 @@ function reminderStatus(dueDate, isDone){
 function renderReminderList(){
   const box = document.getElementById('reminderList');
   if(!box) return;
-  if(!persistent.reminders.length){ box.innerHTML = `<p class="empty">${t('empty-hatirlatici-yok')}</p>`; return; }
+  if(!persistent.reminders.length){
+    // FAZ 3.13 ÜRÜN SESİ (2026-09): bare "Henüz hatırlatıcı eklenmedi" yerine, uygulamanın
+    // diğer listelerinde (Gelir/Harcama/Hesaplar/Borçlar/Hedefler) zaten kullandığı
+    // renderEmptyStateHtml() düzenine geçildi — ne eksik/neden önemli/ne yapılabilir üçlüsünü
+    // aynı görsel dille anlatır. Veri/mantık DEĞİŞMEDİ, yalnızca boş-durum sunumu.
+    const en = currentLang==='en';
+    box.innerHTML = renderEmptyStateHtml(
+      '<circle cx="12" cy="12" r="9"/><polyline points="12,7 12,12 15,14"/>',
+      en ? 'No reminders yet' : 'Henüz hatırlatıcın yok',
+      en ? 'Add a reminder so you never miss a payment or renewal date.' : 'Bir ödeme ya da yenileme tarihini kaçırmamak için hatırlatıcı ekle.');
+    return;
+  }
   const items = persistent.reminders.map(r=>{
     const due = reminderNextDue(r);
     const isDone = r.recurring ? (r.doneMonths||[]).includes(monthKey) : (r.doneMonths||[]).includes('once');
@@ -10036,7 +10056,16 @@ function renderReminderList(){
 function renderNoteList(){
   const box = document.getElementById('noteList');
   if(!box) return;
-  if(!persistent.notes.length){ box.innerHTML = `<p class="empty">${t('empty-not-yok')}</p>`; return; }
+  if(!persistent.notes.length){
+    // FAZ 3.13 ÜRÜN SESİ (2026-09): bkz. renderReminderList() — aynı gerekçeyle bare metin
+    // yerine ortak renderEmptyStateHtml() düzenine geçildi, veri/mantık DEĞİŞMEDİ.
+    const en = currentLang==='en';
+    box.innerHTML = renderEmptyStateHtml(
+      '<path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/>',
+      en ? 'No notes yet' : 'Henüz notun yok',
+      en ? 'Jot down anything worth remembering about your finances.' : 'Finansal durumunla ilgili aklında kalması gereken bir şey varsa buraya not düş.');
+    return;
+  }
   box.innerHTML = [...persistent.notes].reverse().map(n=>`
     <div class="note-row">
       <div><div class="note-text">${escapeHtml(n.text)}</div><div class="note-date">${n.createdAt}</div></div>
@@ -10327,7 +10356,15 @@ function renderCreditCardList(){
   const box = document.getElementById('creditCardList');
   if(!box) return;
   const en = currentLang==='en';
-  if(!persistent.creditCards.length){ box.innerHTML = `<p class="empty">${en ? 'No cards added yet' : 'Henüz kart eklenmedi'}</p>`; return; }
+  if(!persistent.creditCards.length){
+    // FAZ 3.13 ÜRÜN SESİ (2026-09): bkz. renderReminderList() — aynı gerekçeyle ortak
+    // renderEmptyStateHtml() düzenine geçildi, veri/mantık DEĞİŞMEDİ.
+    box.innerHTML = renderEmptyStateHtml(
+      '<rect x="2" y="6" width="20" height="14" rx="2.5"/><line x1="2" y1="10.5" x2="22" y2="10.5"/>',
+      en ? 'No cards yet' : 'Henüz kartın yok',
+      en ? 'Add a credit card to track its statement, minimum payment and interest cost.' : 'Ekstresini, asgari ödemesini ve faiz maliyetini takip etmek için bir kart ekle.');
+    return;
+  }
   const allAlerts = getFinancialAlerts();
   box.innerHTML = persistent.creditCards.map(c=>{
     const usage = totalCreditCardUsage(c);
@@ -11750,8 +11787,12 @@ function renderGoalList(){
          hedefine ulaşıldığını gösterir — evin tam fiyatına değil. Bunu ayırt etmeden "Hedefe zaten
          ulaştın" demek, kullanıcının evi tamamen alabilecek durumda olduğunu yanlış ima ediyordu
          (bkz. computeGoalInfo()'daki isDownPaymentGoal alanı ve yukarıdaki denetim notu). */
+      // FAZ 3.13 ÜRÜN SESİ (2026-09): inflatedPrice, girilen yıllık artış varsayımıyla PROJEKTE
+      // edilmiş bir sayı — gerçek/güncel bir piyasa teklifi değil. Hesap DEĞİŞMEDİ, yalnızca metne
+      // (uygulamanın başka yerlerinde zaten kullandığı "tahmini/varsayımsal" dili ile tutarlı
+      // olacak şekilde) bunun bir senaryo tahmini olduğunu belirten bir ibare eklendi.
       statusHtml = info.isDownPaymentGoal
-        ? (en ? `<div class="goal-status ok">You've reached your down-payment target (${CUR}${fmt(info.neededTotal)}). The home's current reference price is still ${CUR}${fmt(info.inflatedPrice)} — this covers the down payment only, not the full purchase.</div>` : `<div class="goal-status ok">Peşinat hedefine ulaştın (${CUR}${fmt(info.neededTotal)}). Evin güncel referans fiyatı hâlâ ${CUR}${fmt(info.inflatedPrice)} — bu yalnızca peşinatı karşılıyor, evin tamamını değil.</div>`)
+        ? (en ? `<div class="goal-status ok">You've reached your down-payment target (${CUR}${fmt(info.neededTotal)}). Based on your price-growth assumption, the home's estimated price is now ${CUR}${fmt(info.inflatedPrice)} (a scenario estimate, not a live market price) — this covers the down payment only, not the full purchase.</div>` : `<div class="goal-status ok">Peşinat hedefine ulaştın (${CUR}${fmt(info.neededTotal)}). Fiyat artışı varsayımına göre evin tahmini fiyatı şu an ${CUR}${fmt(info.inflatedPrice)} (bir senaryo tahminidir, güncel bir piyasa teklifi değil) — bu yalnızca peşinatı karşılıyor, evin tamamını değil.</div>`)
         : (en ? `<div class="goal-status ok">You already reached this goal.</div>` : `<div class="goal-status ok">Hedefe zaten ulaştın.</div>`);
     } else if(info.dateExpired){
       statusHtml = en ? `<div class="goal-status behind">
@@ -14936,10 +14977,14 @@ function renderMonthlyReport(){
     nextTip = en ? 'Focus on bringing expenses below income next month.' : 'Gelecek ay öncelik, giderlerini gelirinin altına çekmek olsun.';
   }
 
+  // FAZ 3.13 ÜRÜN SESİ (2026-09): eski "En iyi karar" etiketi FullBudget'ın kullanıcının
+  // kararlarını YARGILADIĞI izlenimini veriyordu — oysa bestDecision zaten sadece o ayki
+  // veriden çıkan betimleyici bir gözlem (ödeme yapıldı/tasarruf oranı/net varlık arttı gibi).
+  // Hesap/mantık AYNI kaldı, yalnızca etiket "bu ayın öne çıkanı"na (nötr, betimleyici) çevrildi.
   box.innerHTML = `
     <p style="font-size:var(--fs-sm);color:var(--muted);margin:0 0 12px;">${monthLabel} ${now.getFullYear()}</p>
     ${rows}
-    <div class="report-highlight good"><b>${en ? 'Best decision' : 'En iyi karar'}:</b> ${bestDecision}</div>
+    <div class="report-highlight good"><b>${en ? 'Highlight of the month' : 'Bu ayın öne çıkanı'}:</b> ${bestDecision}</div>
     ${worstHabit?`<div class="report-highlight bad"><b>${en ? 'Worth watching' : 'Dikkat edilmesi gereken'}:</b> ${worstHabit}</div>`:''}
     <div class="report-highlight next"><b>${en ? 'Next month' : 'Gelecek ay'}:</b> ${nextTip}</div>
   `;
