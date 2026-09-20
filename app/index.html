@@ -3391,31 +3391,58 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
     <div class="form-row loan-captions" id="debtRateCaption" style="display:none;">
       <span data-i18n="label-kredi-faiz">Aylık faiz (%) — kalan anaparayı hesaplamak için</span>
     </div>
+    <!-- FAZ 3.19: Kredi dışındaki türlerde de "Kalan borç" / "Aylık faiz (%)" alanları
+         doldurulunca placeholder kaybolup anlamı belirsizleşiyordu (denetimde tespit edilen
+         "iki alan tek etiket altında" örüntüsünün aynısı). Kredi'nin zaten sahip olduğu
+         kalıcı başlık deseni (.loan-captions) burada da kullanılıyor. -->
+    <div class="form-row loan-captions" id="debtBalanceRateCaption">
+      <span data-i18n="ph-kalan-borc">Kalan borç</span><span data-i18n="ph-faiz">Aylık faiz (%)</span>
+    </div>
     <div class="form-row">
       <input id="debtBalanceInput" type="text" class="money-input" inputmode="decimal" placeholder="Kalan borç" data-i18n-placeholder="ph-kalan-borc">
       <input id="debtRateInput" type="number" inputmode="decimal" placeholder="Aylık faiz (%)" data-i18n-placeholder="ph-faiz" step="0.01">
     </div>
+    <!-- FAZ 3.19: kategori seçilince alana otomatik yazılan varsayılan oran (bkz. DEBT_CATEGORIES
+         defaultRate), kullanıcının GERÇEK/güncel oranıymış gibi görünüyordu. Bu not, oranın
+         yaklaşık bir hesaplama varsayımı olduğunu ve gerçek oranı biliniyorsa güncellenmesi
+         gerektiğini açıklar — kredi kartı formundaki "cc-faiz-not" ile aynı .loan-hint deseni. -->
+    <p class="loan-hint" id="debtRateDefaultHint" data-i18n="debt-faiz-varsayilan-not">Bu, girdiğin borç türü için varsayılan hesaplama oranıdır — gerçek faiz oranını biliyorsan güncelle. Oran yalnızca hesaplamada kullanılır.</p>
     <p class="loan-hint" id="debtLoanHint" style="display:none;"></p>
     <div class="form-row" id="debtCurrencyRow">
-      <select id="debtCurrencySelect">
-        <option value="TRY" selected>TRY</option>
-        <option value="USD">USD</option>
-        <option value="EUR">EUR</option>
-        <option value="XAU">XAU (gr. altın)</option>
-      </select>
+      <div style="flex:1;min-width:0;">
+        <div class="field-label" data-i18n="para-birimi">Para Birimi</div>
+        <select id="debtCurrencySelect">
+          <option value="TRY" selected>TRY</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="XAU">XAU (gr. altın)</option>
+        </select>
+      </div>
     </div>
     <div class="form-row" id="debtPaymentRow">
       <input id="debtMinPaymentInput" type="text" class="money-input" inputmode="decimal" placeholder="Aylık minimum ödeme" data-i18n-placeholder="ph-min-odeme">
       <input id="debtExtraPaymentInput" type="text" class="money-input" inputmode="decimal" placeholder="Bu ay ekstra ödeme (ops.)" data-i18n-placeholder="ph-ekstra-odeme">
     </div>
     <div class="field-label">Detaylar (opsiyonel)</div>
+    <!-- FAZ 3.19: type="date" girdileri placeholder attribute'unu göstermez (tarayıcılar boşken
+         kendi biçim ipucunu — gg.aa.yyyy — gösterir, "Son ödeme tarihi"ni asla göstermez), yani
+         bu alanların kalıcı bir görünür etiketi yoktu. Kalıcı .loan-captions başlığı eklendi. -->
+    <div class="form-row loan-captions">
+      <span data-i18n="ph-son-odeme-tarih">Son ödeme tarihi</span><span data-i18n="ph-not-banka">Not (banka adı vb.)</span>
+    </div>
     <div class="form-row">
       <input id="debtDueDateInput" type="date" placeholder="Son ödeme tarihi" data-i18n-placeholder="ph-son-odeme-tarih">
       <input id="debtNoteInput" type="text" placeholder="Not (banka adı vb.)" data-i18n-placeholder="ph-not-banka">
     </div>
+    <div class="form-row loan-captions">
+      <span data-i18n="ph-baslangic-borc">Başlangıç borcu (ops.)</span><span data-i18n="ph-baslangic-tarih">Başlangıç tarihi</span>
+    </div>
     <div class="form-row">
       <input id="debtOriginalBalanceInput" type="text" class="money-input" inputmode="decimal" placeholder="Başlangıç borcu (ops.)" data-i18n-placeholder="ph-baslangic-borc">
       <input id="debtOriginalDateInput" type="date" placeholder="Başlangıç tarihi" data-i18n-placeholder="ph-baslangic-tarih">
+    </div>
+    <div class="form-row loan-captions" id="debtOrigRateCaption" style="display:none;">
+      <span data-i18n="ph-usd-kur-alindi">Borç alındığındaki döviz kuru</span>
     </div>
     <div class="form-row" id="debtOrigRateRow" style="display:none;">
       <input id="debtOrigRateInput" type="number" inputmode="decimal" placeholder="Borç alındığındaki döviz kuru" data-i18n-placeholder="ph-usd-kur-alindi">
@@ -4217,6 +4244,7 @@ const TRANSLATIONS = {
   'label-borc-plani': {tr:'Kalan borç ve ödeme planı', en:'Remaining debt and payment plan'},
   'label-taksit-plani': {tr:'Taksit planı', en:'Instalment plan'},
   'label-kredi-faiz': {tr:'Aylık faiz (%) — kalan anaparayı hesaplamak için', en:'Monthly interest (%) — used to work out the remaining principal'},
+  'debt-faiz-varsayilan-not': {tr:'Bu, girdiğin borç türü için varsayılan hesaplama oranıdır — gerçek faiz oranını biliyorsan güncelle. Oran yalnızca hesaplamada kullanılır.', en:'This is the default calculation rate for the debt type you picked — update it if you know your actual interest rate. The rate is only used in calculations.'},
   'ph-ara-kategori': {tr:'Kategori veya not ara...', en:'Search category or note...'},
   'ph-arac-deger': {tr:'Mevcut aracının satış değeri (₺, ops.)', en:'Current car\'s sale value (opt.)'},
   'ph-mevcut-birikim': {tr:'Mevcut birikim (₺)', en:'Current savings'},
@@ -15393,8 +15421,10 @@ function applyDebtCategoryLayout(catName){
   if(loanRow) loanRow.style.display = kredi ? 'flex' : 'none';
   const caps = document.getElementById('debtLoanCaptions');
   const rateCap = document.getElementById('debtRateCaption');
+  const balanceRateCap = document.getElementById('debtBalanceRateCaption');
   if(caps) caps.style.display = kredi ? 'flex' : 'none';
   if(rateCap) rateCap.style.display = kredi ? 'flex' : 'none';
+  if(balanceRateCap) balanceRateCap.style.display = kredi ? 'none' : 'flex';
   if(balance) balance.style.display = kredi ? 'none' : '';
   if(minPay)  minPay.style.display  = kredi ? 'none' : '';
   if(label)   label.textContent = t(kredi ? 'label-taksit-plani' : 'label-borc-plani');
@@ -15473,6 +15503,7 @@ buildGrid('accountTypeGrid', ACCOUNT_TYPES, ()=>activeAccountType, v=>activeAcco
 buildGrid('debtCatGrid', DEBT_CATEGORIES, ()=>activeDebtCat, v=>activeDebtCat=v, (cat)=>{
   document.getElementById('debtRateInput').value = cat.defaultRate ?? '';
   document.getElementById('debtOrigRateRow').style.display = cat.name==='Döviz Borcu' ? 'flex' : 'none';
+  document.getElementById('debtOrigRateCaption').style.display = cat.name==='Döviz Borcu' ? 'flex' : 'none';
   document.getElementById('fxTypeGrid').style.display = cat.name==='Döviz Borcu' ? 'flex' : 'none';
   document.getElementById('debtCurrencyRow').style.display = cat.name==='Döviz Borcu' ? 'none' : 'flex';
   applyDebtCategoryLayout(cat.name);
@@ -16038,6 +16069,7 @@ function startEditDebt(d){
   document.getElementById('debtCurrencySelect').value = d.currency || 'TRY';
   activeDebtCat = d.category; setActiveCatByName('debtCatGrid', d.category);
   document.getElementById('debtOrigRateRow').style.display = d.category==='Döviz Borcu' ? 'flex' : 'none';
+  document.getElementById('debtOrigRateCaption').style.display = d.category==='Döviz Borcu' ? 'flex' : 'none';
   document.getElementById('fxTypeGrid').style.display = d.category==='Döviz Borcu' ? 'flex' : 'none';
   document.getElementById('debtCurrencyRow').style.display = d.category==='Döviz Borcu' ? 'none' : 'flex';
   document.getElementById('debtInstallmentInput').value = d.installment ? fmt(d.installment) : '';
