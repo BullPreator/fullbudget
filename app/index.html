@@ -156,6 +156,14 @@ body{
 }
 .wrap{position:relative; z-index:1;}
 .wrap{max-width:520px;margin:0 auto;}
+/* FAZ 3.15 — masaüstünde Ana Sayfa dar bir sütuna sıkışıyordu (global .wrap 520px'te
+   sabit). Bilgi mimarisini/kopyayı DEĞİŞTİRMEDEN, SADECE bu sarmalayıcının genişliğini
+   masaüstünde ve YALNIZCA Ana Sayfa aktifken gevşetiyoruz — diğer sekmeler .wrap'ın
+   520px sınırını korur. Sol rayın (236px body padding-left) içinde kalan alanda
+   ortalanmaya devam eder (margin:0 auto zaten bu alanı temel alıyor). */
+@media (min-width:860px){
+  .wrap:has(> .tab-panel[data-tab="home"].active){max-width:800px;}
+}
 .header-row{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
 .eyebrow{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-md);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 4px;font-weight:600;}
 h1{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-3xl);margin:0;font-weight:600;}
