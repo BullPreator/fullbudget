@@ -263,8 +263,13 @@ test('FAZ3.1-9: daily safe-spend and monthly plannable amounts remain clearly, v
   const { page, pageErrors } = await newSession(EMERGENCY_SCENARIO);
   const bodyText = await page.evaluate(() => document.body.innerText);
   await page.close();
-  assert.ok(/aylık planlanabilir tutarla aynı şey değildir/i.test(bodyText) || /not the same as the monthly plannable amount/i.test(bodyText),
-    'the ring card must still explicitly distinguish daily safe spend from the monthly plannable amount');
+  // FAZ 3.20 GÜNCELLEMESİ: ring artık canonical planın (long_term_or_flexible) bir TÜREVİ olduğu
+  // için "aylık planlanabilir tutarla aynı şey değildir" ifadesi artık DOĞRU DEĞİL — bu yüzden
+  // metin kasıtlı olarak "tempo/gün başına yayılan" diline değiştirildi (bkz. FAZ 3.20 audit +
+  // Stage 2). Bu test hâlâ AYNI ürün amacını (ring'in bir "bugün harcaman gereken tutar" gibi
+  // okunmamasını) doğruluyor, yalnızca yeni kelimelerle.
+  assert.ok(/tempo/i.test(bodyText) || /pace/i.test(bodyText),
+    'the ring card must still explicitly frame the daily figure as a pace/tempo, not a spending mandate');
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 

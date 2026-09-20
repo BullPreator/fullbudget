@@ -182,8 +182,12 @@ test('FAZ3-6: the Ring card explicitly distinguishes today\'s safe spend from th
   const { page, pageErrors } = await newSession({ income: 100000, expenses: 40000, assets: 20000, goals: [] });
   const bodyText = await page.evaluate(() => document.body.innerText);
   await page.close();
-  assert.ok(/aylık planlanabilir tutarla aynı şey değildir/i.test(bodyText) || /not the same as the monthly plannable amount/i.test(bodyText),
-    'a clarifying sentence distinguishing daily safe spend from the monthly plannable amount must be visible');
+  // FAZ 3.20: ring artık canonical planın (long_term_or_flexible) bir türevi olduğu için eski
+  // "aynı şey değildir" ifadesi artık doğru değil — metin "tempo/gün başına yayılan" diline
+  // değiştirildi. Aynı ürün amacı (ring'in bir harcama emri gibi okunmaması) yeni kelimelerle
+  // doğrulanıyor.
+  assert.ok(/tempo/i.test(bodyText) || /pace/i.test(bodyText),
+    'a clarifying sentence framing the daily figure as a pace/tempo must be visible');
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 

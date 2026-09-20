@@ -469,25 +469,44 @@ test('INV14 (SENARYO J): bu ayın toplamları yalnızca bu ayın kaydından geli
 });
 
 // ---------------------------------------------------------------------
-// Güvenli günlük harcama TEK kaynaktan gelir (ekran ile koç aynı sayıyı söyler)
+// FAZ 3.20 GÜNCELLEMESİ (2026-09): Bu test eskiden "ring DOM'u ile answerHowMuchCanISpend()'in
+// AYNI ham nakit-akışı formülünden (computeCashFlowSummary) geldiğini" doğruluyordu. FAZ 3.20
+// Stage 1 denetimi bu paylaşılan formülün semantik olarak YANLIŞ olduğunu kanıtladı (acil fon/
+// borç/hedef tahsisatlarından habersiz, ayın başında income/kalanGün'e çöküyordu — bkz. FAZ 3.20
+// audit raporu ve app/test/faz3-20-safe-spending-semantics.regression.test.mjs). Stage 2'de ring
+// artık KENDİ ayrı hesabını yapmıyor; canonical runGoalCashAllocationEngine()'ın ürettiği
+// "serbest/esnek kalan" (long_term_or_flexible) tutarını okuyor. Finans Koçu'nun
+// answerHowMuchCanISpend()'i bu fazın kapsamı DIŞINDA tutuldu (FAZ 3.20 spec'i "DO NOT modify
+// Finans Koçu" diyor) — hâlâ eski ham formülü kullanıyor. Bu YENİ, BİLİNÇLİ ve GEÇİCİ bir
+// ayrışmadır (gelecekteki bir faza bırakıldı, ürün ekibi tarafından onaylandı). Test SİLİNMEDİ/
+// ZAYIFLATILMADI — ikisi de kendi (artık farklı) tek doğru kaynaklarına karşı AYRI AYRI
+// doğrulanıyor.
 // ---------------------------------------------------------------------
-test('TEK KAYNAK: güvenli günlük harcama, ana ekran ile AI Coach cevabında AYNI değerden türetilir', async () => {
+test('RING: güvenli günlük harcama artık canonical Goal & Cash Allocation Engine\'in serbest kalanından türetilir', async () => {
   const { page, pageErrors } = await session(SCEN_A);
   const r = await page.evaluate(() => {
-    const cf = computeCashFlowSummary({
+    const allocation = runMonthlyGoalCashAllocationLive();
+    const pool = getCanonicalFreeSpendingPoolTL(allocation);
+    const ringCore = computeSafeDailySpendTempo({ freeSpendingPool: pool, remainingDays: daysLeft });
+    // Koç, FAZ 3.20 kapsamı DIŞINDA bırakıldığı için hâlâ KENDİ (eski, ham nakit akışı) formülünü
+    // kullanıyor — bu, o formülün kendi iç tutarlılığını (regresyona karşı) doğrular, ring ile
+    // BİREBİR eşleşmesini DEĞİL.
+    const coachCore = computeCashFlowSummary({
       income: totalIncome(), expenses: cashOutSpent(), debtPayments: monthlyDebtPayments(),
       remainingDays: daysLeft,
       remainingFixedEstimate: Math.max(0, (history.length ? history[history.length - 1].fixedExpense || 0 : 0) - totalFixedExpense()),
-    });
-    return { core: cf.safeDailySpend, dom: document.getElementById('dailyAmountNum').textContent.trim(),
+    }).safeDailySpend;
+    return { ringCore, coachCore, dom: document.getElementById('dailyAmountNum').textContent.trim(),
              coach: answerHowMuchCanISpend() };
   });
-  // DOM ve koç metni aynı çekirdek değerden türemeli (biçimlendirme farkı olabilir, rakam aynı).
-  const fmtNum = Math.round(r.core).toLocaleString('tr-TR');
-  assert.ok(r.dom.includes(fmtNum.split(',')[0]) || r.dom.includes(String(Math.round(r.core))),
-    `DOM güvenli günlük (${r.dom}) çekirdek değerle (${r.core}) uyuşmuyor`);
-  assert.ok(r.coach.includes(fmtNum) || r.coach.includes(String(Math.round(r.core))),
-    `koç cevabı (${r.coach.slice(0, 160)}) çekirdek değerle (${r.core}) uyuşmuyor`);
+  // Ring DOM'u artık canonical allocation havuzundan türeyen tempoyla eşleşmeli.
+  const fmtNum = Math.round(r.ringCore).toLocaleString('tr-TR');
+  assert.ok(r.dom.includes(fmtNum.split(',')[0]) || r.dom.includes(String(Math.round(r.ringCore))),
+    `DOM güvenli günlük (${r.dom}) canonical havuz değeriyle (${r.ringCore}) uyuşmuyor`);
+  // Koç metni hâlâ KENDİ (değiştirilmemiş) formülünden türemeli — bu FAZ 3.20 dışında bırakıldı.
+  const coachFmtNum = Math.round(r.coachCore).toLocaleString('tr-TR');
+  assert.ok(r.coach.includes(coachFmtNum) || r.coach.includes(String(Math.round(r.coachCore))),
+    `koç cevabı (${r.coach.slice(0, 160)}) çekirdek değerle (${r.coachCore}) uyuşmuyor`);
   await page.close();
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });

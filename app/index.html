@@ -2760,14 +2760,14 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
        FAZ 3: bu, AYLIK planlanabilir tutarla (aşağıdaki "Bu Ayki Planım") KARIŞTIRILMAMASI için
        tek cümlelik statik bir açıklama eklendi — formül/hesap DEĞİŞMEDİ, yalnızca bağlam. -->
   <div class="reorder-section" data-section="ring"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title"><span data-i18n="bugunku-butce">Bugünkü Güvenli Bütçen</span></p>
+  <p class="section-title"><span data-i18n="bugunku-butce">Günün Güvenli Harcama Alanı</span></p>
   <div class="hero">
     <div class="ring-wrap">
       <svg width="200" height="200" viewBox="0 0 200 200">
         <circle class="ring-track" cx="100" cy="100" r="88"></circle>
         <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="88" stroke-dasharray="553" stroke-dashoffset="553"></circle>
       </svg>
-      <div class="ring-center"><div class="ring-amount"><span id="dailyAmountNum">—</span><span id="dailyAmountLabel">bugünkü tahmini güvenli harcama alanın</span></div></div>
+      <div class="ring-center"><div class="ring-amount"><span id="dailyAmountNum">—</span><span id="dailyAmountLabel">bugünün tahmini güvenli harcama tempon</span></div></div>
     </div>
     <div class="hero-sub" id="heroSub">Bilgiler yükleniyor…</div>
     <p class="ring-note" data-i18n="ring-aylik-fark-not">Bu tutar yalnızca bugün için tahmini güvenli harcama alanını gösterir; aşağıdaki "Bu Ayki Planım" bölümündeki aylık planlanabilir tutarla aynı şey değildir.</p>
@@ -4470,12 +4470,17 @@ const TRANSLATIONS = {
   'borc-plan': {tr:'Borç Ödeme Planı', en:'Debt Payoff Plan'},
   'borclar': {tr:'Borçların', en:'Your Debts'},
   'bu-ay-plan': {tr:'Bu Ayki Planım', en:"This Month's Plan"},
-  'ring-aylik-fark-not': {tr:'Bu tutar yalnızca bugün için tahmini güvenli harcama alanını gösterir; aşağıdaki "Bu Ayki Planım" bölümündeki aylık planlanabilir tutarla aynı şey değildir.', en:'This is only today’s estimated safe-spending amount — it is not the same as the monthly plannable amount shown below in "This Month\'s Plan".'},
+  /* FAZ 3.20: eski metin "bu, aylık planlanabilir tutarla aynı şey değildir" diyordu — artık
+     doğru değil, çünkü bu tempo ZATEN o canonical planın (long_term_or_flexible kalanının)
+     kalan güne yayılmış hâli. Yeni metin, sayının bir İZİN değil bir TEMPO olduğunu ve
+     kullanılmayan kapasitenin sonraki günlere aktarıldığını (gece yarısında silinmediğini)
+     açıklıyor. */
+  'ring-aylik-fark-not': {tr:'Bu, kalan aylık serbest harcama bütçeni kalan günlere yayarak hesaplanan yaklaşık günlük tempodur. Kullanmadığın tutar sonraki günlere aktarılır.', en:'This is an approximate daily pace, calculated by spreading your remaining monthly free-spending budget over the days left. Anything you don’t use rolls forward to the next day.'},
   'plan-detay-ac': {tr:'Detayları gör', en:'See details'},
   'karar-v2-baslik': {tr:'Nakit Akışı Karar Özeti', en:'Cash Flow Decision Summary'},
   'karar-v2-tahsis-baslik': {tr:'Bu Ay Paramı Nasıl Bölmeliyim?', en:'How Should I Split My Money This Month?'},
   'bu-ayki-harcama': {tr:'Bu ayki harcamalar', en:'This Month\'s Expenses'},
-  'bugunku-butce': {tr:'Bugünkü Güvenli Bütçen', en:'Safe to Spend Today'},
+  'bugunku-butce': {tr:'Günün Güvenli Harcama Alanı', en:'Today’s Safe Spending Pace'},
   'dolar-kur': {tr:'Döviz Borcu Kur Senaryoları', en:'FX Debt Exchange Rate Scenarios'},
   'finansal-yol': {tr:'Yol Haritan', en:'Your Roadmap'},
   'gelecek-senaryo': {tr:'Gelecek Senaryoları', en:'Future Scenarios'},
@@ -9338,13 +9343,30 @@ function render(){
   _planCache = computePriorityPlan(monthlyCashFlow);
   checkCelebrations(netWorth, monthlyCashFlow);
 
-  // 11. Güvenli günlük harcama: gerçekleşen gider + kalan tahmini zorunlu gider + borç ödemelerini düş
+  // 11a. Ayın geri kalanında net varlığa eklenecek TAHMİNİ nakit akışı — SADECE aşağıdaki
+  // "Yıl sonu tahmini" (madde 12) için kullanılır. FAZ 3.20'nin "serbest harcama havuzu"
+  // kavramından KASITLI OLARAK FARKLIDIR: acil fona/hedefe/borca ayrılan para da net varlıkta
+  // KALIR (yalnızca yer değiştirir, kaybolmaz) — bu yüzden yıl sonu tahmini hâlâ TAM kalan nakit
+  // akışını kullanmalı, yalnızca "serbest/esnek" dilimi değil. Formül DEĞİŞMEDİ.
   const lastMonthFixed = history.length ? history[history.length-1].fixedExpense||0 : 0;
   const remainingFixedEstimate = Math.max(0, lastMonthFixed - fixedSpent);
-  // Aynı saf fonksiyon, bu kez "kalan tahmini zorunlu gider" dahil çağrılıyor — assets burada da yok.
   const _cfSafe = computeCashFlowSummary({ income, expenses: cashOutSpent(), debtPayments: debtPay, remainingDays: daysLeft, remainingFixedEstimate });
-  const safeRemaining = _cfSafe.safeRemaining; // kartla finanse edilen harcama burada da düşülmez (bkz. cashOutSpent)
-  const safeDaily = _cfSafe.safeDailySpend;
+  const restOfMonthCashFlowEstimate = _cfSafe.safeRemaining; // yalnızca madde 12'de okunur
+
+  // 11b. "Günün Güvenli Harcama Alanı" ring'i (FAZ 3.20 semantik düzeltmesi): kendi ayrı
+  // gelir-eksi-gider hesabı YAPMAZ — canonical Goal & Cash Allocation Engine'in ürettiği
+  // "serbest/esnek kalan" (long_term_or_flexible) tutarını okur (bkz. getCanonicalFreeSpendingPoolTL/
+  // computeSafeDailySpendTempo tanımları — runDecisionEngineV2()/runGoalCashAllocationEngine()'a
+  // TEK SATIR dokunulmadı, yalnızca sonuçları okunuyor).
+  const _de2ForRing = runMonthlyDecisionEngineLive();
+  const _allocationForRing = runGoalCashAllocationEngine(_de2ForRing, buildMonthlySnapshot());
+  const isNegativeCashFlowForRing = _de2ForRing.status === DECISION_STATUS.NEGATIVE_CASH_FLOW;
+  const freeSpendingPool = getCanonicalFreeSpendingPoolTL(_allocationForRing);
+  // Serbest havuz asla negatif olamaz (Math.max(0,...) ile sabitli) — gerçek açığı ("Güvenli
+  // bütçende ₺X açık var") göstermek için negatif nakit akışı durumunda DE2'nin kendi (negatif
+  // olabilen) availableCash'i kullanılır; pozitif durumda bu doğrudan serbest harcama havuzudur.
+  const safeRemaining = isNegativeCashFlowForRing ? _de2ForRing.availableCash : freeSpendingPool;
+  const safeDaily = computeSafeDailySpendTempo({ freeSpendingPool, remainingDays: daysLeft });
 
   /* ---- Ana finansal özet ---- */
   document.getElementById('sumAssets').textContent = `${CUR}${fmt(assets)}`;
@@ -9450,7 +9472,7 @@ function render(){
   const en = currentLang==='en';
   if(!income){ if(dailyNumEl._animFrame) cancelAnimationFrame(dailyNumEl._animFrame); dailyNumEl.textContent = en ? 'Start' : 'Başla'; delete _animCache['dailyAmountNum']; dailyLabelEl.textContent = en ? 'Enter Your Income' : 'Gelirini Gir'; }
   else if(safeRemaining<=0){ if(dailyNumEl._animFrame) cancelAnimationFrame(dailyNumEl._animFrame); dailyNumEl.textContent = `${CUR}0`; delete _animCache['dailyAmountNum']; dailyLabelEl.textContent = en ? 'Your Safe Budget Is Used Up' : 'Güvenli Bütçen Bitti'; }
-  else{ animateNumberTo('dailyAmountNum', safeDaily, v=>`${CUR}${fmt(v)}`); dailyLabelEl.textContent = en ? "Today's Estimated Safe Spending" : 'Bugünkü Tahmini Güvenli Harcama Alanın'; }
+  else{ animateNumberTo('dailyAmountNum', safeDaily, v=>`${CUR}${fmt(v)}`); dailyLabelEl.textContent = en ? "Today's Estimated Safe-Spending Pace" : 'Bugünün Tahmini Güvenli Harcama Tempon'; }
 
   const sub = document.getElementById('heroSub');
   if(income){
@@ -9550,7 +9572,9 @@ function render(){
   // DÜZELTME: safeDaily, negatif bakiyede 0'a yuvarlanıyordu (ring'in negatif göstermemesi için); bu
   // değeri yıl sonu tahmininde tekrar kullanmak, ay zaten açık verdiğinde bu açığı gizliyordu.
   // Burada gerçek (negatif olabilen) kalan bütçeyi kullanıyoruz.
-  const restOfMonthEstimate = safeRemaining;
+  // FAZ 3.20: artık ring'in serbest-harcama-havuzu tabanlı safeRemaining'i DEĞİL, yukarıda ayrıca
+  // saklanan tam nakit akışı tahmini (restOfMonthCashFlowEstimate) kullanılıyor — bkz. madde 11a.
+  const restOfMonthEstimate = restOfMonthCashFlowEstimate;
   const yearEnd = netWorth + restOfMonthEstimate + (futureMonthlyNet * futureMonths);
   document.getElementById('yearEndLabel').textContent = currentLang==='en'
     ? `December ${now.getFullYear()} net worth forecast`
@@ -12951,6 +12975,49 @@ function runGoalCashAllocationEngine(de2, snapshot){
 function runMonthlyGoalCashAllocationLive(){
   return runGoalCashAllocationEngine(runMonthlyDecisionEngineLive(), buildMonthlySnapshot());
 }
+
+/* =========================================================
+   FAZ 3.20 — "GÜNÜN GÜVENLİ HARCAMA ALANI" SEMANTİK DÜZELTMESİ
+   ---------------------------------------------------------
+   Stage 1 denetimi (bkz. FAZ 3.20 audit raporu) şunu doğruladı: Home ring'indeki eski
+   "safeDaily" hesabı runDecisionEngineV2()/runGoalCashAllocationEngine()'dan TAMAMEN
+   BAĞIMSIZDI — yalnızca income - loglanmış nakit gider - tahmini kalan sabit gider - borç
+   ödemesini kullanıyordu ve ayın başında/geçmiş veri yokken pratikte income/kalanGün'e
+   çöküyordu (ör. 120000/11=10909), acil fon/borç/hedef tahsisatlarından tamamen habersizdi.
+   Bu iki YENİ fonksiyon YENİ bir motor/hesap İCAT ETMEZ — yalnızca zaten çalıştırılmış
+   canonical runGoalCashAllocationEngine() sonucunu OKUR. runDecisionEngineV2()/
+   runGoalCashAllocationEngine()'ın kendisine TEK SATIR dokunulmadı.
+
+   Neden çift düşme YOK: runGoalCashAllocationEngine()'ın 'long_term_or_flexible' kalemi zaten
+   şu zincirin sonucudur: income → (cashOutSpent() [=bu ay TÜM loglanmış nakit harcama, sabit+
+   değişken] ve borç ödemesi düşülerek) monthlyCashFlow → (korunan likidite düşülerek)
+   distributableCash → (acil fon açığı/pahalı borç/hedef tahsisatları düşülerek) kalan. Bu
+   yüzden burada AYRICA ne "bu ay harcanan" ne de "sabit/borç" tekrar düşülür — tek kaynak
+   zaten yukarıdaki zincir. Kullanıcı bugün ek bir harcama loglarsa, bir sonraki render()'da
+   cashOutSpent() artar → monthlyCashFlow/distributableCash/kalan otomatik küçülür (roll-forward
+   ayrı bir "bugün harcanan" sayacı TUTULMADAN elde edilir, çünkü tüm zincir her render()'da
+   canlı verilerden yeniden hesaplanır). */
+function getCanonicalFreeSpendingPoolTL(allocationResult){
+  allocationResult = allocationResult || {};
+  if (!Array.isArray(allocationResult.allocations)) return 0;
+  const flexRow = allocationResult.allocations.find(a => a && a.type === 'long_term_or_flexible');
+  return flexRow ? Math.max(0, Number(flexRow.amount) || 0) : 0;
+}
+/* Aylık serbest harcama havuzunu kalan güne yayan bir TEMPO göstergesidir — "bugün harcaman
+   gereken tutar" değildir. Havuz canlı verilerden geldiği için kullanılmayan kapasite ertesi
+   güne otomatik taşınır (bkz. yukarıdaki açıklama). */
+function computeSafeDailySpendTempo({ freeSpendingPool, remainingDays }){
+  freeSpendingPool = Math.max(0, Number(freeSpendingPool) || 0);
+  remainingDays = Number(remainingDays) || 0;
+  return (remainingDays > 0 && freeSpendingPool > 0) ? freeSpendingPool / remainingDays : 0;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports.getCanonicalFreeSpendingPoolTL = getCanonicalFreeSpendingPoolTL;
+  module.exports.computeSafeDailySpendTempo = computeSafeDailySpendTempo;
+}
+/* =========================================================
+   FAZ 3.20 BLOK SONU
+   ========================================================= */
 
 /* Minimal UI: "Nakit Akışı Karar Özeti" kartının (renderDecisionEngineV2) YERİNE GEÇMEZ, DOM'una
    dokunmaz — hemen altındaki AYRI bir kartı (#goalCashAllocationBox) doldurur. */

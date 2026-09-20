@@ -288,7 +288,10 @@ test('FAZ3.6-7: daily safe-budget ring and the monthly plan remain clearly disti
   });
   await page.close();
   assert.ok(check.ringNoteText.length > 0, 'the daily/monthly clarifying note must still be present');
-  assert.ok(/bu ayki plan/i.test(check.ringNoteText), 'the clarifying note must still reference "Bu Ayki Planım"');
+  // FAZ 3.20: not artık "Bu Ayki Planım'la aynı şey değildir" demiyor (artık gerçekten o planın
+  // türevi) — bunun yerine sayının bir TEMPO olduğunu ve kullanılmayanın sonraki güne aktarıldığını
+  // açıklıyor.
+  assert.ok(/tempo/i.test(check.ringNoteText), 'the clarifying note must still frame the number as a pace/tempo');
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 

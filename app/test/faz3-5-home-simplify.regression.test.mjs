@@ -231,7 +231,10 @@ test('FAZ3.5-5: daily safe budget (ring) and monthly plan remain distinct, with 
   await page.close();
   assert.equal(check.ringSectionExists, true, 'the daily safe-budget "ring" section must still exist as its own section');
   assert.ok(check.ringNoteText.length > 0, 'the daily/monthly clarifying note (ring-aylik-fark-not) must still be present');
-  assert.ok(/bu ayki plan/i.test(check.ringNoteText), `the clarifying note must still reference "Bu Ayki Planım", got: "${check.ringNoteText}"`);
+  // FAZ 3.20 GÜNCELLEMESİ: not artık "Bu Ayki Planım'la aynı şey değildir" demiyor, çünkü artık
+  // GERÇEKTEN o planın (long_term_or_flexible) bir türevi — bunun yerine sayının bir TEMPO
+  // olduğunu ve kullanılmayan kapasitenin sonraki günlere aktarıldığını açıklıyor.
+  assert.ok(/tempo/i.test(check.ringNoteText), `the clarifying note must still frame the number as a pace/tempo, got: "${check.ringNoteText}"`);
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 

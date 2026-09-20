@@ -213,7 +213,11 @@ test('FAZ3.3-6: daily safe-spend and monthly plannable amount stay clearly separ
   const { page, pageErrors } = await newSession(EMERGENCY_SCENARIO);
   const bodyText = await page.evaluate(() => document.body.innerText);
   await page.close();
-  assert.ok(/aylık planlanabilir tutarla aynı şey değildir/i.test(bodyText) || /not the same as the monthly plannable amount/i.test(bodyText));
+  // FAZ 3.20: ring artık canonical planın (long_term_or_flexible) bir türevi olduğu için eski
+  // "aylık planlanabilir tutarla aynı şey değildir" ifadesi artık doğru değil — metin kasıtlı
+  // olarak "tempo/gün başına yayılan" diline değiştirildi. Aynı ürün amacı (bir harcama emri gibi
+  // okunmaması) yeni kelimelerle doğrulanıyor.
+  assert.ok(/tempo/i.test(bodyText) || /pace/i.test(bodyText));
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 
