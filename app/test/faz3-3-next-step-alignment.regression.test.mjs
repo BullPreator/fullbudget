@@ -169,33 +169,39 @@ test('FAZ3.3-3: a non-emergency-fund step is not altered by the reconciliation',
 // ---------------------------------------------------------------------
 // 4. "Bu ay kullanılabilir tutar" label change + conditional explanatory note.
 // ---------------------------------------------------------------------
-test('FAZ3.3-4: the top "Bu ay kullanılabilir tutar" stat is relabeled and its gap to the plannable amount is explained when the two differ', async () => {
+// NOT (FAZ 3.12, 2026-09): "Bu ay kullanılabilir tutar" bağımsız kartı (data-section="top5",
+// #top5Savings/#top5KullanilabilirNot) Ana Sayfa'dan tamamen kaldırıldı — bu bir yinelenen
+// sunumdu (bkz. index.html'deki FAZ 3.12 yorumu). Bu iki test, o zamanki asıl amacını
+// (kullanılabilir tutar ile planlanabilir tutar arasındaki korunan-likidite farkının, fark
+// varsa AÇIKÇA gösterilmesi) artık kaldırılmış #top5KullanilabilirNot'a değil, aynı bilginin
+// FAZ 3.12'de gösterilmesi ZORUNLU tutulan "Bu Ayki Planım" detaylı dökümüne (#planDetailLedger,
+// renderPlanDetailLedger — "Korunan (likidite)" satırı yalnızca de2.protectedCash>0 iken
+// basılır) bakarak doğruluyor — kapsam ZAYIFLATILMADI.
+test('FAZ3.3-4: "Bu Ayki Planım" detaylı dökümü, korunan likidite ile planlanabilir tutar arasındaki farkı gerçek bir fark varken açıkça gösterir', async () => {
   const { page, pageErrors } = await newSession(EMERGENCY_SCENARIO);
   const check = await page.evaluate(() => {
     const de2 = runMonthlyDecisionEngineLive();
     return {
-      label: document.querySelector('[data-i18n="s-bu-ay-biriktir"]').textContent,
-      noteHidden: document.getElementById('top5KullanilabilirNot').hidden,
+      ledgerHtml: document.getElementById('planDetailLedger').innerHTML,
       protectedCash: de2.protectedCash,
     };
   });
   await page.close();
-  assert.equal(check.label, 'Bu ay kullanılabilir tutar', 'the label must no longer say "Bu ay biriktirebileceğin"');
   if (check.protectedCash > 1) {
-    assert.equal(check.noteHidden, false, 'when protected cash creates a real gap, the explanatory note must be visible');
+    assert.ok(/Korunan \(likidite\)/.test(check.ledgerHtml), 'when protected cash creates a real gap, "Bu Ayki Planım"\'s detailed ledger must explain it');
   }
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 
-test('FAZ3.3-5: when there is no protected-liquidity gap, the explanatory note stays hidden (the two figures are already equal)', async () => {
+test('FAZ3.3-5: when there is no protected-liquidity gap, "Bu Ayki Planım"\'s detailed ledger omits the protected-liquidity row (the two figures are already equal)', async () => {
   const { page, pageErrors } = await newSession({ income: 100000, expenses: 40000, assets: 5000000, goals: [] });
   const check = await page.evaluate(() => {
     const de2 = runMonthlyDecisionEngineLive();
-    return { protectedCash: de2.protectedCash, noteHidden: document.getElementById('top5KullanilabilirNot').hidden };
+    return { protectedCash: de2.protectedCash, ledgerHtml: document.getElementById('planDetailLedger').innerHTML };
   });
   await page.close();
   if (check.protectedCash <= 1) {
-    assert.equal(check.noteHidden, true, 'with no protected-cash gap, the note must stay hidden since the two figures already match');
+    assert.ok(!/Korunan \(likidite\)/.test(check.ledgerHtml), 'with no protected-cash gap, the ledger must not show a protected-liquidity row since the two figures already match');
   }
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });

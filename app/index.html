@@ -2837,33 +2837,23 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <div class="card afford-teaser-card"><div id="affordTeaserBox"></div></div>
   </div>
 
-  <!-- AŞAMA 1 hiyerarşisi (6) Yaklaşan ödemeler -->
-  <div class="reorder-section" data-section="yaklasan-odemeler"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span><span data-i18n="yaklasan-odemeler">Yaklaşan Ödemeler</span></p>
-  <div class="card"><div id="upcomingPaymentsBox"></div></div>
-  </div>
+  <!-- FAZ 3.12 HOME TEMİZLİĞİ (2026-09): Ana sayfa artık ODAKLANMIŞ bir FİNANSAL KARAR MERKEZİ —
+       "Alabilir miyim?"den (afford-teaser) sonra birincil ana sayfa akışı BİTER. Aşağıdaki ikincil
+       bölümler ana sayfadan KALDIRILDI (Yaklaşan Ödemeler/upcomingPaymentsBox, Aktif Hedefin/
+       activeGoalBox, Son İşlemler/recentTxnBox): HİÇBİR özellik/hesap/veri SİLİNMEDİ.
+       - Yaklaşan Ödemeler: computeUpcomingPayments()/renderUpcomingPayments() AYNEN duruyor (hâlâ
+         bildirim/hatırlatma akışında kullanılıyor); Hatırlatıcılar sekmesi ve Borçlar ekranı bu
+         bilgiyi zaten kendi bağlamında gösteriyor. renderUpcomingPayments() zaten `if(!box) return`
+         ile null-güvenli olduğu için render() çağrısı DOKUNULMADAN bırakıldı.
+       - Aktif Hedefin: pickPrimaryGoal()/computeGoalInfo() AYNEN duruyor; Hedefler sekmesi zaten
+         tüm hedefleri gösteriyor. renderActiveGoalCard() zaten null-güvenli.
+       - Son İşlemler: renderRecentTransactions() AYNEN duruyor; tam liste zaten Gelir/Gider
+         sekmelerinde var, veri modeline hiç dokunulmadı. renderRecentTransactions() zaten
+         null-güvenli.
+       Üçü de kendi render() çağrısını KORUYOR (kaldırılan yalnızca HTML konteynerleri) — fonksiyon
+       zaten var olmayan elementte sessizce no-op olur, hiçbir hata/kırılma YOK. -->
 
-  <!-- AŞAMA 1 hiyerarşisi (7) Aktif hedefler -->
-  <div class="reorder-section" data-section="activegoal"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg></span><span data-i18n="aktif-hedef">Aktif Hedefin</span></p>
-  <div class="card"><div id="activeGoalBox"></div></div>
-  </div>
-
-  <!-- AŞAMA 1 hiyerarşisi (8) Son işlemler — YENİ, salt-görüntüleme bölümü. month.incomes ve
-       month.expenses'i BİRLEŞTİRİR (bkz. renderRecentTransactions()); veri modeline, localStorage
-       yapısına ya da hesaplama fonksiyonlarına dokunmaz, sadece mevcut verinin bir önizlemesini
-       ana sayfada gösterir. Tam liste zaten Gelir/Gider sekmelerinde var. -->
-  <div class="reorder-section" data-section="son-islemler"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M5 3.5h11l3 3V20.5H5z"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/></svg></span><span data-i18n="son-islemler">Son İşlemler</span></p>
-  <div class="card"><div id="recentTxnBox"></div></div>
-  </div>
-
-  <!-- Brief'in 9 maddelik zorunlu hiyerarşisinde YER ALMAYAN ama kaldırılması istenmeyen bölümler
-       (ek istatistik kutusu, kategori dağılımı, "Yolculuğum" teaser'ı) — silinmedi,
-       sadece .home-secondary ile görsel ağırlığı azaltılmış ikincil bir blok halinde en alta
-       taşındı (bkz. CSS: .home-secondary > .section-title{opacity düşük}). Fonksiyonellik AYNI.
-
-       FAZ 3.5 HOME UX SADELEŞTİRME (2026-09): "Hızlı Ekle" kartı ana sayfadan tamamen
+  <!-- FAZ 3.5 HOME UX SADELEŞTİRME (2026-09): "Hızlı Ekle" kartı ana sayfadan tamamen
        KALDIRILDI (kullanıcı isteği: aynı sayfada zaten Sesle Ekle mikrofonu ve Gelir/Gider/
        Borç/Varlık'ın kendi giriş formları var; ikinci bir ekleme paneli fazlalıktı). Ama bu
        kart SİLİNMEDİ, yalnızca `hidden` ile görünmez yapıldı — çünkü sesleEkleAc()/
@@ -2922,31 +2912,22 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   </div>
   </div>
 
-  <div class="reorder-section home-secondary" data-section="top5"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <div class="card" style="border-color:var(--gold);">
-    <div class="stat-grid" style="margin-bottom:0;">
-      <div class="stat"><span data-i18n="s-bu-ay-biriktir">Bu ay kullanılabilir tutar</span><b id="top5Savings">₺0</b></div>
-      <div class="stat"><span data-i18n="s-en-yakin-hedef">En yakın hedefine kalan</span><b id="top5GoalLeft">—</b></div>
-    </div>
-    <!-- FAZ 3.2: bu tutar (gelir−gider−borç sonrası, korunan likidite DÜŞÜLMEDEN önceki tutar)
-         "Bu Ayki Planım"daki canonical planlanabilir tutardan (distributableCash) BÜYÜK olabilir —
-         aradaki fark, o karttaki korunan likidite payıdır. Bu not, iki rakamı açıklamasız yan yana
-         bırakmamak için var; hesap burada YAPILMIYOR, yalnızca "Bu Ayki Planım"a yönlendiriyor. -->
-    <p class="goal-line" style="margin-top:8px;" id="top5KullanilabilirNot" data-i18n="top5-kullanilabilir-not" hidden>Korunan likidite payı düşülünce "Bu Ayki Planım"daki planlanabilir tutara ulaşılır.</p>
-  </div>
-  </div>
-
-  <div class="reorder-section home-secondary" data-section="expense-donut"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 3"/></svg></span><span data-i18n="s-kategorilere-gore">Kategorilere Göre Harcama</span></p>
-  <div class="card">
-    <div id="expenseDonutBox"></div>
-  </div>
-  </div>
-
-  <div class="reorder-section home-secondary" data-section="journey-teaser"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polygon points="15.5 8.5 13.2 13.2 8.5 15.5 10.8 10.8" fill="currentColor" stroke="none"/></svg></span><span data-i18n="journey-teaser">Yolculuğum</span></p>
-  <div class="card journey-teaser-card" id="journeyTeaserCard"><div id="journeyTeaserBox"></div></div>
-  </div>
+  <!-- FAZ 3.12 HOME TEMİZLİĞİ (2026-09): "Bu Ay Kullanılabilir Tutar" bağımsız kartı (eski
+       data-section="top5"), "Kategorilere Göre Harcama" (eski data-section="expense-donut") ve
+       "Yolculuğum" teaser'ı (eski data-section="journey-teaser") ana sayfadan kaldırıldı — ana
+       sayfa artık "Alabilir miyim?" ile BİTİYOR, altına başka kart eklenmiyor.
+       - "Bu Ay Kullanılabilir Tutar": bu kartın gösterdiği tutar (monthlyCashFlow) zaten "Bu Ayki
+         Planım" kartında (canonical distributableCash + tam nakit akışı zinciri, "Detayları gör"
+         altında) mevcut — YİNELENEN bir sunumdu, silinen bir finansal bilgi YOK. En yakın hedefe
+         kalan tutar zaten Hedefler sekmesinde var. renderTop5() null-güvenli hale getirildi (bkz.
+         JS) — artık var olmayan konteynerlerde sessizce no-op olur, render() çağrısı DOKUNULMADI.
+       - "Kategorilere Göre Harcama": SİLİNMEDİ, TAŞINDI — aynı #expenseDonutBox/
+         renderExpenseCategoryDonut() birebir aynı şekilde artık "Finans Koçun" (Analizler) sekmesinde,
+         diğer ikincil analiz kartlarıyla birlikte (bkz. o sekmedeki expense-donut bölümü).
+       - "Yolculuğum": teaser kaldırıldı, ama kendi ayrı sekmesi (data-tab="journey", navigasyondaki
+         "Yolculuğum" ikonu) DEĞİŞMEDEN duruyor — özellik navigasyondan erişilebilir olmaya devam
+         ediyor, yalnızca ana sayfadaki önizleme/CTA kaldırıldı. renderJourneyTeaser() zaten
+         null-güvenli, render() çağrısı DOKUNULMADI. -->
 
   </section>
 
@@ -3023,7 +3004,17 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
     <div id="lifeEventBox"></div>
   </div>
 
-  </div></section>
+  </div><div class="reorder-section" data-section="expense-donut" id="jump-expense-donut"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
+  <!-- FAZ 3.12 (2026-09): ana sayfadan buraya TAŞINDI (bkz. Home'daki FAZ 3.12 yorumu) — aynı
+       #expenseDonutBox/renderExpenseCategoryDonut()/expenseSumsByCategory(), HİÇBİR HESAP
+       DEĞİŞMEDİ, yalnızca konum. -->
+  <p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 3"/></svg></span><span data-i18n="s-kategorilere-gore">Kategorilere Göre Harcama</span></p>
+  <div class="card">
+    <div id="expenseDonutBox"></div>
+  </div>
+  </div>
+
+  </section>
 
   <!-- Hatırlatıcılar ve notlar kendi sayfalarına ayrıldı; ikisi de sol menüde
        Analizler'den önceki, bağımsız "Hatırlatıcılar & Notlar" grubunda yer alır. -->
@@ -4110,6 +4101,7 @@ const TRANSLATIONS = {
   'd-skor':{tr:'Sadece bakiyen değil — gidişatın iyi mi?', en:'Not just your balance — is your direction good?'},
   'd-net':{tr:'Varlık eksi borç, ve bu tempoyla yıl sonunda neredesin.', en:'Assets minus debts, and where this pace lands you by year end.'},
   'd-acil':{tr:'Gelirin kesilse kaç ay dayanırsın?', en:'How many months could you last with no income?'},
+  'd-kategori':{tr:'Bu ayki harcamalarının kategoriye göre dağılımı.', en:"This month's spending broken down by category."},
   'd-yol':{tr:'Finansal özgürlüğe bu tempoyla kaç yıl kaldı?', en:'At this pace, how many years to financial freedom?'},
   'd-yaolursa':{tr:'İşini kaybetsen, zam alsan ya da beklenmedik bir gider çıksa ne olur?', en:'What happens if you lose your job, get a raise, or hit an unexpected expense?'},
   'd-oneri':{tr:'Verinden çıkan, bu ay atabileceğin somut adımlar.', en:'Concrete steps for this month, drawn from your data.'},
@@ -11512,6 +11504,11 @@ function pickPrimaryGoal(){
 }
 function renderActiveGoalCard(){
   const box = document.getElementById('activeGoalBox');
+  /* FAZ 3.12 HOME TEMİZLİĞİ (2026-09): #activeGoalBox artık Ana Sayfa'da yok (bkz. Home'daki
+     FAZ 3.12 yorumu). pickPrimaryGoal() ve bu fonksiyonun geri kalanı DOKUNULMADAN kalıyor —
+     yalnızca konteyner yokken güvenle no-op olması sağlanıyor, aksi halde render() aktif bir
+     hedef varken box.innerHTML atamasında TypeError fırlatırdı. */
+  if(!box) return;
   const primary = pickPrimaryGoal();
   const en = currentLang==='en';
   /* FAZ 3.5 HOME UX SADELEŞTİRME (2026-09): gerçekten aktif (gap>0) bir hedef yoksa artık
@@ -11520,10 +11517,10 @@ function renderActiveGoalCard(){
      DEĞİŞMEDİ (aynı hesap: goals.filter(gap>0)), yalnızca "hiç sonuç yoksa ne gösterilir"
      kararı değişti. Hedefler sekmesindeki asıl "hedef yok" durumu bundan ETKİLENMEZ — o ayrı
      bir yerdeki ayrı bir boş-durum, burada dokunulmadı. */
-  const section = box ? box.closest('[data-section="activegoal"]') : null;
+  const section = box.closest('[data-section="activegoal"]');
   if(!primary){
     if(section) section.hidden = true;
-    if(box) box.innerHTML = '';
+    box.innerHTML = '';
     return;
   }
   if(section) section.hidden = false;
@@ -15095,6 +15092,11 @@ function renderHistory(currentNetWorth){
    yerine burada sadece başka yerde olmayan iki rakam kalıyor. */
 function renderTop5(safeDaily, netWorth, monthlyCashFlow, priorityResult){
   const savEl = document.getElementById('top5Savings');
+  // FAZ 3.12 HOME TEMİZLİĞİ (2026-09): bu fonksiyonun doldurduğu "Bu Ay Kullanılabilir Tutar"
+  // bağımsız kartı ana sayfadan kaldırıldı (aynı tutar zaten "Bu Ayki Planım"da mevcut — bkz.
+  // Home'daki FAZ 3.12 yorumu). #top5Savings artık DOM'da yok; render() çağrısı hâlâ duruyor
+  // (fonksiyon tamamen silinmedi, yalnızca konteyner kaldırıldığı için buradan sessizce çıkıyor).
+  if(!savEl) return;
   animateNumberTo('top5Savings', monthlyCashFlow, v=>`${v<0?'-':''}${CUR}${fmt(Math.abs(v))}`);
   savEl.className = monthlyCashFlow<0 ? 'danger' : 'good';
 
@@ -19521,11 +19523,19 @@ const DEFAULT_SECTION_ORDER = {
      document.querySelector null döndüğünde sessizce atlar (bkz. o fonksiyondaki yorum), yani
      eski kayıtlar kırılmadan yeni 'finansal-durum' en başa eklenir. 'karar-motoru-v2' zaten
      FAZ 3.1'den beri DOM'da karşılığı olmayan, zararsız bir eski anahtardı — temizlendi. */
+  /* FAZ 3.12 HOME TEMİZLİĞİ (2026-09): 'yaklasan-odemeler'/'activegoal'/'son-islemler'/'top5'/
+     'expense-donut'/'journey-teaser' artık Home'da DOM'da yok (bkz. HTML'deki FAZ 3.12 yorumları)
+     — bu listeden çıkarıldı. 'hizli-ekle' zaten hidden olarak DOM'da kalıyor, dokunulmadı.
+     Kullanıcının eski persistent.sectionOrder kaydında bu anahtarlar hâlâ geçebilir;
+     applySectionOrder() var olmayan bir data-section için sessizce atlar (bkz. o fonksiyon),
+     yani eski kayıtlar KIRILMAZ. */
   home:  ['finansal-durum','bugunun-gorevi','ring','bu-ay-plan','bugun-bilmen-gerekenler','afford-teaser',
-          'yaklasan-odemeler','activegoal','son-islemler','hizli-ekle','top5','expense-donut','journey-teaser'],
-  /* Kullanıcı isteği: Finans Koçu en üste alındı — Aylık Rapor'un önüne geçti. */
+          'hizli-ekle'],
+  /* Kullanıcı isteği: Finans Koçu en üste alındı — Aylık Rapor'un önüne geçti.
+     FAZ 3.12: 'expense-donut' (eskiden Home'da) buraya TAŞINDI — sona eklendi, ikincil/katlanır
+     analiz kartlarından biri (bkz. hazirlaKocBolumleri/KOC_ALTBASLIK). */
   coach: ['ai-koc-baslik','aylik-rapor','zenginleseme-skoru','net-durum','acil-fon','finansal-yol',
-          'ya-olursa','oneriler','abonelikler','kisisel-enflasyon','gecmis-aylar'],
+          'ya-olursa','oneriler','abonelikler','kisisel-enflasyon','gecmis-aylar','expense-donut'],
   /* FAZ 3.8 (2026-09) — Ayarlar bilgi mimarisi sadeleştirmesi: kullanıcı ekranın "geliştirici
      ayarları listesi" gibi hissettirdiğini bildirdi. Hiçbir satır silinmedi/taşınmadı bir işlev
      kaybı anlamında — yalnızca HESABIM / TERCİHLER / GÜVENLİK / VERİLERİM / HAKKINDA sırasına
@@ -19592,6 +19602,7 @@ const KOC_ALTBASLIK = {
   'net-durum':'d-net', 'acil-fon':'d-acil', 'finansal-yol':'d-yol', 'ya-olursa':'d-yaolursa',
   'oneriler':'d-oneri', 'abonelikler':'d-abonelik', 'kisisel-enflasyon':'d-enflasyon',
   'gecmis-aylar':'d-gecmis',
+  'expense-donut':'d-kategori', // FAZ 3.12: Home'dan taşınan bölüm
 };
 const KOC_CHEV = '<svg class="bb-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
 

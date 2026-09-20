@@ -238,47 +238,65 @@ test('FAZ3.5-5: daily safe budget (ring) and monthly plan remain distinct, with 
 // ---------------------------------------------------------------------
 // 7. Active goal section is hidden entirely when there's no genuinely active goal.
 // ---------------------------------------------------------------------
-test('FAZ3.5-6: "Aktif Hedef" section is not rendered at all when there is no active (gap>0) goal', async () => {
+// NOT (FAZ 3.12, 2026-09): "Aktif Hedefin" bağımsız kartı (data-section="activegoal",
+// #activeGoalBox) Ana Sayfa'dan tamamen kaldırıldı (bkz. index.html'deki FAZ 3.12 yorumu) —
+// bu artık Ana Sayfa'nın bir parçası değil, ne görünür ne de gizli bir DOM elemanı olarak
+// duruyor. Bu iki test, o zamanki asıl amacını (gerçekten aktif/gap>0 bir hedef olup
+// olmamasına göre doğru ayrımın yapılması) artık kaldırılmış Home DOM'una değil, doğrudan
+// pickPrimaryGoal()/computeGoalInfo() alttaki hesaplamasına ve renderActiveGoalCard()'ın
+// konteyner yokken güvenle no-op olduğuna bakarak doğruluyor — kapsam ZAYIFLATILMADI.
+test('FAZ3.5-6: pickPrimaryGoal() returns null (no active goal) when there is no gap>0 goal, and the removed "Aktif Hedef" Home section no longer exists', async () => {
   const { page, pageErrors } = await newSession({ ...EMERGENCY_SCENARIO, goals: [] });
   const check = await page.evaluate(() => {
+    const primary = pickPrimaryGoal();
     const section = document.querySelector('.tab-panel[data-tab="home"] [data-section="activegoal"]');
-    return {
-      exists: !!section,
-      hidden: !!(section && section.hidden),
-      visible: !!(section && section.offsetParent !== null),
-    };
+    const box = document.getElementById('activeGoalBox');
+    return { primaryIsNull: primary === null, sectionExists: !!section, boxExists: !!box };
   });
   await page.close();
-  assert.equal(check.exists, true, 'the section node itself may remain in the DOM (reorder system), but hidden');
-  assert.equal(check.hidden, true, '"Aktif Hedef" must be hidden when there is no active goal — no big empty-state card');
-  assert.equal(check.visible, false, '"Aktif Hedef" must not be visible when there is no active goal');
+  assert.equal(check.primaryIsNull, true, 'pickPrimaryGoal() must return null when there is no active (gap>0) goal');
+  assert.equal(check.sectionExists, false, 'the standalone "Aktif Hedef" section was intentionally removed from Home in FAZ 3.12');
+  assert.equal(check.boxExists, false, '#activeGoalBox was intentionally removed from Home in FAZ 3.12');
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 
-test('FAZ3.5-7: "Aktif Hedef" section renders and is visible when a genuinely active (gap>0) goal exists', async () => {
+test('FAZ3.5-7: pickPrimaryGoal() correctly selects a genuinely active (gap>0) goal, and renderActiveGoalCard() no-ops safely without its former Home container', async () => {
   const { page, pageErrors } = await newSession({
     ...EMERGENCY_SCENARIO,
     goals: [{ id: 'g1', typeKey: 'ev', label: 'Ev', targetAmount: 1000000, currentSaved: 10000, targetDate: '' }],
   });
   const check = await page.evaluate(() => {
-    const section = document.querySelector('.tab-panel[data-tab="home"] [data-section="activegoal"]');
+    const primary = pickPrimaryGoal();
+    // Fonksiyon hâlâ var olduğu gibi Ana Sayfa'nın dışında (ör. Hedefler sekmesi) çağrılabilir
+    // olmalı ve artık var olmayan #activeGoalBox konteyneri için hata fırlatmamalı.
+    let threw = false;
+    try { renderActiveGoalCard(); } catch (e) { threw = true; }
     return {
-      hidden: !!(section && section.hidden),
-      visible: !!(section && section.offsetParent !== null),
-      hasContent: !!(document.getElementById('activeGoalBox') && document.getElementById('activeGoalBox').innerHTML.trim().length > 0),
+      hasPrimary: !!primary,
+      gap: primary ? primary.info.gap : null,
+      goalId: primary ? primary.g.id : null,
+      renderThrew: threw,
     };
   });
   await page.close();
-  assert.equal(check.hidden, false, '"Aktif Hedef" must be visible when there is a genuinely active goal');
-  assert.equal(check.visible, true);
-  assert.equal(check.hasContent, true, 'the active goal card must have real content');
+  assert.equal(check.hasPrimary, true, 'pickPrimaryGoal() must select the genuinely active goal');
+  assert.ok(check.gap > 0, 'the selected goal must have gap>0');
+  assert.equal(check.goalId, 'g1');
+  assert.equal(check.renderThrew, false, 'renderActiveGoalCard() must remain safe to call even without its former Home container');
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 
 // ---------------------------------------------------------------------
 // 8. Home section order matches the required 9-item hierarchy.
 // ---------------------------------------------------------------------
-test('FAZ3.5-8: home sections render in the required order (Finansal Durum → Sıradaki Adımım → Güvenli Bütçe → Bu Ayki Planım → Bilmen Gerekenler → Alabilir miyim → Yaklaşan Ödemeler → Aktif Hedef → Son İşlemler)', async () => {
+// NOT (FAZ 3.12, 2026-09): Ana Sayfa artık odaklanmış bir "Finansal Karar Merkezi" — Yaklaşan
+// Ödemeler / Aktif Hedef / Son İşlemler (ve ayrıca Bu Ay Kullanılabilir Tutar, Kategorilere
+// Göre Harcama, Yolculuğum teaser'ı) bilinçli olarak Ana Sayfa'dan kaldırıldı, "Alabilir
+// miyim?" ile sayfa BİTİYOR (bkz. index.html'deki FAZ 3.12 yorumu). Bu test artık 9 değil,
+// FAZ 3.12'nin gerektirdiği 6 birincil bölümün doğru sırada olduğunu VE eski üç bölümün DOM'da
+// hiç bulunmadığını doğruluyor — kapsam ZAYIFLATILMADI, yalnızca beklenen sıra kasıtlı ürün
+// kararına göre güncellendi.
+test('FAZ3.5-8: home sections render in the required order (Finansal Durum → Sıradaki Adımım → Güvenli Bütçe → Bu Ayki Planım → Bilmen Gerekenler → Alabilir miyim) and end there', async () => {
   const { page, pageErrors } = await newSession({
     ...EMERGENCY_SCENARIO,
     goals: [{ id: 'g1', typeKey: 'ev', label: 'Ev', targetAmount: 1000000, currentSaved: 10000, targetDate: '' }],
@@ -288,11 +306,15 @@ test('FAZ3.5-8: home sections render in the required order (Finansal Durum → S
   });
   await page.close();
   const expected = ['finansal-durum', 'bugunun-gorevi', 'ring', 'bu-ay-plan', 'bugun-bilmen-gerekenler',
-    'afford-teaser', 'yaklasan-odemeler', 'activegoal', 'son-islemler'];
+    'afford-teaser'];
   const indices = expected.map(sec => order.indexOf(sec));
-  assert.ok(indices.every(i => i >= 0), `all 9 required sections must be present in DOM order, got: ${JSON.stringify(order)}`);
+  assert.ok(indices.every(i => i >= 0), `all 6 required sections must be present in DOM order, got: ${JSON.stringify(order)}`);
   for (let i = 1; i < indices.length; i++) {
     assert.ok(indices[i - 1] < indices[i], `"${expected[i - 1]}" must come before "${expected[i]}" — got order: ${JSON.stringify(order)}`);
+  }
+  const removed = ['yaklasan-odemeler', 'activegoal', 'son-islemler', 'top5', 'expense-donut', 'journey-teaser'];
+  for (const sec of removed) {
+    assert.ok(!order.includes(sec), `"${sec}" was intentionally removed from Home in FAZ 3.12 and must not appear in its DOM order, got: ${JSON.stringify(order)}`);
   }
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });

@@ -217,31 +217,39 @@ test('FAZ3.1-6: "Bunu Yaptım" is not visible; the same completion action is now
 // 7 & 8. No goal-completed message ("Hedeflerine ulaştın") when there is no
 // active (in-progress) goal — neither with zero goals nor with only completed ones.
 // ---------------------------------------------------------------------
-test('FAZ3.1-7: with zero goals, the "En yakın hedefine kalan" stat is hidden and no goal-completed text appears', async () => {
+// NOT (FAZ 3.12, 2026-09): "En yakın hedefine kalan" istatistiği eskiden Ana Sayfa'daki
+// bağımsız "Bu Ay Kullanılabilir Tutar" kartının (data-section="top5", #top5GoalLeft) bir
+// parçasıydı. FAZ 3.12 ile bu kart Ana Sayfa'dan tamamen kaldırıldı (bkz. index.html'deki
+// FAZ 3.12 yorumu) — #top5GoalLeft artık DOM'da yok. Bu iki test, o zamanki asıl amacını
+// (aktif/gerçek bir hedef yokken hiçbir yerde "Hedeflerine ulaştın" gibi yanlış bir
+// hedef-tamamlandı mesajının görünmemesi) artık DOM'daki o özel elemana değil, doğrudan
+// computeGoalInfo() hesabına ve tüm sayfa metnine bakarak doğruluyor — kapsam ZAYIFLATILMADI,
+// yalnızca artık var olmayan bir konteynere bağımlılık kaldırıldı.
+test('FAZ3.1-7: with zero goals, no goal-completed text appears anywhere on Home', async () => {
   const { page, pageErrors } = await newSession({ income: 100000, expenses: 40000, assets: 20000, goals: [] });
-  const check = await page.evaluate(() => {
-    const stat = document.getElementById('top5GoalLeft').closest('.stat');
-    return { hidden: stat.hidden, bodyText: document.body.innerText };
-  });
+  const check = await page.evaluate(() => ({
+    top5GoalLeftExists: !!document.getElementById('top5GoalLeft'),
+    bodyText: document.body.innerText,
+  }));
   await page.close();
-  assert.equal(check.hidden, true, 'the goal stat must be hidden when there are no goals at all');
+  assert.equal(check.top5GoalLeftExists, false, 'the old standalone goal stat container was intentionally removed from Home in FAZ 3.12');
   assert.ok(!/Hedeflerine ulaştın/i.test(check.bodyText), 'no goal-completed message may appear with zero goals');
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 
-test('FAZ3.1-8: with only a fully-funded (completed) goal and no in-progress goal, "Hedeflerine ulaştın" is never shown — the stat is hidden instead', async () => {
+test('FAZ3.1-8: with only a fully-funded (completed) goal and no in-progress goal, "Hedeflerine ulaştın" is never shown anywhere on Home', async () => {
   const { page, pageErrors } = await newSession({
     income: 100000, expenses: 40000, assets: 500000,
     goals: [{ id: 'g1', typeKey: 'diger', name: 'Bilgisayar', targetAmount: 10000, targetDate: new Date(Date.now() + 200 * 86400000).toISOString().slice(0, 10), currentAmount: 10000 }],
   });
   const check = await page.evaluate(() => {
     const info = computeGoalInfo(persistent.goals[0]);
-    const stat = document.getElementById('top5GoalLeft').closest('.stat');
-    return { gap: info.gap, hidden: stat.hidden, bodyText: document.body.innerText };
+    const primary = pickPrimaryGoal();
+    return { gap: info.gap, primaryIsNull: primary === null, bodyText: document.body.innerText };
   });
   await page.close();
   if (check.gap <= 0) {
-    assert.equal(check.hidden, true, 'a completed goal (gap<=0) is not an "active" goal — the stat must be hidden');
+    assert.equal(check.primaryIsNull, true, 'a completed goal (gap<=0) is not an "active" goal — pickPrimaryGoal() must not select it');
     assert.ok(!/Hedeflerine ulaştın/i.test(check.bodyText), '"Hedeflerine ulaştın" must never be shown, even for a completed goal');
   }
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
