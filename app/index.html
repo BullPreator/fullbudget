@@ -651,6 +651,11 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
 .form-row select{color:var(--text);}
 .form-row select option{background:var(--surface-2);color:var(--text);}
 .field-label{font-size:var(--fs-sm);color:var(--muted);margin:0 0 4px 2px;}
+/* FAZ 3.18 — form içi görsel alt-grup başlığı (ör. kredi kartı formundaki "Kart Detayları",
+   "Borç Durumu"...). Nav grubu etiketleriyle (uppercase/letter-spacing/muted) AYNI, önceden var
+   olan tipografik dili kullanır — yeni bir görsel dil İCAT EDİLMEDİ, yalnızca form bağlamına
+   taşındı. Şu an yalnızca kredi kartı formunda kullanılıyor; global bir stil değişikliği DEĞİL. */
+.form-group-title{font-size:var(--fs-xs,11px);color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin:16px 0 8px;}
 
 /* ---------- Bilgi rozeti (!) — yoğun açıklama metinlerini tek dokunuşla açılan tooltip'e taşır ---------- */
 .info-badge{
@@ -3251,29 +3256,58 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
     <div id="creditCardList"></div>
     <button class="mini-btn" id="showCardFormBtn" type="button" style="width:100%;margin-top:10px;" data-i18n="btn-kart-ekle">+ Kart Ekle</button>
     <div id="cardForm" style="display:none;margin-top:14px;">
+      <!-- FAZ 3.18 — GÜVEN/UX DENETİMİ: kartın son dört rakamını soran eski alan TAMAMEN
+           kaldırıldı (formdan, doğrulamadan, kaydetmeden ve listeleme render'ından). Hiçbir
+           hesaplama/bildirim/karşılama motoru bu alanı hiç kullanmıyordu — yalnızca kart
+           listesinde/açılır menülerde kozmetik bir etiket sonekiydi. FullBudget'ın kart
+           numarası/CVV/şifre TOPLAMADIĞINI en başta, alarmcı olmayan bir ürün ipucuyla
+           söylüyoruz — .loan-hint zaten var olan "yardımcı kutu" görsel dili, yeni bir bileşen
+           İCAT EDİLMEDİ. Form aşağıda 5 açık gruba ayrıldı (Kart Detayları/Borç Durumu/Ödeme
+           Takvimi/Borç Maliyeti/Diğer); TÜM alanlar (id'ler DAHİL) korunuyor, yalnızca
+           gruplanıyor/etiketleniyor — addCardBtn/startEditCard/exitCardEdit mantığı DEĞİŞMEDİ. -->
+      <p class="loan-hint" id="cardTrustNote" data-i18n="cc-guven-notu" style="margin:0 0 14px;">Bu alanda kart numarası, CVV veya şifre istemiyoruz. Yalnızca borç ve ödeme takibini kolaylaştıran kart detaylarını kaydediyoruz.</p>
+
+      <div class="form-group-title" style="margin-top:0;" data-i18n="cc-grup-kart-detay">Kart Detayları</div>
       <div class="form-row"><input id="cardNameInput" type="text" placeholder="Kart adı (örn. Bonus Card)"></div>
-      <div class="form-row">
-        <input id="cardBankInput" type="text" placeholder="Banka adı">
-        <input id="cardLast4Input" type="text" maxlength="4" inputmode="numeric" placeholder="Son 4 hane">
-      </div>
+      <div class="form-row"><input id="cardBankInput" type="text" placeholder="Banka adı"></div>
+
+      <div class="form-group-title" data-i18n="cc-grup-borc-durum">Borç Durumu</div>
       <div class="form-row">
         <input id="cardLimitInput" type="text" class="money-input" inputmode="decimal" placeholder="Kart limiti (₺)">
         <input id="cardBalanceInput" type="text" class="money-input" inputmode="decimal" placeholder="Güncel toplam borç (₺)">
       </div>
+
+      <div class="form-group-title" data-i18n="cc-grup-odeme-takvim">Ödeme Takvimi</div>
       <div class="form-row">
-        <select id="cardStatementDayInput" class="day-select"><option value="" data-i18n="ph-ekstre-kesim-gunu">Ekstre kesim günü</option></select>
-        <select id="cardDueDayInput" class="day-select"><option value="" data-i18n="ph-son-odeme-gunu">Son ödeme günü</option></select>
+        <div style="flex:1;min-width:0;">
+          <div class="field-label" data-i18n="ph-ekstre-kesim-gunu">Ekstre kesim günü</div>
+          <select id="cardStatementDayInput" class="day-select"><option value="" data-i18n="form-seciniz">Seçiniz</option></select>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div class="field-label" data-i18n="ph-son-odeme-gunu">Son ödeme günü</div>
+          <select id="cardDueDayInput" class="day-select"><option value="" data-i18n="form-seciniz">Seçiniz</option></select>
+        </div>
       </div>
-      <div class="form-row">
-        <input id="cardMinPaymentInput" type="text" class="money-input" inputmode="decimal" placeholder="Asgari ödeme (₺, opsiyonel)">
-        <select id="cardCurrencySelect">
-          <option value="TRY" selected>TRY</option><option value="USD">USD</option><option value="EUR">EUR</option>
-        </select>
-      </div>
+      <p class="loan-hint" data-i18n="cc-odeme-takvim-not" style="margin:-4px 0 10px;">Ekstre ve son ödeme tarihini takip ederek ödeme dönemlerini zamanında görmene yardımcı olur.</p>
+      <div class="form-row"><input id="cardMinPaymentInput" type="text" class="money-input" inputmode="decimal" placeholder="Asgari ödeme (₺, opsiyonel)"></div>
+
+      <div class="form-group-title" data-i18n="cc-grup-borc-maliyet">Borç Maliyeti</div>
+      <div class="form-row"><input id="cardRateInput" type="number" inputmode="decimal" placeholder="Aylık faiz oranı (%, opsiyonel)" step="0.01"></div>
+      <p class="loan-hint" data-i18n="cc-faiz-not" style="margin:-4px 0 10px;">Faiz oranı, kredi kartı borcunun maliyetini hesaplamak için kullanılır.</p>
+
+      <div class="form-group-title" data-i18n="cc-grup-diger">Diğer</div>
       <div class="form-row"><input id="cardStatementBalanceInput" type="text" class="money-input" inputmode="decimal" placeholder="Kesilmiş ekstre borcu (₺, opsiyonel)"></div>
       <p style="font-size:var(--fs-xs);color:var(--muted);margin:-4px 0 12px;line-height:1.5;">Ekstre borcu, son ödeme tarihinde ödemen gereken tutardır; güncel borç ise ekstre kesildikten sonra yaptığın harcamaları da içerir. Boş bırakırsan güncel borç kullanılır.</p>
-      <div class="form-row"><input id="cardRateInput" type="number" inputmode="decimal" placeholder="Aylık faiz oranı (%, opsiyonel)" step="0.01"></div>
+      <div class="form-row">
+        <div style="flex:1;min-width:0;">
+          <div class="field-label" data-i18n="para-birimi">Para birimi</div>
+          <select id="cardCurrencySelect">
+            <option value="TRY" selected>TRY</option><option value="USD">USD</option><option value="EUR">EUR</option>
+          </select>
+        </div>
+      </div>
       <div class="form-row"><input id="cardNoteInput" type="text" placeholder="Not (opsiyonel)"></div>
+
       <button class="add-btn" id="addCardBtn" type="button">Kart ekle</button>
       <button class="cancel-edit-link" id="cancelCardEditBtn" type="button"><svg viewBox="0 0 24 24" class="btn-icon"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Vazgeç</span></button>
     </div>
@@ -4547,6 +4581,20 @@ const TRANSLATIONS = {
   'opt-odeme-yontemi': {tr:'Ödeme yöntemi (opsiyonel)', en:'Payment method (optional)'},
   'ph-ekstre-kesim-gunu': {tr:'Ekstre kesim günü', en:'Statement cut-off day'},
   'ph-son-odeme-gunu': {tr:'Son ödeme günü', en:'Due day'},
+  /* FAZ 3.18: gün seçicilerinin (Ekstre kesim/Son ödeme günü) KENDİ görünür alan etiketi
+     (yukarıdaki iki anahtar) artık kontrolün ÜSTÜNDE ayrı bir field-label olarak duruyor;
+     select'in kendi ilk (boş) seçeneği artık alan adını TEKRARLAMIYOR, nötr bir "Seçiniz"
+     durumu gösteriyor — böylece kullanıcı boş bir select görüp neye ait olduğunu
+     merak etmiyor, ama aynı metin iki kez de basılmıyor. */
+  'form-seciniz': {tr:'Seçiniz', en:'Select'},
+  'cc-grup-kart-detay': {tr:'Kart Detayları', en:'Card Details'},
+  'cc-grup-borc-durum': {tr:'Borç Durumu', en:'Debt Status'},
+  'cc-grup-odeme-takvim': {tr:'Ödeme Takvimi', en:'Payment Calendar'},
+  'cc-grup-borc-maliyet': {tr:'Borç Maliyeti', en:'Cost of Debt'},
+  'cc-grup-diger': {tr:'Diğer', en:'Other'},
+  'cc-guven-notu': {tr:'Bu alanda kart numarası, CVV veya şifre istemiyoruz. Yalnızca borç ve ödeme takibini kolaylaştıran kart detaylarını kaydediyoruz.', en:"We don't ask for your card number, CVV or password here. We only save the card details that make it easier to track your debt and payments."},
+  'cc-odeme-takvim-not': {tr:'Ekstre ve son ödeme tarihini takip ederek ödeme dönemlerini zamanında görmene yardımcı olur.', en:'Tracking the statement and due dates helps you see your payment periods on time.'},
+  'cc-faiz-not': {tr:'Faiz oranı, kredi kartı borcunun maliyetini hesaplamak için kullanılır.', en:'The interest rate is used to calculate the cost of your credit card debt.'},
   'msg-gelir-duzenli': {tr:'Gelir eklendi ve düzenli hale getirildi 🔁', en:'Income added and set to recurring 🔁'},
   'msg-gelir-eklendi-basit': {tr:'Gelir eklendi', en:'Income added'},
   'msg-gider-duzenli': {tr:'Harcama eklendi ve düzenli hale getirildi 🔁', en:'Expense added and set to recurring 🔁'},
@@ -5951,8 +5999,11 @@ function normalizePersistentFinancialFields(data){
     id: r.id||uid(), category: r.category||'Diğer', amount: guvenliSayi(r.amount), note: r.note||'',
     fixed: !!r.fixed, accountId: r.accountId||'', cardId: r.cardId||'',
   }));
+  // FAZ 3.18: kartın son dört rakamını tutan eski alan buradan da kaldırıldı — hiçbir
+  // hesaplama/bildirim motoru bu alanı hiç okumuyordu, yalnızca kart listesinde kozmetik bir
+  // etiket sonekiydi. Eski/kayıtlı veride varsa artık bu normalize edilmiş nesneye TAŞINMAZ.
   data.creditCards = (Array.isArray(data.creditCards) ? data.creditCards : []).map(c=>({
-    id: c.id || uid(), name: c.name||'', bankName: c.bankName||'', last4: c.last4||'',
+    id: c.id || uid(), name: c.name||'', bankName: c.bankName||'',
     limit: guvenliSayi(c.limit), statementDay: Math.round(guvenliSayi(c.statementDay, 1))||1,
     dueDay: Math.round(guvenliSayi(c.dueDay, 1))||1,
     statementBalance: guvenliSayi(c.statementBalance), statementSettledCycle: c.statementSettledCycle || '',
@@ -6534,7 +6585,7 @@ function populateAccountSelects(){
   if(expSel){
     const currentVal = expSel.value;
     const accOpts = spendableAccounts().map(a=>`<option value="acc:${a.id}">${escapeHtml(a.name)} (${catLabel(a.type)})</option>`).join('');
-    const cardOpts = persistent.creditCards.map(c=>`<option value="card:${c.id}">${escapeHtml(c.name)}${c.last4?' ••'+escapeHtml(c.last4):''}</option>`).join('');
+    const cardOpts = persistent.creditCards.map(c=>`<option value="card:${c.id}">${escapeHtml(c.name)}</option>`).join('');
     expSel.innerHTML = `<option value="">${t('opt-odeme-yontemi')}</option>`
       + (accOpts ? `<optgroup label="${en?'Accounts':'Hesaplar'}">${accOpts}</optgroup>` : '')
       + (cardOpts ? `<optgroup label="${en?'Credit cards':'Kredi Kartları'}">${cardOpts}</optgroup>` : '');
@@ -6639,7 +6690,7 @@ function allDebts(){
     const actualPayTL = actualCardPaymentTL(c);
     const hasActualPayment = actualPayTL > 0;
     const cashFlowPayTL = hasActualPayment ? actualPayTL : payTL;
-    out.push({kind:'card', id:c.id, ref:c, label:(c.name||'')+(c.last4?' ••'+c.last4:''),
+    out.push({kind:'card', id:c.id, ref:c, label:(c.name||''),
       balanceTL:Number(balTL)||0, interestBaseTL:cardStatementBalanceTL(c), rate:Number(c.rate)||0,
       fixedSchedule:false,
       paymentTL:payTL, minPaymentTL:payTL, extraPaymentTL:0,
@@ -10434,7 +10485,7 @@ function renderCreditCardList(){
     return `<div class="cc-row">
       <div class="cc-top">
         <div>
-          <div class="cc-name">${escapeHtml(c.name)}${c.last4?' •••• '+escapeHtml(c.last4):''}${renderSeverityBadgeHtml(dueAlert)}</div>
+          <div class="cc-name">${escapeHtml(c.name)}${renderSeverityBadgeHtml(dueAlert)}</div>
           <div class="cc-meta">${escapeHtml(c.bankName||'')}${c.statementDay?' · '+(en ? 'Statement day' : 'Kesim')+': '+c.statementDay:''}${c.dueDay?' · '+(en ? 'Due day' : 'Son ödeme')+': '+c.dueDay:''}</div>
         </div>
         <div class="cc-balance">
@@ -13976,8 +14027,10 @@ function buildAICoachContext(){
     isFixedInstallmentLoan: !!d.fixedSchedule,
   }));
 
-  // Kart adı dışındaki hiçbir alan (last4, bankName, note, statementDay/dueDay) AI'a gönderilmiyor -
+  // Kart adı dışındaki hiçbir alan (bankName, note, statementDay/dueDay) AI'a gönderilmiyor -
   // yalnızca istenen: kart adı, toplam borç, limit, kullanılabilir limit, minimum ödeme.
+  // (FAZ 3.18: kartın son dört rakamını tutan alan ürünün kendisinden tamamen kaldırıldığı için
+  // bu not artık ona atıfta bulunmuyor - zaten AI'a hiç gönderilmiyordu.)
   const creditCards = (persistent.creditCards||[]).map(c=>{
     const balanceTL = Math.round(c.currency==='TRY' ? (Number(c.currentBalance)||0) : convertToTRY(Number(c.currentBalance)||0, c.currency));
     const limitTL = Math.round(c.currency==='TRY' ? (Number(c.limit)||0) : convertToTRY(Number(c.limit)||0, c.currency));
@@ -16046,7 +16099,6 @@ function startEditCard(c){
   editingCardId = c.id;
   document.getElementById('cardNameInput').value = c.name;
   document.getElementById('cardBankInput').value = c.bankName;
-  document.getElementById('cardLast4Input').value = c.last4;
   document.getElementById('cardLimitInput').value = c.limit ? fmt(c.limit) : '';
   document.getElementById('cardBalanceInput').value = c.currentBalance ? fmt(c.currentBalance) : '';
   document.getElementById('cardStatementDayInput').value = c.statementDay || '';
@@ -16063,7 +16115,7 @@ function startEditCard(c){
 }
 function exitCardEdit(){
   editingCardId = null;
-  ['cardNameInput','cardBankInput','cardLast4Input','cardLimitInput','cardBalanceInput','cardStatementDayInput','cardDueDayInput','cardMinPaymentInput','cardStatementBalanceInput','cardRateInput','cardNoteInput'].forEach(id=>{
+  ['cardNameInput','cardBankInput','cardLimitInput','cardBalanceInput','cardStatementDayInput','cardDueDayInput','cardMinPaymentInput','cardStatementBalanceInput','cardRateInput','cardNoteInput'].forEach(id=>{
     document.getElementById(id).value = '';
   });
   document.getElementById('cardCurrencySelect').value = 'TRY';
@@ -16085,7 +16137,6 @@ document.getElementById('addCardBtn').addEventListener('click', ()=>{
   const cardData = {
     name,
     bankName: document.getElementById('cardBankInput').value.trim(),
-    last4: document.getElementById('cardLast4Input').value.trim().slice(-4),
     limit: parseFormattedNumber(document.getElementById('cardLimitInput').value)||0,
     currentBalance: parseFormattedNumber(document.getElementById('cardBalanceInput').value)||0,
     statementDay: parseInt(document.getElementById('cardStatementDayInput').value)||0,
@@ -16601,7 +16652,7 @@ function buildCsvRows(){
   // DÜZELTME: kredi kartları dışa aktarmada HİÇ yoktu. Dosya "güncel borç özeti" diye sunulurken
   // kart borcunu atlıyordu; CSV'deki toplam borç uygulamadakiyle tutmuyordu.
   persistent.creditCards.forEach(c=>{
-    const bits = [c.bankName, c.last4 ? '••'+c.last4 : '',
+    const bits = [c.bankName,
       (Number(c.statementBalance)>0 ? `${L.stmt}: ${csvNumber(c.statementBalance)}` : '')].filter(Boolean);
     rows.push([L.card,'', c.name||L.card, bits.join(' · '),
       csvNumber(c.currency==='TRY' ? c.currentBalance : convertToTRY(c.currentBalance, c.currency)), CUR]);
