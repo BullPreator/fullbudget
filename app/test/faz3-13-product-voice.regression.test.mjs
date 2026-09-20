@@ -160,9 +160,12 @@ test('FAZ3.13-3: goal and debt calculations are unchanged (down-payment goal + a
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 
-test('FAZ3.13-4: Finans Koçu tagline no longer claims "kişiselleştirilmiş öneriler" (personalized recommendations) — it now frames itself as scenarios/comparisons the user decides on', async () => {
+test('FAZ3.13-4: Finans Koçu tagline no longer claims "kişiselleştirilmiş öneriler" (personalized recommendations) — it now frames itself as scenarios/calculations the user decides on', async () => {
   assert.ok(!appHtmlSource.includes('kişiselleştirilmiş öneriler sunar'), '"kişiselleştirilmiş öneriler sunar" must no longer appear as the Coach tagline');
-  assert.ok(appHtmlSource.includes('senaryolar ve karşılaştırmalar sunar'), 'the Coach tagline must describe scenarios/comparisons instead of personalized recommendations');
+  // FAZ 3.17: metin "senaryolar ve karşılaştırmalar sunar" ifadesinden ürün ilkesindeki
+  // "açıklar" diline güncellendi (bkz. faz3-17-finans-kocu-safety.regression.test.mjs) —
+  // buradaki asıl denetim (kişiselleştirilmiş öneri iddiasının kalkması) hâlâ geçerli.
+  assert.ok(appHtmlSource.includes('senaryoları ve hesaplamaları açıklar'), 'the Coach tagline must describe explaining scenarios/calculations instead of personalized recommendations');
   // Mevcut, bu fazdan ÖNCE de var olan yatırım-tavsiyesi-değildir uyarıları korunmalı.
   assert.ok(appHtmlSource.includes('Bu bir yatırım danışmanlığı aracı değildir'), 'the pre-existing "not an investment advisory tool" disclaimer must remain intact');
   assert.ok(appHtmlSource.includes('kişiselleştirilmiş bir yatırım tavsiyesi değildir'), 'the pre-existing investment-allocation disclaimer must remain intact');

@@ -2948,7 +2948,7 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <div class="reorder-section" data-section="ai-koc-baslik" id="jump-ai-koc-baslik"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title"><span class="section-icon"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2"/><circle cx="9" cy="13" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.3" fill="currentColor" stroke="none"/><line x1="12" y1="8" x2="12" y2="4"/><circle cx="12" cy="3" r="1" fill="currentColor" stroke="none"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span data-i18n="ai-koc-baslik">Finans Koçun</span></p>
   <div class="card">
     <div class="ai-chat-header-row">
-      <p style="font-size:var(--fs-sm);color:var(--muted);margin:0;line-height:1.5;flex:1;" data-i18n="ai-koc-not">Finans Koçuna sor. Gerçek verilerine bakarak sana senaryolar ve karşılaştırmalar sunar — kararı sen verirsin.</p>
+      <p style="font-size:var(--fs-sm);color:var(--muted);margin:0;line-height:1.5;flex:1;" data-i18n="ai-koc-not">Finans Koçuna sor. Gerçek verilerine bakarak sana senaryoları ve hesaplamaları açıklar — kararı sen verirsin.</p>
       <button id="aiChatClearBtn" type="button" class="ai-chat-clear-btn" title="Sohbeti temizle" style="display:none;">
         <svg viewBox="0 0 24 24" class="btn-icon"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
       </button>
@@ -4569,7 +4569,7 @@ const TRANSLATIONS = {
      VERMEDİĞİNİ" açıkça belirtmesiyle çelişiyordu. Koç HÂLÂ verilerine bakarak senaryo/karşılaştırma
      sunuyor — yalnızca etiket "öneri" yerine "senaryo/karşılaştırma" diline çekildi, AI/backend
      mantığı DEĞİŞMEDİ. */
-  'ai-koc-not': {tr:'Finans Koçuna sor. Gerçek verilerine bakarak sana senaryolar ve karşılaştırmalar sunar — kararı sen verirsin.', en:'Ask your Finance Coach. It looks at your real data to offer scenarios and comparisons — you make the call.'},
+  'ai-koc-not': {tr:'Finans Koçuna sor. Gerçek verilerine bakarak sana senaryoları ve hesaplamaları açıklar — kararı sen verirsin.', en:'Ask your Finance Coach. It looks at your real data and explains the scenarios and calculations — you make the call.'},
   /* Privacy & Data Storage Audit (2026-09) — AI Coach kartına eklenen kısa veri işleme notu.
      Sadece bilgilendirme metni; hiçbir hesaplama/backend mantığına dokunmuyor. */
   'ai-koc-veri-bilgi': {tr:'Sorduğun soruyla birlikte finansal özetin (gelir, gider, borç ve hedef durumun) cevap üretmek için sunucumuz üzerinden işlenir. İsim, telefon, IBAN veya kart numarası bu özete dahil edilmez.', en:'Your question and a summary of your finances (income, expenses, debts, and goal progress) are processed through our server to generate a reply. Your name, phone number, IBAN, or card number is not included in this summary.'},
@@ -14685,6 +14685,7 @@ const AI_QUESTION_CATEGORIES = [
       {tr:'Bu ay ne yapmalıyım?', en:'What should I do this month?'},
       {tr:'Bugün ne kadar harcayabilirim?', en:'How much can I spend today?'},
       {tr:'En çok hangi kategoriye harcıyorum?', en:'Which category do I spend most on?'},
+      {tr:'Bu ay param nereye gidiyor?', en:'Where is my money going this month?'},
       {tr:'Olağandışı harcamam var mı?', en:'Any unusual spending?'},
       {tr:'Abonelik harcamalarım ne kadar?', en:'How much do I spend on subscriptions?'},
     ]},
@@ -14694,6 +14695,7 @@ const AI_QUESTION_CATEGORIES = [
       {tr:'Avalanche mı Snowball mı?', en:'Avalanche or Snowball?'},
       {tr:'İşimi kaybedersem ne olur?', en:'What if I lost my job?'},
       {tr:'Acil durum fonum yeterli mi?', en:'Is my emergency fund enough?'},
+      {tr:'Acil fon açığım ne kadar?', en:"What's my emergency fund gap?"},
     ]},
   { key:'hedef', tr:'Hedef', en:'Goals', questions:[
       {tr:'Hedefime ne zaman ulaşırım?', en:'When will I reach my goal?'},
@@ -14705,6 +14707,7 @@ const AI_QUESTION_CATEGORIES = [
   { key:'finans', tr:'Finans', en:'Finance', questions:[
       {tr:'Finansal özgürlüğe ne zaman ulaşırım?', en:'When will I reach financial freedom?'},
       {tr:'Param genel olarak nasıl durumda?', en:'How are my finances overall?'},
+      {tr:'Bu ay neden bu kadar planlanabilir param var?', en:'Why do I have this much I can plan with this month?'},
       {tr:'Şu an nelere dikkat etmeliyim?', en:'What should I watch out for?'},
       {tr:'Aniden 10.000 TL gider çıksa ne olur?', en:'What if I had a sudden 10000 TL expense?'},
       {tr:'Yatırım dağılımım sapmış mı?', en:'Has my investment mix drifted?'},
@@ -14737,7 +14740,7 @@ function answerTemplateQuestion(question){
 
   // --- HARCAMA ---
   if(/aboneli|subscription/.test(q)) return answerSubscriptionSpend();
-  if(/en cok|en fazla|hangi kategori|top spending|which category|most.{0,10}spend/.test(q)) return answerTopSpendingCategory();
+  if(/en cok|en fazla|hangi kategori|top spending|which category|most.{0,10}spend|nereye gidiyor|param nereye|where.{0,15}(my )?money.{0,10}go/.test(q)) return answerTopSpendingCategory();
   if(/olagandisi|anormal|artis var mi|unusual|anomal/.test(q)) return answerSpendingAnomalies();
   if(/ne kadar harca|harcayabil|how much.*spend|can i spend|spend today/.test(q)) return answerHowMuchCanISpend();
   if(/ne yapmali|what should i do/.test(q)) return answerWhatToDo();
@@ -14759,7 +14762,7 @@ function answerTemplateQuestion(question){
   if(/ozgurlu|freedom/.test(q)) return answerWhenFinancialFreedom();
   if(/dagilim.*sap|portfoy.*sap|(investment|allocation|portfolio).{0,20}drift/.test(q)) return answerAllocationDrift();
   if(/nelere dikkat|neye dikkat|dikkat etmeli|watch out|pay attention|uyari|alert/.test(q)) return answerCurrentAlerts();
-  if(/param.*nasil|genel.*durum|overall|how are my finances|financial (health|status)/.test(q)) return answerOverallStatus();
+  if(/param.*nasil|genel.*durum|overall|how are my finances|financial (health|status)|neden.{0,20}param|planlanabilir para|why.{0,20}(money|cash).{0,15}left/.test(q)) return answerOverallStatus();
 
   /* --- TASARRUF / BİRİKİM KAPASİTESİ ---
      "Bu ay ne kadar tasarruf edebilirim?", "ne kadar biriktirebilirim?", "how much can
@@ -14803,10 +14806,23 @@ function renderAiChatLog(){
   /* AI cevabı DOM'a HAM HTML olarak BASILMAZ: her mesaj escapeHtml()'den geçer, yalnızca
      satır sonu <br>'ye çevrilir. "loading" ve "error" durumları için stil dosyada ZATEN
      vardı (.ai-msg.loading / .ai-msg.assistant.error) - yeni CSS eklenmedi. */
+  const en = currentLang==='en';
+  /* FAZ 3.17 — DENETİM: gerçek AI yolunun (askCoachAI) serbest metin cevabı, koçun sistem
+     promptu ihlal etsin ya da etmesin, EKRANDA yine de "bu bir açıklamadır, kesin finansal
+     tavsiye değildir" ayrımını taşımalı — bu ayrım yalnızca backend'e gönderilen
+     AI_COACH_SYSTEM_PROMPT_HINT'e (bir İPUCU, otoriter değil) bırakılmamalı. Bu yüzden
+     source:'ai' işaretli mesajların altına, İSTEMCİ TARAFINDA, backend'in davranışından
+     bağımsız, KALDIRILAMAZ küçük bir etiket ekleniyor. Şablon/deterministik cevaplar
+     (source yok) zaten kendi motorundan gelen sayılarla konuştuğu ve fonksiyon-bazında
+     kendi caveat'lerini taşıdığı için bu etiketi almaz — burada YENİ bir metin/hesap motoru
+     icat edilmedi, yalnızca var olan iki yolun (gerçek AI / şablon) HANGİSİNİN konuştuğu
+     görsel olarak ayrıştırıldı. */
+  const AI_SOURCE_TAG = en ? 'AI explanation — not financial advice' : 'Yapay zekâ açıklaması — kesin tavsiye değildir';
   box.innerHTML = aiChatHistory.map(m=>{
     if(m.loading) return `<div class="ai-msg assistant loading"><span></span><span></span><span></span></div>`;
     const cls = `ai-msg ${m.role}${m.error?' error':''}`;
-    return `<div class="${cls}">${m.ik?sohbetIkonSvg(m.ik):''}${escapeHtml(m.text).replace(/\n/g,'<br>')}</div>`;
+    const tag = (m.source==='ai' && !m.error) ? `<div class="ai-msg-source-tag" style="font-size:var(--fs-2xs);color:var(--muted);margin-top:4px;">${escapeHtml(AI_SOURCE_TAG)}</div>` : '';
+    return `<div class="${cls}">${m.ik?sohbetIkonSvg(m.ik):''}${escapeHtml(m.text).replace(/\n/g,'<br>')}${tag}</div>`;
   }).join('');
   box.scrollTop = box.scrollHeight;
 }
@@ -14871,7 +14887,7 @@ async function askCoachAI(question){
   if(li>=0) aiChatHistory.splice(li,1);
 
   if(result && result.ok){
-    aiChatHistory.push({role:'assistant', text:result.answer});
+    aiChatHistory.push({role:'assistant', text:result.answer, source:'ai'});
     renderAiChatLog();
     return;
   }
