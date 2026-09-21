@@ -224,24 +224,24 @@ test('EMERGENCY-OVERRIDE-06: override sonrası "Sıradaki Adımım" canonical em
 });
 
 // -----------------------------------------------------------------------
-// EMERGENCY-OVERRIDE-07: günlük güvenli harcama havuzu yeni free remainder üzerinden doğru
+// EMERGENCY-OVERRIDE-07: override sonrası canonical serbest/esnek (long_term_or_flexible) havuz
+// beklenen tutarı yansıtır
 // -----------------------------------------------------------------------
-test('EMERGENCY-OVERRIDE-07: override=20000 iken günlük tempo havuzu (long_term_or_flexible=48000) yansıtıyor', async () => {
+// RP-1 (2026-09): bu test eskiden Home ring'inin DOM'daki günlük tempo gösterimini
+// (getCanonicalFreeSpendingPoolTL/computeSafeDailySpendTempo/#dailyAmountNum) de doğruluyordu;
+// ring kaldırıldığı için o kısım çıkarıldı. ÇEKİRDEK doğrulama (override sonrası canonical
+// GCAE'nin 'long_term_or_flexible' satırının doğru tutarı üretmesi) KORUNDU — artık ring-only
+// yardımcı fonksiyon yerine doğrudan canonical allocation satırından okunuyor.
+test('EMERGENCY-OVERRIDE-07: override=20000 iken canonical serbest/esnek kalan (long_term_or_flexible=48000) doğru', async () => {
   const { page, pageErrors } = await newSession();
   await page.evaluate(() => { setEmergencyAllocationOverride('20000'); });
-  // animateNumberTo() dailyAmountNum'u requestAnimationFrame ile ~550ms boyunca animasyonla
-  // günceller (bkz. index.html ~5687) — DOM'u okumadan önce animasyonun oturmasını bekle,
-  // aksi halde bir önceki (override öncesi) değeri yakalarız.
-  await page.waitForTimeout(700);
   const r = await page.evaluate(() => {
     const allocation = runMonthlyGoalCashAllocationLive();
-    const pool = getCanonicalFreeSpendingPoolTL(allocation);
-    const domDaily = parseFloat(document.getElementById('dailyAmountNum').textContent.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
-    const expectedTempo = computeSafeDailySpendTempo({ freeSpendingPool: pool, remainingDays: daysLeft });
-    return { pool, domDaily, expectedTempo };
+    const flexRow = allocation.allocations.find(a => a && a.type === 'long_term_or_flexible');
+    const pool = flexRow ? Math.max(0, Number(flexRow.amount) || 0) : 0;
+    return { pool };
   });
-  assert.equal(Math.round(r.pool), 48000, `Serbest havuz 48000 olmalı, gerçek: ${r.pool}`);
-  assert.ok(Math.abs(r.domDaily - r.expectedTempo) < 1, `DOM (${r.domDaily}) beklenen tempo (${r.expectedTempo}) ile eşleşmiyor`);
+  assert.equal(Math.round(r.pool), 48000, `Serbest/esnek kalan 48000 olmalı, gerçek: ${r.pool}`);
   await page.close();
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });

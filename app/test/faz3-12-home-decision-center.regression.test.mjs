@@ -109,17 +109,20 @@ async function newSession(setup) {
 // emergencyRow.amount 60000, flexRow.amount 8000.
 const REPORTED_SCENARIO = { income: 120000, expenses: 40000, essentialExpense: 24000, assets: 0 };
 
-const KEPT_SECTIONS = ['finansal-durum', 'bugunun-gorevi', 'ring', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
+// RP-1 (2026-09): 'ring' ("Günün Güvenli Harcama Alanı") Home'dan tamamen kaldırıldı — liste
+// 6 öğeden 5 öğeye düştü (bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md). Kapsam ZAYIFLATILMADI,
+// yalnızca artık var olmayan bir bölüm beklentiden çıkarıldı.
+const KEPT_SECTIONS = ['finansal-durum', 'bugunun-gorevi', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
 const REMOVED_HOME_SECTIONS = ['yaklasan-odemeler', 'activegoal', 'son-islemler', 'top5', 'expense-donut', 'journey-teaser'];
 
-test('FAZ3.12-1: Home contains all 6 required primary sections, in order, ending at "Alabilir miyim?"', async () => {
+test('FAZ3.12-1: Home contains all 5 required primary sections, in order, ending at "Alabilir miyim?"', async () => {
   const { page, pageErrors } = await newSession(REPORTED_SCENARIO);
   const order = await page.evaluate(() => {
     return Array.from(document.querySelectorAll('.tab-panel[data-tab="home"] [data-section]')).map(el => el.dataset.section);
   });
   await page.close();
   const indices = KEPT_SECTIONS.map(sec => order.indexOf(sec));
-  assert.ok(indices.every(i => i >= 0), `all 6 required sections must be present, got: ${JSON.stringify(order)}`);
+  assert.ok(indices.every(i => i >= 0), `all 5 required sections must be present, got: ${JSON.stringify(order)}`);
   for (let i = 1; i < indices.length; i++) {
     assert.ok(indices[i - 1] < indices[i], `"${KEPT_SECTIONS[i - 1]}" must come before "${KEPT_SECTIONS[i]}" — got order: ${JSON.stringify(order)}`);
   }

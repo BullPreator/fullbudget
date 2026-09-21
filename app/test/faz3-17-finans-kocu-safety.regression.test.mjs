@@ -163,15 +163,16 @@ test('FAZ3.17-4: coach copy does not imply investment advice or an authoritative
   assert.ok(appHtmlSource.includes("source:'ai'"), 'the real AI-path answer must be tagged so the UI can distinguish it from the deterministic/template answer');
 });
 
-test('FAZ3.17-5: Home remains unchanged (still the frozen 6-section structure, in order)', async () => {
+test('FAZ3.17-5: Home remains unchanged (still the frozen FAZ 3.12/RP-1 5-section structure, in order)', async () => {
   const { page, pageErrors } = await newSession({ ...SCENARIO, tab: 'home' });
   const order = await page.evaluate(() => Array.from(
     document.querySelectorAll('.tab-panel[data-tab="home"] [data-section]')
   ).map(el => el.dataset.section));
   await page.close();
-  const kept = ['finansal-durum', 'bugunun-gorevi', 'ring', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
+  // RP-1 (2026-09): 'ring' Home'dan kaldırıldığı için listeden çıkarıldı (6→5).
+  const kept = ['finansal-durum', 'bugunun-gorevi', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
   const indices = kept.map(sec => order.indexOf(sec));
-  assert.ok(indices.every(i => i >= 0), `all 6 Home sections must still be present, got: ${JSON.stringify(order)}`);
+  assert.ok(indices.every(i => i >= 0), `all 5 Home sections must still be present, got: ${JSON.stringify(order)}`);
   for (let i = 1; i < indices.length; i++) {
     assert.ok(indices[i - 1] < indices[i], 'Home section order must be unchanged');
   }

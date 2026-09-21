@@ -241,23 +241,7 @@ test('FAZ3.10-3: "Bu Ayki Planım" (canonical distributable + top allocation) re
 });
 
 // ---------------------------------------------------------------------
-// FAZ3.10-4: Bugünün Güvenli Bütçesi (daily safe spending) bu değişiklikten bağımsız ve DEĞİŞMEDİ.
+// RP-1 (2026-09): FAZ3.10-4 ("daily safe spending stays independent of 'Sıradaki Adımım''s
+// selected category/amount") tamamen kaldırıldı — Home ring'inin #dailyAmountNum DOM okumasına
+// özeldi, ring kaldırıldığı için bu davranış artık yok. Bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md.
 // ---------------------------------------------------------------------
-test('FAZ3.10-4: daily safe spending stays independent of "Sıradaki Adımım"\'s selected category/amount', async () => {
-  const { page: pageA, pageErrors: errA } = await newSession(REPORTED_SCENARIO);
-  const safeDailyBefore = await pageA.evaluate(() => document.getElementById('dailyAmountNum').textContent);
-  await pageA.close();
-
-  // Aynı senaryo, ama bu ay için farklı bir "Sıradaki Adımım" seçilmiş gibi (dismiss sonrası) —
-  // günlük güvenli harcama HİÇ etkilenmemeli, çünkü o computeCashFlowSummary'den bağımsız besleniyor.
-  const { page: pageB, pageErrors: errB } = await newSession(REPORTED_SCENARIO);
-  const safeDailyAfter = await pageB.evaluate(() => {
-    dismissMoneyTask();
-    return document.getElementById('dailyAmountNum').textContent;
-  });
-  await pageB.close();
-
-  assert.equal(safeDailyBefore, safeDailyAfter, 'daily safe spending must not change based on which "Sıradaki Adımım" step is currently selected/dismissed');
-  assert.equal(errA.length, 0, JSON.stringify(errA));
-  assert.equal(errB.length, 0, JSON.stringify(errB));
-});

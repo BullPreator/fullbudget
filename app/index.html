@@ -177,25 +177,12 @@ h1{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-3xl);margin:0;font-
 .theme-toggle .btn-icon{width:18px;height:18px;}
 .theme-toggle.active{border-color:var(--gold); color:var(--gold); background:var(--brand-soft);}
 
-.hero{
-  background:var(--surface);
-  border:1px solid var(--line);border-radius:var(--r-xl);padding:28px 22px;
-  display:flex;flex-direction:column;align-items:center;text-align:center;
-  box-shadow:var(--shadow-hero);
-  transition:box-shadow .3s ease, border-color .3s ease;
-  position:relative;
-}
-.ring-wrap{position:relative;width:200px;height:200px;margin-bottom:6px;cursor:pointer;transition:transform .15s ease;}
-.ring-wrap:active{transform:scale(.97);}
-.ring-wrap svg{transform:rotate(-90deg);}
-.ring-track{fill:none;stroke:var(--line);stroke-width:10;}
-.ring-progress{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s ease, stroke .3s ease;}
-.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.ring-amount{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-4xl);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.05;max-width:155px;text-align:center;}
-.ring-amount #dailyAmountNum{display:block; transition:color .3s ease, text-shadow .3s ease; text-shadow:0 0 22px rgba(63,167,150,0.28);}
-.ring-amount #dailyAmountLabel{font-size:var(--fs-base);font-weight:500;color:var(--muted);display:block;margin-top:4px;line-height:1.3;}
-.hero-sub{font-size:var(--fs-base);color:var(--muted);margin-top:14px;line-height:1.55;}
-.hero-sub b{color:var(--text);font-weight:600;}
+/* RP-1 (2026-09): "Günün Güvenli Harcama Alanı" (Safe Daily Spending ring) kaldırıldı —
+   bu bloğun tamamı (.hero/.ring-wrap/.ring-track/.ring-progress/.ring-center/.ring-amount/
+   .hero-sub) yalnızca bu feature'a özeldi, dosya genelinde başka hiçbir yerde kullanılmıyordu
+   (bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md). .hero-split/.hero-cell/.hero-ledger/.hero-row/
+   .hero-meta gibi FARKLI "hero-*" sınıfları (networth-hero, debt-hero, GCAE özet kartları vb.)
+   bu değişiklikten ETKİLENMEDİ, ayrı tutuldu. */
 
 .section-title{
   font-family:'Space Grotesk',sans-serif;font-size:var(--fs-md);letter-spacing:.09em;text-transform:uppercase;
@@ -1107,7 +1094,6 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
   stroke-linecap:round;stroke-linejoin:round;transition:transform .22s ease;}
 .disclosure-btn.open svg{transform:rotate(180deg);}
 .plan-summary-headline{font-size:var(--fs-base);line-height:1.5;margin:0;}
-.ring-note{font-size:var(--fs-xs);color:var(--text-secondary);margin:6px 0 0;line-height:1.45;}
 .priority-row{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start;}
 .priority-row:last-child{border-bottom:none;}
 .priority-num{flex-shrink:0; width:26px; display:flex; align-items:flex-start; justify-content:center; padding-top:1px;}
@@ -2753,26 +2739,11 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <div class="card card-featured"><div id="moneyTaskBox"></div></div>
   </div>
 
-  <!-- AŞAMA 1 hiyerarşisi (1b) net varlığın günlük arkadaşı: bugün güvenle harcanabilecek tutar.
-       Brief'in 9 maddesinde ayrı bir madde olarak yok ama silinmedi — net varlıkla aynı soruya
-       (finansal durumum nasıl?) farklı zaman ölçeğinde cevap verdiği için hemen altına, ona
-       yakın bir "eş" olarak taşındı; artık tek başına ekranın en baskın elemanı değil.
-       FAZ 3: bu, AYLIK planlanabilir tutarla (aşağıdaki "Bu Ayki Planım") KARIŞTIRILMAMASI için
-       tek cümlelik statik bir açıklama eklendi — formül/hesap DEĞİŞMEDİ, yalnızca bağlam. -->
-  <div class="reorder-section" data-section="ring"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div>
-  <p class="section-title"><span data-i18n="bugunku-butce">Günün Güvenli Harcama Alanı</span></p>
-  <div class="hero">
-    <div class="ring-wrap">
-      <svg width="200" height="200" viewBox="0 0 200 200">
-        <circle class="ring-track" cx="100" cy="100" r="88"></circle>
-        <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="88" stroke-dasharray="553" stroke-dashoffset="553"></circle>
-      </svg>
-      <div class="ring-center"><div class="ring-amount"><span id="dailyAmountNum">—</span><span id="dailyAmountLabel">bugünün tahmini güvenli harcama tempon</span></div></div>
-    </div>
-    <div class="hero-sub" id="heroSub">Bilgiler yükleniyor…</div>
-    <p class="ring-note" data-i18n="ring-aylik-fark-not">Bu tutar yalnızca bugün için tahmini güvenli harcama alanını gösterir; aşağıdaki "Bu Ayki Planım" bölümündeki aylık planlanabilir tutarla aynı şey değildir.</p>
-  </div>
-  </div>
+  <!-- RP-1 (2026-09): "Günün Güvenli Harcama Alanı" (Safe Daily Spending ring, eskiden burada
+       data-section="ring" idi) kaldırıldı. Bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md — Decision
+       Engine v2 / GCAE / Protected Liquidity / Distributable Cash / Emergency Allocation Override
+       hesaplamalarına dokunulmadı; AI Coach'un answerHowMuchCanISpend() formülü de AYRI ve
+       DEĞİŞMEDEN kalmaya devam ediyor. DEFAULT_SECTION_ORDER.home'dan da 'ring' çıkarıldı. -->
 
   <!-- AŞAMA 1 hiyerarşisi (3) "Şimdi ne yapmalıyım?" — ana sayfanın çekirdek amacı, bu yüzden
        .card-featured ile diğer kartlardan görsel olarak daha ağırlıklı (bkz. CSS). Mantık AYNI:
@@ -4470,17 +4441,10 @@ const TRANSLATIONS = {
   'borc-plan': {tr:'Borç Ödeme Planı', en:'Debt Payoff Plan'},
   'borclar': {tr:'Borçların', en:'Your Debts'},
   'bu-ay-plan': {tr:'Bu Ayki Planım', en:"This Month's Plan"},
-  /* FAZ 3.20: eski metin "bu, aylık planlanabilir tutarla aynı şey değildir" diyordu — artık
-     doğru değil, çünkü bu tempo ZATEN o canonical planın (long_term_or_flexible kalanının)
-     kalan güne yayılmış hâli. Yeni metin, sayının bir İZİN değil bir TEMPO olduğunu ve
-     kullanılmayan kapasitenin sonraki günlere aktarıldığını (gece yarısında silinmediğini)
-     açıklıyor. */
-  'ring-aylik-fark-not': {tr:'Bu, kalan aylık serbest harcama bütçeni kalan günlere yayarak hesaplanan yaklaşık günlük tempodur. Kullanmadığın tutar sonraki günlere aktarılır.', en:'This is an approximate daily pace, calculated by spreading your remaining monthly free-spending budget over the days left. Anything you don’t use rolls forward to the next day.'},
   'plan-detay-ac': {tr:'Detayları gör', en:'See details'},
   'karar-v2-baslik': {tr:'Nakit Akışı Karar Özeti', en:'Cash Flow Decision Summary'},
   'karar-v2-tahsis-baslik': {tr:'Bu Ay Paramı Nasıl Bölmeliyim?', en:'How Should I Split My Money This Month?'},
   'bu-ayki-harcama': {tr:'Bu ayki harcamalar', en:'This Month\'s Expenses'},
-  'bugunku-butce': {tr:'Günün Güvenli Harcama Alanı', en:'Today’s Safe Spending Pace'},
   'dolar-kur': {tr:'Döviz Borcu Kur Senaryoları', en:'FX Debt Exchange Rate Scenarios'},
   'finansal-yol': {tr:'Yol Haritan', en:'Your Roadmap'},
   'gelecek-senaryo': {tr:'Gelecek Senaryoları', en:'Future Scenarios'},
@@ -9441,20 +9405,10 @@ function render(){
   const _cfSafe = computeCashFlowSummary({ income, expenses: cashOutSpent(), debtPayments: debtPay, remainingDays: daysLeft, remainingFixedEstimate });
   const restOfMonthCashFlowEstimate = _cfSafe.safeRemaining; // yalnızca madde 12'de okunur
 
-  // 11b. "Günün Güvenli Harcama Alanı" ring'i (FAZ 3.20 semantik düzeltmesi): kendi ayrı
-  // gelir-eksi-gider hesabı YAPMAZ — canonical Goal & Cash Allocation Engine'in ürettiği
-  // "serbest/esnek kalan" (long_term_or_flexible) tutarını okur (bkz. getCanonicalFreeSpendingPoolTL/
-  // computeSafeDailySpendTempo tanımları — runDecisionEngineV2()/runGoalCashAllocationEngine()'a
-  // TEK SATIR dokunulmadı, yalnızca sonuçları okunuyor).
-  const _de2ForRing = runMonthlyDecisionEngineLive();
-  const _allocationForRing = runGoalCashAllocationEngine(_de2ForRing, buildMonthlySnapshot());
-  const isNegativeCashFlowForRing = _de2ForRing.status === DECISION_STATUS.NEGATIVE_CASH_FLOW;
-  const freeSpendingPool = getCanonicalFreeSpendingPoolTL(_allocationForRing);
-  // Serbest havuz asla negatif olamaz (Math.max(0,...) ile sabitli) — gerçek açığı ("Güvenli
-  // bütçende ₺X açık var") göstermek için negatif nakit akışı durumunda DE2'nin kendi (negatif
-  // olabilen) availableCash'i kullanılır; pozitif durumda bu doğrudan serbest harcama havuzudur.
-  const safeRemaining = isNegativeCashFlowForRing ? _de2ForRing.availableCash : freeSpendingPool;
-  const safeDaily = computeSafeDailySpendTempo({ freeSpendingPool, remainingDays: daysLeft });
+  // RP-1 (2026-09): "Günün Güvenli Harcama Alanı" ring'i (eskiden burada _de2ForRing/
+  // _allocationForRing/freeSpendingPool/safeRemaining/safeDaily hesaplardı) kaldırıldı.
+  // runDecisionEngineV2()/runGoalCashAllocationEngine()'a TEK SATIR dokunulmadı — bu yalnızca
+  // o sonuçları okuyup ring'e besleyen render-katmanı koduydu.
 
   /* ---- Ana finansal özet ---- */
   document.getElementById('sumAssets').textContent = `${CUR}${fmt(assets)}`;
@@ -9543,35 +9497,6 @@ function render(){
       ? `<span style="color:var(--teal)">▲ ${CUR}${fmt(diff)} bu ay</span>`
       : `<span style="color:var(--coral)">▼ ${CUR}${fmt(Math.abs(diff))} bu ay</span>`);
   } else { changeEl.textContent = ''; }
-
-  /* ---- Ring (güvenli günlük harcama) ---- */
-  const ring = document.getElementById('ringProgress');
-  const circumference = 2*Math.PI*88;
-  const progress = Math.min(dayOfMonth/daysInMonth, 1);
-  ring.setAttribute('stroke-dasharray', circumference);
-  ring.setAttribute('stroke-dashoffset', circumference*(1-progress));
-  let ringColor = 'var(--teal)';
-  if(safeRemaining<=0) ringColor='var(--coral)';
-  else if(income>0 && safeDaily < income/daysInMonth*0.6) ringColor='var(--amber)';
-  ring.style.stroke = ringColor;
-
-  const dailyNumEl = document.getElementById('dailyAmountNum');
-  const dailyLabelEl = document.getElementById('dailyAmountLabel');
-  const en = currentLang==='en';
-  if(!income){ if(dailyNumEl._animFrame) cancelAnimationFrame(dailyNumEl._animFrame); dailyNumEl.textContent = en ? 'Start' : 'Başla'; delete _animCache['dailyAmountNum']; dailyLabelEl.textContent = en ? 'Enter Your Income' : 'Gelirini Gir'; }
-  else if(safeRemaining<=0){ if(dailyNumEl._animFrame) cancelAnimationFrame(dailyNumEl._animFrame); dailyNumEl.textContent = `${CUR}0`; delete _animCache['dailyAmountNum']; dailyLabelEl.textContent = en ? 'Your Safe Budget Is Used Up' : 'Güvenli Bütçen Bitti'; }
-  else{ animateNumberTo('dailyAmountNum', safeDaily, v=>`${CUR}${fmt(v)}`); dailyLabelEl.textContent = en ? "Today's Estimated Safe-Spending Pace" : 'Bugünün Tahmini Güvenli Harcama Tempon'; }
-
-  const sub = document.getElementById('heroSub');
-  if(income){
-    const fixedNote = remainingFixedEstimate>0 ? ` · ${en ? 'Remaining essential expense est.' : 'Kalan zorunlu gider tahmini'}: <b>${CUR}${fmt(remainingFixedEstimate)}</b>` : '';
-    const debtNote = debtPay>0 ? ` · ${en ? 'Debt payment' : 'Borç ödemesi'}: <b>${CUR}${fmt(debtPay)}</b>` : '';
-    sub.innerHTML = safeRemaining>=0
-      ? (en ? `${daysLeft} days left${fixedNote}${debtNote}` : `${daysLeft} gün kaldı${fixedNote}${debtNote}`)
-      : (en ? `<b style="color:var(--coral)">Your safe budget is ${CUR}${fmt(Math.abs(safeRemaining))} short</b> · ${daysLeft} days left${debtNote}` : `<b style="color:var(--coral)">Güvenli bütçende ${CUR}${fmt(Math.abs(safeRemaining))} açık var</b> · ${daysLeft} gün kaldı${debtNote}`);
-  } else {
-    sub.textContent = en ? `${daysLeft} days left this month. Enter your income first.` : `${daysLeft} gün kaldı bu ay. Önce gelirini gir.`;
-  }
 
   document.getElementById('totalIncomeStat').textContent = `${CUR}${fmt(income)}`;
   document.getElementById('fixedExpenseStat').textContent = `${CUR}${fmt(fixedSpent)}`;
@@ -9717,7 +9642,7 @@ function render(){
   // YENİ bir hesap YAPMAZ, #decisionEngineV2Box/#goalCashAllocationBox zaten doldurulduktan
   // SONRA aynı (zaten hesaplanmış) sonuçları okur.
   renderMonthlyPlanSummary();
-  guncelleKararOzeti(priorityResult, safeDaily, income);
+  guncelleKararOzeti(priorityResult, income);
   // Sıradaki Adımım: AYNI priorityResult'tan besleniyor, ikinci bir hesaplama yok.
   renderMoneyTaskCard(ensureTodaysMoneyTask(priorityResult));
   renderAllocation(priorityResult ? priorityResult.investable : monthlyCashFlow);
@@ -9739,7 +9664,7 @@ function render(){
   renderMonthlyReport();
   renderNetWorthChart(netWorth);
   renderHistory(netWorth);
-  renderTop5(safeDaily, netWorth, monthlyCashFlow, priorityResult);
+  renderTop5(netWorth, monthlyCashFlow, priorityResult);
   renderUpcomingPayments();
   renderRecentTransactions();
   renderPersonalInflation();
@@ -13133,48 +13058,10 @@ function runMonthlyGoalCashAllocationLive(){
   return runGoalCashAllocationEngine(runMonthlyDecisionEngineLive(), buildMonthlySnapshot());
 }
 
-/* =========================================================
-   FAZ 3.20 — "GÜNÜN GÜVENLİ HARCAMA ALANI" SEMANTİK DÜZELTMESİ
-   ---------------------------------------------------------
-   Stage 1 denetimi (bkz. FAZ 3.20 audit raporu) şunu doğruladı: Home ring'indeki eski
-   "safeDaily" hesabı runDecisionEngineV2()/runGoalCashAllocationEngine()'dan TAMAMEN
-   BAĞIMSIZDI — yalnızca income - loglanmış nakit gider - tahmini kalan sabit gider - borç
-   ödemesini kullanıyordu ve ayın başında/geçmiş veri yokken pratikte income/kalanGün'e
-   çöküyordu (ör. 120000/11=10909), acil fon/borç/hedef tahsisatlarından tamamen habersizdi.
-   Bu iki YENİ fonksiyon YENİ bir motor/hesap İCAT ETMEZ — yalnızca zaten çalıştırılmış
-   canonical runGoalCashAllocationEngine() sonucunu OKUR. runDecisionEngineV2()/
-   runGoalCashAllocationEngine()'ın kendisine TEK SATIR dokunulmadı.
-
-   Neden çift düşme YOK: runGoalCashAllocationEngine()'ın 'long_term_or_flexible' kalemi zaten
-   şu zincirin sonucudur: income → (cashOutSpent() [=bu ay TÜM loglanmış nakit harcama, sabit+
-   değişken] ve borç ödemesi düşülerek) monthlyCashFlow → (korunan likidite düşülerek)
-   distributableCash → (acil fon açığı/pahalı borç/hedef tahsisatları düşülerek) kalan. Bu
-   yüzden burada AYRICA ne "bu ay harcanan" ne de "sabit/borç" tekrar düşülür — tek kaynak
-   zaten yukarıdaki zincir. Kullanıcı bugün ek bir harcama loglarsa, bir sonraki render()'da
-   cashOutSpent() artar → monthlyCashFlow/distributableCash/kalan otomatik küçülür (roll-forward
-   ayrı bir "bugün harcanan" sayacı TUTULMADAN elde edilir, çünkü tüm zincir her render()'da
-   canlı verilerden yeniden hesaplanır). */
-function getCanonicalFreeSpendingPoolTL(allocationResult){
-  allocationResult = allocationResult || {};
-  if (!Array.isArray(allocationResult.allocations)) return 0;
-  const flexRow = allocationResult.allocations.find(a => a && a.type === 'long_term_or_flexible');
-  return flexRow ? Math.max(0, Number(flexRow.amount) || 0) : 0;
-}
-/* Aylık serbest harcama havuzunu kalan güne yayan bir TEMPO göstergesidir — "bugün harcaman
-   gereken tutar" değildir. Havuz canlı verilerden geldiği için kullanılmayan kapasite ertesi
-   güne otomatik taşınır (bkz. yukarıdaki açıklama). */
-function computeSafeDailySpendTempo({ freeSpendingPool, remainingDays }){
-  freeSpendingPool = Math.max(0, Number(freeSpendingPool) || 0);
-  remainingDays = Number(remainingDays) || 0;
-  return (remainingDays > 0 && freeSpendingPool > 0) ? freeSpendingPool / remainingDays : 0;
-}
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports.getCanonicalFreeSpendingPoolTL = getCanonicalFreeSpendingPoolTL;
-  module.exports.computeSafeDailySpendTempo = computeSafeDailySpendTempo;
-}
-/* =========================================================
-   FAZ 3.20 BLOK SONU
-   ========================================================= */
+/* RP-1 (2026-09): FAZ 3.20 bloğu (getCanonicalFreeSpendingPoolTL/computeSafeDailySpendTempo,
+   yalnızca kaldırılan Home ring'i için kullanılıyordu) kaldırıldı. Bu iki fonksiyon
+   runGoalCashAllocationEngine()'ın SONUCUNU okuyordu, motoru DEĞİL — motor fonksiyonlarının
+   kendisine (runDecisionEngineV2/runGoalCashAllocationEngine) TEK SATIR dokunulmadı. */
 
 /* Minimal UI: "Nakit Akışı Karar Özeti" kartının (renderDecisionEngineV2) YERİNE GEÇMEZ, DOM'una
    dokunmaz — hemen altındaki AYRI bir kartı (#goalCashAllocationBox) doldurur. */
@@ -13425,7 +13312,7 @@ function renderPlanDetailLedger(de2, result){
      acil fon → acilFonDurumu     (Koç'taki acil fon kartı ile AYNI kaynak)
      hedef    → pickPrimaryGoal   (Aktif Hedefin kartı ile AYNI kaynak)
    Böylece aynı veri iki ekranda iki farklı cevaba dönüşmüyor. */
-function guncelleKararOzeti(plan, safeDaily, income){
+function guncelleKararOzeti(plan, income){
   const en = currentLang==='en';
   /* Acil fon ve hedef: ana ekrandaki en karar-değeri yüksek iki bağlam sayısı. */
   const af = acilFonDurumu();
@@ -15601,7 +15488,7 @@ function renderHistory(currentNetWorth){
 /* Not: "bugün harcayabileceğin" ve "net varlığın" bu kutudan kaldırıldı — ikisi de ana ekranda
    zaten kendi kartlarında (ring ve networth hero) görünüyordu; aynı sayıyı iki kez göstermek
    yerine burada sadece başka yerde olmayan iki rakam kalıyor. */
-function renderTop5(safeDaily, netWorth, monthlyCashFlow, priorityResult){
+function renderTop5(netWorth, monthlyCashFlow, priorityResult){
   const savEl = document.getElementById('top5Savings');
   // FAZ 3.12 HOME TEMİZLİĞİ (2026-09): bu fonksiyonun doldurduğu "Bu Ay Kullanılabilir Tutar"
   // bağımsız kartı ana sayfadan kaldırıldı (aynı tutar zaten "Bu Ayki Planım"da mevcut — bkz.
@@ -19822,10 +19709,7 @@ document.getElementById('groupSegments').addEventListener('click', (e)=>{
   if(tumuBtn && typeof txnAllSheetAc==='function') txnAllSheetAc();
 });
 renderNav();
-// Ana sayfadaki "Bugünkü Güvenli Bütçen" halkası - gelir girilmemişken "Başla / Gelirini Gir"
-// yazıyor ama tıklanınca hiçbir yere gitmiyordu; artık Gelir sekmesine yönlendiriyor
-// (gelir zaten girilmişse de oraya gitmek, geliri hızlıca düzenlemek isteyen için mantıklı).
-document.querySelector('.ring-wrap').addEventListener('click', ()=>setTab('income'));
+// RP-1 (2026-09): ring-wrap tıklama yönlendirmesi kaldırıldı — element artık DOM'da yok.
 document.getElementById('journeyTeaserCard')?.addEventListener('click', ()=>setTab('journey'));
 setTab('home'); // başlangıç sekmesi
 
@@ -20073,7 +19957,11 @@ const DEFAULT_SECTION_ORDER = {
      Kullanıcının eski persistent.sectionOrder kaydında bu anahtarlar hâlâ geçebilir;
      applySectionOrder() var olmayan bir data-section için sessizce atlar (bkz. o fonksiyon),
      yani eski kayıtlar KIRILMAZ. */
-  home:  ['finansal-durum','bugunun-gorevi','ring','bu-ay-plan','bugun-bilmen-gerekenler','afford-teaser',
+  /* RP-1 (2026-09): 'ring' ("Günün Güvenli Harcama Alanı") Home'dan tamamen kaldırıldığı için
+     bu listeden de çıkarıldı (7 öğe → 6 öğe). Kullanıcının eski persistent.sectionOrder
+     kaydında 'ring' hâlâ geçebilir; applySectionOrder() var olmayan bir data-section için
+     sessizce atlar (bkz. o fonksiyon, satır ~20218), yani eski kayıtlar KIRILMAZ. */
+  home:  ['finansal-durum','bugunun-gorevi','bu-ay-plan','bugun-bilmen-gerekenler','afford-teaser',
           'hizli-ekle'],
   /* Kullanıcı isteği: Finans Koçu en üste alındı — Aylık Rapor'un önüne geçti.
      FAZ 3.12: 'expense-donut' (eskiden Home'da) buraya TAŞINDI — sona eklendi, ikincil/katlanır

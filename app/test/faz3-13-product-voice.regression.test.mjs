@@ -99,16 +99,18 @@ async function newSession(setup) {
 // FAZ 3.10/3.11/3.12 ile AYNI raporlanan senaryo — bu faz finansal hesapları etkilemediği için
 // aynı sonuçların hâlâ üretildiğini doğrulamak için tekrar kullanılıyor.
 const REPORTED_SCENARIO = { income: 120000, expenses: 40000, essentialExpense: 24000, assets: 0 };
-const HOME_KEPT_SECTIONS = ['finansal-durum', 'bugunun-gorevi', 'ring', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
+// RP-1 (2026-09): 'ring' ("Günün Güvenli Harcama Alanı") Home'dan tamamen kaldırıldı — liste
+// 6 öğeden 5 öğeye düştü (bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md). Kapsam ZAYIFLATILMADI.
+const HOME_KEPT_SECTIONS = ['finansal-durum', 'bugunun-gorevi', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
 
-test('FAZ3.13-1: Home is untouched — the FAZ 3.12 6-section structure and ending are unchanged by this voice/copy phase', async () => {
+test('FAZ3.13-1: Home is untouched — the FAZ 3.12/RP-1 5-section structure and ending are unchanged by this voice/copy phase', async () => {
   const { page, pageErrors } = await newSession(REPORTED_SCENARIO);
   const order = await page.evaluate(() => {
     return Array.from(document.querySelectorAll('.tab-panel[data-tab="home"] [data-section]')).map(el => el.dataset.section);
   });
   await page.close();
   const indices = HOME_KEPT_SECTIONS.map(sec => order.indexOf(sec));
-  assert.ok(indices.every(i => i >= 0), `all 6 Home sections must still be present, got: ${JSON.stringify(order)}`);
+  assert.ok(indices.every(i => i >= 0), `all 5 Home sections must still be present, got: ${JSON.stringify(order)}`);
   for (let i = 1; i < indices.length; i++) {
     assert.ok(indices[i - 1] < indices[i], `Home section order must be unchanged — "${HOME_KEPT_SECTIONS[i - 1]}" must precede "${HOME_KEPT_SECTIONS[i]}"`);
   }

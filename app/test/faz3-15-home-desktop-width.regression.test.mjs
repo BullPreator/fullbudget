@@ -84,16 +84,17 @@ async function newSession(viewport, setup) {
 }
 
 const SCENARIO = { income: 120000, expenses: 40000, assets: 50000 };
-const HOME_KEPT_SECTIONS = ['finansal-durum', 'bugunun-gorevi', 'ring', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
+// RP-1 (2026-09): 'ring' Home'dan kaldırıldığı için listeden çıkarıldı (6→5).
+const HOME_KEPT_SECTIONS = ['finansal-durum', 'bugunun-gorevi', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
 
-test('FAZ3.15-1: Home information architecture remains unchanged (still the frozen 6-section structure, in order)', async () => {
+test('FAZ3.15-1: Home information architecture remains unchanged (still the frozen FAZ 3.12/RP-1 5-section structure, in order)', async () => {
   const { page, pageErrors } = await newSession({ width: 1440, height: 1000 }, { ...SCENARIO, tab: 'home' });
   const order = await page.evaluate(() => Array.from(
     document.querySelectorAll('.tab-panel[data-tab="home"] [data-section]')
   ).map(el => el.dataset.section));
   await page.close();
   const indices = HOME_KEPT_SECTIONS.map(sec => order.indexOf(sec));
-  assert.ok(indices.every(i => i >= 0), `all 6 Home sections must still be present, got: ${JSON.stringify(order)}`);
+  assert.ok(indices.every(i => i >= 0), `all 5 Home sections must still be present, got: ${JSON.stringify(order)}`);
   for (let i = 1; i < indices.length; i++) {
     assert.ok(indices[i - 1] < indices[i], 'Home section order must be unchanged');
   }
@@ -174,7 +175,6 @@ test('FAZ3.15-6: existing Home functionality (rendered section content) remains 
     return {
       hasFinansalDurum: !!panel.querySelector('[data-section="finansal-durum"]')?.textContent.trim().length,
       hasBugununGorevi: !!panel.querySelector('[data-section="bugunun-gorevi"]'),
-      hasRing: !!panel.querySelector('[data-section="ring"]'),
       hasBuAyPlan: !!panel.querySelector('[data-section="bu-ay-plan"]')?.textContent.trim().length,
       hasBilmenGerekenler: !!panel.querySelector('[data-section="bugun-bilmen-gerekenler"]'),
       hasAffordTeaser: !!panel.querySelector('[data-section="afford-teaser"]')?.textContent.trim().length,
@@ -183,7 +183,7 @@ test('FAZ3.15-6: existing Home functionality (rendered section content) remains 
   await page.close();
   assert.ok(check.hasFinansalDurum, 'Finansal Durum must still render content');
   assert.ok(check.hasBugununGorevi, 'Sıradaki Adımım / Bugünün Görevi section must still exist');
-  assert.ok(check.hasRing, 'Bugünün Güvenli Bütçesi (ring) section must still exist');
+  // RP-1 (2026-09): "ring" (Bugünün Güvenli Bütçesi) kaldırıldığı için hasRing kontrolü çıkarıldı.
   assert.ok(check.hasBuAyPlan, 'Bu Ayki Planım must still render content');
   assert.ok(check.hasBilmenGerekenler, 'Bugün Bilmen Gerekenler section must still exist');
   assert.ok(check.hasAffordTeaser, 'Alabilir miyim? teaser must still render content');

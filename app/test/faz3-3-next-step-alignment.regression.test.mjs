@@ -207,20 +207,9 @@ test('FAZ3.3-5: when there is no protected-liquidity gap, "Bu Ayki Planım"\'s d
 });
 
 // ---------------------------------------------------------------------
-// 5. Daily safe-spend vs monthly plannable amount separation still holds (regression guard).
-// ---------------------------------------------------------------------
-test('FAZ3.3-6: daily safe-spend and monthly plannable amount stay clearly separated', async () => {
-  const { page, pageErrors } = await newSession(EMERGENCY_SCENARIO);
-  const bodyText = await page.evaluate(() => document.body.innerText);
-  await page.close();
-  // FAZ 3.20: ring artık canonical planın (long_term_or_flexible) bir türevi olduğu için eski
-  // "aylık planlanabilir tutarla aynı şey değildir" ifadesi artık doğru değil — metin kasıtlı
-  // olarak "tempo/gün başına yayılan" diline değiştirildi. Aynı ürün amacı (bir harcama emri gibi
-  // okunmaması) yeni kelimelerle doğrulanıyor.
-  assert.ok(/tempo/i.test(bodyText) || /pace/i.test(bodyText));
-  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
-});
-
+// RP-1 (2026-09): FAZ3.3-6 ("daily safe-spend and monthly plannable amount stay clearly
+// separated") tamamen kaldırıldı — Home ring'inin body metnine özeldi, ring kaldırıldığı için bu
+// davranış artık yok. Bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md.
 // ---------------------------------------------------------------------
 // 6. No investment-advice / buy-sell / instrument / percentage language crept in.
 // ---------------------------------------------------------------------

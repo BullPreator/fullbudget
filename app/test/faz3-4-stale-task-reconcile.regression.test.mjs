@@ -263,19 +263,9 @@ test('FAZ3.4-7: "Başka bir öncelik göster" (skip) still advances to the next 
 });
 
 // ---------------------------------------------------------------------
-// 7. Daily safe-spend vs monthly-plannable separation still holds.
-// ---------------------------------------------------------------------
-test('FAZ3.4-8: daily safe-spend and monthly plannable amount stay clearly separated after this fix', async () => {
-  const { page, pageErrors } = await newSession({ ...EMERGENCY_SCENARIO, staleTask: { amount: 19500 } });
-  const bodyText = await page.evaluate(() => document.body.innerText);
-  await page.close();
-  // FAZ 3.20: ring artık canonical planın türevi olduğu için eski "aynı şey değildir" ifadesi
-  // artık doğru değil — metin "tempo/gün başına yayılan" diline değiştirildi. Aynı ürün amacı
-  // yeni kelimelerle doğrulanıyor.
-  assert.ok(/tempo/i.test(bodyText) || /pace/i.test(bodyText));
-  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
-});
-
+// RP-1 (2026-09): FAZ3.4-8 ("daily safe-spend and monthly plannable amount stay clearly separated
+// after this fix") tamamen kaldırıldı — Home ring'inin body metnine özeldi, ring kaldırıldığı için
+// bu davranış artık yok. Bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md.
 // ---------------------------------------------------------------------
 // 8. Financial engines/amounts remain unchanged (regression guard).
 // ---------------------------------------------------------------------

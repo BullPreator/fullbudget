@@ -176,21 +176,9 @@ test('FAZ3-5: "Kalan tutarı yatırıma yönlendir" and specific-instrument/perc
 });
 
 // ---------------------------------------------------------------------
-// FAZ3-6: daily-safe-spend vs monthly-plannable-amount distinction exists.
-// ---------------------------------------------------------------------
-test('FAZ3-6: the Ring card explicitly distinguishes today\'s safe spend from the monthly plannable amount', async () => {
-  const { page, pageErrors } = await newSession({ income: 100000, expenses: 40000, assets: 20000, goals: [] });
-  const bodyText = await page.evaluate(() => document.body.innerText);
-  await page.close();
-  // FAZ 3.20: ring artık canonical planın (long_term_or_flexible) bir türevi olduğu için eski
-  // "aynı şey değildir" ifadesi artık doğru değil — metin "tempo/gün başına yayılan" diline
-  // değiştirildi. Aynı ürün amacı (ring'in bir harcama emri gibi okunmaması) yeni kelimelerle
-  // doğrulanıyor.
-  assert.ok(/tempo/i.test(bodyText) || /pace/i.test(bodyText),
-    'a clarifying sentence framing the daily figure as a pace/tempo must be visible');
-  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
-});
-
+// RP-1 (2026-09): "FAZ3-6: the Ring card explicitly distinguishes today's safe spend from the
+// monthly plannable amount" tamamen kaldırıldı — Ring kartına özeldi, kart kaldırıldığı için bu
+// davranış artık yok. Bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md.
 // ---------------------------------------------------------------------
 // FAZ3-7: technical decision summary is merged and collapsed by default.
 // ---------------------------------------------------------------------

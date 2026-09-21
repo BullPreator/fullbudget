@@ -275,26 +275,9 @@ test('FAZ3.6-6: no specific-instrument or percentage investment advice appears i
 });
 
 // ---------------------------------------------------------------------
-// 7. Daily vs monthly distinction remains intact.
-// ---------------------------------------------------------------------
-test('FAZ3.6-7: daily safe-budget ring and the monthly plan remain clearly distinct after the simplification', async () => {
-  const { page, pageErrors } = await newSession(EMERGENCY_SCENARIO);
-  const check = await page.evaluate(() => {
-    const ringNote = document.querySelector('.ring-note');
-    return {
-      dailyAmountText: document.getElementById('dailyAmountNum').textContent,
-      ringNoteText: ringNote ? ringNote.textContent : '',
-    };
-  });
-  await page.close();
-  assert.ok(check.ringNoteText.length > 0, 'the daily/monthly clarifying note must still be present');
-  // FAZ 3.20: not artık "Bu Ayki Planım'la aynı şey değildir" demiyor (artık gerçekten o planın
-  // türevi) — bunun yerine sayının bir TEMPO olduğunu ve kullanılmayanın sonraki güne aktarıldığını
-  // açıklıyor.
-  assert.ok(/tempo/i.test(check.ringNoteText), 'the clarifying note must still frame the number as a pace/tempo');
-  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
-});
-
+// RP-1 (2026-09): FAZ3.6-7 ("daily safe-budget ring and the monthly plan remain clearly distinct
+// after the simplification") tamamen kaldırıldı — .ring-note/#dailyAmountNum'a özeldi, ring
+// kaldırıldığı için bu davranış artık yok. Bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md.
 // ---------------------------------------------------------------------
 // 8. Smoke check: no console/page errors across a few scenarios.
 // ---------------------------------------------------------------------

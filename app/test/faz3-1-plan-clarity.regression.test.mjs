@@ -256,23 +256,10 @@ test('FAZ3.1-8: with only a fully-funded (completed) goal and no in-progress goa
 });
 
 // ---------------------------------------------------------------------
-// 9. Daily safe-spend vs monthly plannable amount stay clearly separated
-// (regression guard — should already hold from the prior FAZ 3 pass).
-// ---------------------------------------------------------------------
-test('FAZ3.1-9: daily safe-spend and monthly plannable amounts remain clearly, visibly separated', async () => {
-  const { page, pageErrors } = await newSession(EMERGENCY_SCENARIO);
-  const bodyText = await page.evaluate(() => document.body.innerText);
-  await page.close();
-  // FAZ 3.20 GÜNCELLEMESİ: ring artık canonical planın (long_term_or_flexible) bir TÜREVİ olduğu
-  // için "aylık planlanabilir tutarla aynı şey değildir" ifadesi artık DOĞRU DEĞİL — bu yüzden
-  // metin kasıtlı olarak "tempo/gün başına yayılan" diline değiştirildi (bkz. FAZ 3.20 audit +
-  // Stage 2). Bu test hâlâ AYNI ürün amacını (ring'in bir "bugün harcaman gereken tutar" gibi
-  // okunmamasını) doğruluyor, yalnızca yeni kelimelerle.
-  assert.ok(/tempo/i.test(bodyText) || /pace/i.test(bodyText),
-    'the ring card must still explicitly frame the daily figure as a pace/tempo, not a spending mandate');
-  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
-});
-
+// RP-1 (2026-09): FAZ3.1-9 ("daily safe-spend and monthly plannable amounts remain clearly,
+// visibly separated") tamamen kaldırıldı — bu test yalnızca Home ring'inin body metnindeki
+// "tempo/pace" diline özeldi; ring kaldırıldığı için bu ürün davranışı artık yok, korunan bir
+// hesaplama davranışını doğrulamıyordu. Bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md.
 // ---------------------------------------------------------------------
 // 10. Financial amounts are unchanged — the same emergency-fund scenario still
 // produces a positive emergency_fund_contribution from the untouched engine.

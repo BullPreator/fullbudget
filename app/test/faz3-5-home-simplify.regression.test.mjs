@@ -216,28 +216,10 @@ test('FAZ3.5-4: "Sıradaki Adımım" and "Bu Ayki Planım" both still show the s
 });
 
 // ---------------------------------------------------------------------
-// 6. Daily safe budget (ring) is not confused with the monthly plan amount.
-// ---------------------------------------------------------------------
-test('FAZ3.5-5: daily safe budget (ring) and monthly plan remain distinct, with the clarifying note intact', async () => {
-  const { page, pageErrors } = await newSession(EMERGENCY_SCENARIO);
-  const check = await page.evaluate(() => {
-    const ringNote = document.querySelector('.ring-note');
-    return {
-      dailyAmountText: document.getElementById('dailyAmountNum').textContent,
-      ringNoteText: ringNote ? ringNote.textContent : '',
-      ringSectionExists: !!document.querySelector('.tab-panel[data-tab="home"] [data-section="ring"]'),
-    };
-  });
-  await page.close();
-  assert.equal(check.ringSectionExists, true, 'the daily safe-budget "ring" section must still exist as its own section');
-  assert.ok(check.ringNoteText.length > 0, 'the daily/monthly clarifying note (ring-aylik-fark-not) must still be present');
-  // FAZ 3.20 GÜNCELLEMESİ: not artık "Bu Ayki Planım'la aynı şey değildir" demiyor, çünkü artık
-  // GERÇEKTEN o planın (long_term_or_flexible) bir türevi — bunun yerine sayının bir TEMPO
-  // olduğunu ve kullanılmayan kapasitenin sonraki günlere aktarıldığını açıklıyor.
-  assert.ok(/tempo/i.test(check.ringNoteText), `the clarifying note must still frame the number as a pace/tempo, got: "${check.ringNoteText}"`);
-  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
-});
-
+// RP-1 (2026-09): FAZ3.5-5 ("daily safe budget (ring) and monthly plan remain distinct, with the
+// clarifying note intact") tamamen kaldırıldı — bu test yalnızca kaldırılan Home ring'ine
+// (.ring-note, #dailyAmountNum, data-section="ring") özeldi; korunan/yeniden-kullanılabilir bir
+// hesaplama davranışını doğrulamıyordu. Bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md.
 // ---------------------------------------------------------------------
 // 7. Active goal section is hidden entirely when there's no genuinely active goal.
 // ---------------------------------------------------------------------
@@ -299,7 +281,10 @@ test('FAZ3.5-7: pickPrimaryGoal() correctly selects a genuinely active (gap>0) g
 // FAZ 3.12'nin gerektirdiği 6 birincil bölümün doğru sırada olduğunu VE eski üç bölümün DOM'da
 // hiç bulunmadığını doğruluyor — kapsam ZAYIFLATILMADI, yalnızca beklenen sıra kasıtlı ürün
 // kararına göre güncellendi.
-test('FAZ3.5-8: home sections render in the required order (Finansal Durum → Sıradaki Adımım → Güvenli Bütçe → Bu Ayki Planım → Bilmen Gerekenler → Alabilir miyim) and end there', async () => {
+// RP-1 (2026-09) GÜNCELLEMESİ: 'ring' ("Güvenli Bütçe") de Home'dan tamamen kaldırıldığı için
+// listeden çıkarıldı (6→5 birincil bölüm) — yine kapsam ZAYIFLATILMADI (bkz.
+// GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md).
+test('FAZ3.5-8: home sections render in the required order (Finansal Durum → Sıradaki Adımım → Bu Ayki Planım → Bilmen Gerekenler → Alabilir miyim) and end there', async () => {
   const { page, pageErrors } = await newSession({
     ...EMERGENCY_SCENARIO,
     goals: [{ id: 'g1', typeKey: 'ev', label: 'Ev', targetAmount: 1000000, currentSaved: 10000, targetDate: '' }],
@@ -308,10 +293,10 @@ test('FAZ3.5-8: home sections render in the required order (Finansal Durum → S
     return Array.from(document.querySelectorAll('.tab-panel[data-tab="home"] [data-section]')).map(el => el.dataset.section);
   });
   await page.close();
-  const expected = ['finansal-durum', 'bugunun-gorevi', 'ring', 'bu-ay-plan', 'bugun-bilmen-gerekenler',
+  const expected = ['finansal-durum', 'bugunun-gorevi', 'bu-ay-plan', 'bugun-bilmen-gerekenler',
     'afford-teaser'];
   const indices = expected.map(sec => order.indexOf(sec));
-  assert.ok(indices.every(i => i >= 0), `all 6 required sections must be present in DOM order, got: ${JSON.stringify(order)}`);
+  assert.ok(indices.every(i => i >= 0), `all 5 required sections must be present in DOM order, got: ${JSON.stringify(order)}`);
   for (let i = 1; i < indices.length; i++) {
     assert.ok(indices[i - 1] < indices[i], `"${expected[i - 1]}" must come before "${expected[i]}" — got order: ${JSON.stringify(order)}`);
   }

@@ -592,3 +592,144 @@ test('GOAL-CASH-19: acil fon açığı YOKKEN davranış DEĞİŞMEZ — "Kalan 
   assert.ok(!/[Aa]cil durum fonuna ayır|[Aa]dd to emergency fund/.test(out.de2Box), 'acil fon açığı yokken acil fon tahsisatı etiketi ÜRETİLMEMELİ');
   await page.close();
 });
+
+// -----------------------------------------------------------------------
+// RP-1 (2026-09) TAŞIMA NOTU: aşağıdaki 4 test (GOAL-CASH-20..23), kaldırılan Home ring'inin
+// kendi test dosyasından (faz3-20-safe-spending-semantics.regression.test.mjs, eski adları
+// FAZ3.20-3/4/5/6) buraya taşındı. Bu testler ring'e ÖZEL değildi — runGoalCashAllocationEngine()'ın
+// 'long_term_or_flexible' (serbest/esnek kalan) satırının aritmetik doğruluğunu (çift düşme yok,
+// acil fon/hedef/borç tahsisatlarının doğru şekilde havuzu küçülttüğünü) doğruluyorlardı; ring-only
+// yardımcı fonksiyonlar (getCanonicalFreeSpendingPoolTL/computeSafeDailySpendTempo, artık kaldırıldı)
+// yerine artık doğrudan allocation.allocations üzerinden okunuyorlar. ASSERTION DAVRANIŞI AYNEN
+// KORUNDU — yalnızca havuzu okuma yöntemi değişti.
+test('GOAL-CASH-20 (eski FAZ3.20-3): giderler/tahsisatlar iki kez düşülmüyor — aritmetik kapanış doğru', async () => {
+  const { page, pageErrors } = await newPage();
+  const r = await page.evaluate(() => {
+    persistent.accounts = []; persistent.debts = []; persistent.creditCards = []; persistent.goals = [];
+    persistent.dailyMoneyTask = null;
+    month.incomes = [{ id: 'i1', category: 'Maaş', amount: 120000 }];
+    month.expenses = [{ id: 'e1', category: 'Diğer', amount: 40000, fixed: false }];
+    render();
+    const de2 = runMonthlyDecisionEngineLive();
+    const allocation = runGoalCashAllocationEngine(de2, buildMonthlySnapshot());
+    const sumAllocated = allocation.allocations
+      .filter(a => ['emergency_fund_contribution', 'debt_reduction', 'goal_contribution', 'long_term_or_flexible'].includes(a.type))
+      .reduce((s, a) => s + a.amount, 0);
+    return { distributableCash: allocation.distributableCash, sumAllocated, unallocatedCash: allocation.unallocatedCash };
+  });
+  assert.ok(Math.abs((r.sumAllocated + r.unallocatedCash) - r.distributableCash) < 1,
+    `Tahsisatların toplamı (${r.sumAllocated}+${r.unallocatedCash}) distributableCash (${r.distributableCash}) ile eşleşmiyor — çift düşme/kayıp şüphesi`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('GOAL-CASH-21 (eski FAZ3.20-4): acil fon tahsisatı (60000) yapıldığında serbest/esnek kalan distributableCash\'ten küçük', async () => {
+  const { page, pageErrors } = await newPage();
+  const r = await page.evaluate(() => {
+    persistent.accounts = []; persistent.debts = []; persistent.creditCards = []; persistent.goals = [];
+    persistent.dailyMoneyTask = null;
+    month.incomes = [{ id: 'i1', category: 'Maaş', amount: 120000 }];
+    month.expenses = [{ id: 'e1', category: 'Diğer', amount: 40000, fixed: false }];
+    render();
+    const allocation = runMonthlyGoalCashAllocationLive();
+    const emergencyRow = allocation.allocations.find(a => a.type === 'emergency_fund_contribution');
+    return {
+      emergencyAmount: emergencyRow ? emergencyRow.amount : 0,
+      distributableCash: allocation.distributableCash,
+      pool: (function () {
+        const row = allocation.allocations.find(a => a && a.type === 'long_term_or_flexible');
+        return row ? Math.max(0, Number(row.amount) || 0) : 0;
+      })(),
+    };
+  });
+  assert.equal(Math.round(r.emergencyAmount), 60000, `Beklenen acil fon tahsisatı 60000, gerçek: ${r.emergencyAmount}`);
+  assert.equal(Math.round(r.pool), 8000, `Beklenen serbest/esnek kalan 8000, gerçek: ${r.pool}`);
+  assert.ok(r.pool < r.distributableCash, 'Acil fon tahsisatı varken serbest/esnek kalan distributableCash\'ten küçük olmalı');
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('GOAL-CASH-22 (eski FAZ3.20-5): 50000/30000(sabit)/10000 hedef tahsisatı senaryosunda serbest/esnek kalan ≈10000', async () => {
+  const { page, pageErrors } = await newPage();
+  const r = await page.evaluate(() => {
+    persistent.accounts = [{ id: 'a1', name: 'Banka', type: 'Banka Hesabı', balance: 200000, currency: 'TRY' }];
+    persistent.debts = []; persistent.creditCards = [];
+    const targetDate = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    persistent.goals = [{
+      id: 'g1', typeKey: 'diger', name: 'Test Hedefi', targetAmount: 10000, currentSaved: 0,
+      targetDate: targetDate.toISOString().slice(0, 10),
+    }];
+    persistent.dailyMoneyTask = null;
+    month.incomes = [{ id: 'i1', category: 'Maaş', amount: 50000 }];
+    month.expenses = [{ id: 'e1', category: 'Kira', amount: 30000, fixed: true }];
+    render();
+    const allocation = runMonthlyGoalCashAllocationLive();
+    const goalRow = allocation.allocations.find(a => a.type === 'goal_contribution');
+    return {
+      goalAmount: goalRow ? goalRow.amount : 0,
+      distributableCash: allocation.distributableCash,
+      pool: (function () {
+        const row = allocation.allocations.find(a => a && a.type === 'long_term_or_flexible');
+        return row ? Math.max(0, Number(row.amount) || 0) : 0;
+      })(),
+    };
+  });
+  assert.equal(Math.round(r.distributableCash), 20000, `Beklenen distributableCash 20000, gerçek: ${r.distributableCash}`);
+  assert.equal(Math.round(r.goalAmount), 10000, `Beklenen hedef tahsisatı 10000, gerçek: ${r.goalAmount}`);
+  assert.equal(Math.round(r.pool), 10000, `Beklenen serbest/esnek kalan 10000, gerçek: ${r.pool}`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('GOAL-CASH-23 (eski FAZ3.20-6): pahalı borca ekstra ödeme ayrıldığında minPayment ile ekstra ödeme İKİ AYRI kalemdir', async () => {
+  const { page, pageErrors } = await newPage();
+  const r = await page.evaluate(() => {
+    persistent.accounts = [{ id: 'a1', name: 'Banka', type: 'Banka Hesabı', balance: 500000, currency: 'TRY' }];
+    persistent.debts = [{ id: 'd1', category: 'ihtiyac', note: 'Test Kredisi', balance: 15000, minPayment: 5000, rate: 8, currency: 'TRY' }];
+    persistent.creditCards = []; persistent.goals = []; persistent.dailyMoneyTask = null;
+    month.incomes = [{ id: 'i1', category: 'Maaş', amount: 100000 }];
+    month.expenses = [{ id: 'e1', category: 'Diğer', amount: 20000, fixed: false }];
+    render();
+    const de2 = runMonthlyDecisionEngineLive();
+    const allocation = runGoalCashAllocationEngine(de2, buildMonthlySnapshot());
+    const debtRow = allocation.allocations.find(a => a.type === 'debt_reduction');
+    const p0DebtAction = de2.actions.find(a => a.type === 'debt_payment');
+    return {
+      recurringMinPayment: p0DebtAction ? p0DebtAction.amount : 0,
+      extraDebtReduction: debtRow ? debtRow.amount : 0,
+      pool: (function () {
+        const row = allocation.allocations.find(a => a && a.type === 'long_term_or_flexible');
+        return row ? Math.max(0, Number(row.amount) || 0) : 0;
+      })(),
+      income: 100000, expenses: 20000,
+    };
+  });
+  assert.ok(r.recurringMinPayment > 0, 'Aylık minimum ödeme P0 aksiyonu olarak görünmeli');
+  assert.ok(r.extraDebtReduction > 0, 'Kalan borcu kapatmak için ekstra tahsisat yapılmalı');
+  assert.notEqual(r.recurringMinPayment, r.extraDebtReduction, 'Rutin ödeme ile ekstra kapatma AYNI tutar OLMAMALI (aksi halde çift sayım şüphesi)');
+  const expectedPool = r.income - r.expenses - r.recurringMinPayment - r.extraDebtReduction;
+  assert.ok(Math.abs(expectedPool - r.pool) < 1, `Beklenen havuz ${expectedPool}, gerçek ${r.pool} — çift/eksik düşme şüphesi`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+// -----------------------------------------------------------------------
+// RP-1 (2026-09) TAŞIMA NOTU: aşağıdaki test, faz3-20-safe-spending-semantics.regression.test.mjs
+// dosyasından (eski adı FAZ3.20-12) buraya taşındı — ring'e hiç referans vermiyordu, saf bir
+// korunan-motor-fonksiyonu-var-mı kontrolüydü; bu dosya (GCAE'ye özel regresyonlar) için daha
+// uygun bir yer.
+// -----------------------------------------------------------------------
+test('GOAL-CASH-24 (eski FAZ3.20-12): korunan motor fonksiyonları hâlâ kaynakta ve imzaları bu fazda değişmedi', () => {
+  const appHtmlSource = readFileSync(path.join(appDir, 'app', 'index.html'), 'utf8');
+  const PROTECTED_FUNCTIONS = [
+    'runDecisionEngineV2', 'runGoalCashAllocationEngine', 'runMonthlyGoalCashAllocationLive',
+    'computeGoalInfo', 'buildMonthlySnapshot', 'computeCashFlowSummary', 'getAffordCapacityInfo',
+    'assessCardAffordability', 'getFinancialAlerts', 'computePriorityPlan', '_planKur',
+    'ensureTodaysMoneyTask', 'upgradeStalePersistedMoneyTask',
+  ];
+  for (const fnName of PROTECTED_FUNCTIONS) {
+    assert.ok(appHtmlSource.includes(`function ${fnName}(`), `Korunan fonksiyon kaynakta bulunamadı: ${fnName}`);
+  }
+  assert.ok(appHtmlSource.includes('RISK_PROFILES'), 'RISK_PROFILES sabiti kaynakta bulunamadı');
+  assert.ok(appHtmlSource.includes('activeRiskProfile'), 'activeRiskProfile kaynakta bulunamadı');
+});

@@ -92,7 +92,9 @@ async function newSession(setup) {
 }
 
 const REPORTED_SCENARIO = { income: 120000, expenses: 40000, essentialExpense: 24000, assets: 0 };
-const HOME_KEPT_SECTIONS = ['finansal-durum', 'bugunun-gorevi', 'ring', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
+// RP-1 (2026-09): 'ring' ("Günün Güvenli Harcama Alanı") Home'dan tamamen kaldırıldı — liste
+// 6 öğeden 5 öğeye düştü (bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md). Kapsam ZAYIFLATILMADI.
+const HOME_KEPT_SECTIONS = ['finansal-durum', 'bugunun-gorevi', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'];
 
 test('FAZ3.14-1: NO-DEBT state hides the secondary debt-analysis sections (installment burden, debt trend, payoff plan, avalanche/snowball) instead of showing them as empty widgets', async () => {
   const { page, pageErrors } = await newSession({ ...REPORTED_SCENARIO, tab: 'debts', debts: [], creditCards: [] });
@@ -252,14 +254,14 @@ test('FAZ3.14-8b: round-up savings section reappears once expenses exist', async
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
 
-test('FAZ3.14-9: Home remains unchanged by this phase (still the frozen FAZ 3.12 6-section structure)', async () => {
+test('FAZ3.14-9: Home remains unchanged by this phase (still the frozen FAZ 3.12/RP-1 5-section structure)', async () => {
   const { page, pageErrors } = await newSession(REPORTED_SCENARIO);
   const order = await page.evaluate(() => {
     return Array.from(document.querySelectorAll('.tab-panel[data-tab="home"] [data-section]')).map(el => el.dataset.section);
   });
   await page.close();
   const indices = HOME_KEPT_SECTIONS.map(sec => order.indexOf(sec));
-  assert.ok(indices.every(i => i >= 0), `all 6 Home sections must still be present, got: ${JSON.stringify(order)}`);
+  assert.ok(indices.every(i => i >= 0), `all 5 Home sections must still be present, got: ${JSON.stringify(order)}`);
   for (let i = 1; i < indices.length; i++) {
     assert.ok(indices[i - 1] < indices[i], `Home section order must be unchanged`);
   }
@@ -289,5 +291,23 @@ test('FAZ3.14-10: protected financial engine outputs remain unchanged for the ca
   assert.equal(check.flexAmount, 8000);
   assert.equal(check.task.category, 'acil_fon');
   assert.equal(check.task.amount, 60000);
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+// -----------------------------------------------------------------------
+// RP-1 (2026-09) TAŞIMA NOTU: aşağıdaki test, faz3-20-safe-spending-semantics.regression.test.mjs
+// dosyasından (eski adı FAZ3.20-11) buraya taşındı ve 'ring' kaldırıldığı için 6→5 bölüme
+// güncellendi (bkz. GUNLUK_GUVENLI_HARCAMA_KAPSAM_AUDIT.md). Bu dosyanın kendi HOME_KEPT_SECTIONS
+// testinden (FAZ3.14-9) FARKLI olarak burada `hidden` OLMAYAN bölümler filtreleniyor — orijinal
+// testin kendine özgü doğrulama şekli (deepEqual ile TAM sıra) korundu.
+// -----------------------------------------------------------------------
+test('FAZ3.20-11 (RP-1 sonrası): Home\'un 5 bölümü ve sırası aynı kaldı', async () => {
+  const { page, pageErrors } = await newSession(REPORTED_SCENARIO);
+  const sections = await page.evaluate(() => Array.from(
+    document.querySelectorAll('.tab-panel[data-tab="home"] [data-section]')
+  ).filter(el => !el.hasAttribute('hidden')).map(el => el.getAttribute('data-section')));
+  assert.deepEqual(sections, ['finansal-durum', 'bugunun-gorevi', 'bu-ay-plan', 'bugun-bilmen-gerekenler', 'afford-teaser'],
+    `Home bölüm sırası değişti: ${JSON.stringify(sections)}`);
+  await page.close();
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });

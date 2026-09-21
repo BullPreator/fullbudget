@@ -155,7 +155,6 @@ test('P0: var olmayan bir karta bağlı harcama nakit akışından YOK OLAMAZ (k
     debtPay: monthlyDebtPayments(),
     domKalan: document.getElementById('sumRemain').textContent.trim(),
     domSavings: document.getElementById('savingsRateStat').textContent.trim(),
-    domDaily: document.getElementById('dailyAmountNum').textContent.trim(),
     cap: getAffordCapacityInfo().monthlyCashFlow,
     safeCap: getAffordCapacityInfo().safeMonthlyCapacity,
     ai: buildAICoachContext().financialSnapshot.monthlyCashFlow,
@@ -207,7 +206,6 @@ test('SENARYO B: borç ödemesi dahil freeCashFlow=-20000 ve tüm katmanlar ayn�
     dom: document.getElementById('sumRemain').textContent.trim(),
     cap: getAffordCapacityInfo().monthlyCashFlow,
     ai: buildAICoachContext().financialSnapshot.monthlyCashFlow,
-    safeDaily: document.getElementById('dailyAmountNum').textContent.trim(),
   }));
   assert.equal(r.core, -20000);
   assert.ok(r.dom.includes('-') && r.dom.includes('20.000'), `DOM: ${r.dom}`);
@@ -223,7 +221,6 @@ test('SENARYO D: negatif ay (-30000) hiçbir ekranda POZİTİF tasarruf olarak g
     core: computeCashFlowSummary({ income: totalIncome(), expenses: cashOutSpent(), debtPayments: monthlyDebtPayments(), remainingDays: daysLeft }),
     dom: document.getElementById('sumRemain').textContent.trim(),
     domSavings: document.getElementById('savingsRateStat').textContent.trim(),
-    safeDaily: document.getElementById('dailyAmountNum').textContent.trim(),
   }));
   assert.equal(r.core.remaining, -30000);
   assert.ok(r.core.savingsRate < 0, 'negatif ayda tasarruf oranı negatif olmalı');
@@ -469,41 +466,26 @@ test('INV14 (SENARYO J): bu ayın toplamları yalnızca bu ayın kaydından geli
 });
 
 // ---------------------------------------------------------------------
-// FAZ 3.20 GÜNCELLEMESİ (2026-09): Bu test eskiden "ring DOM'u ile answerHowMuchCanISpend()'in
-// AYNI ham nakit-akışı formülünden (computeCashFlowSummary) geldiğini" doğruluyordu. FAZ 3.20
-// Stage 1 denetimi bu paylaşılan formülün semantik olarak YANLIŞ olduğunu kanıtladı (acil fon/
-// borç/hedef tahsisatlarından habersiz, ayın başında income/kalanGün'e çöküyordu — bkz. FAZ 3.20
-// audit raporu ve app/test/faz3-20-safe-spending-semantics.regression.test.mjs). Stage 2'de ring
-// artık KENDİ ayrı hesabını yapmıyor; canonical runGoalCashAllocationEngine()'ın ürettiği
-// "serbest/esnek kalan" (long_term_or_flexible) tutarını okuyor. Finans Koçu'nun
-// answerHowMuchCanISpend()'i bu fazın kapsamı DIŞINDA tutuldu (FAZ 3.20 spec'i "DO NOT modify
-// Finans Koçu" diyor) — hâlâ eski ham formülü kullanıyor. Bu YENİ, BİLİNÇLİ ve GEÇİCİ bir
-// ayrışmadır (gelecekteki bir faza bırakıldı, ürün ekibi tarafından onaylandı). Test SİLİNMEDİ/
-// ZAYIFLATILMADI — ikisi de kendi (artık farklı) tek doğru kaynaklarına karşı AYRI AYRI
-// doğrulanıyor.
+// RP-1 (2026-09): Bu test eskiden İKİ yarıdan oluşuyordu — (1) Home ring'inin DOM'unun canonical
+// Goal & Cash Allocation Engine'in "serbest/esnek kalan"ından (long_term_or_flexible) türediğini,
+// ve (2) Finans Koçu'nun answerHowMuchCanISpend()'inin hâlâ KENDİ ayrı (computeCashFlowSummary
+// tabanlı) formülünü kullandığını doğruluyordu — bu iki formülün BİLİNÇLİ ve GEÇİCİ bir ayrışması
+// olduğu belgeleniyordu. RP-1 ile ring TAMAMEN kaldırıldığı için (1) numaralı yarı KALDIRILDI
+// (ring/#dailyAmountNum/getCanonicalFreeSpendingPoolTL/computeSafeDailySpendTempo artık yok).
+// (2) numaralı yarı — AI Coach'un answerHowMuchCanISpend() formülüne KESİNLİKLE DOKUNULMADI — bu
+// testte AYNEN KORUNDU; formül hâlâ ayrı bir bulgu/risk olarak GUNLUK_GUVENLI_HARCAMA_KAPSAM_
+// AUDIT.md'de belgeleniyor.
 // ---------------------------------------------------------------------
-test('RING: güvenli günlük harcama artık canonical Goal & Cash Allocation Engine\'in serbest kalanından türetilir', async () => {
+test('AI COACH: answerHowMuchCanISpend() kendi (ring\'den bağımsız, DEĞİŞMEMİŞ) formülünü kullanmaya devam ediyor', async () => {
   const { page, pageErrors } = await session(SCEN_A);
   const r = await page.evaluate(() => {
-    const allocation = runMonthlyGoalCashAllocationLive();
-    const pool = getCanonicalFreeSpendingPoolTL(allocation);
-    const ringCore = computeSafeDailySpendTempo({ freeSpendingPool: pool, remainingDays: daysLeft });
-    // Koç, FAZ 3.20 kapsamı DIŞINDA bırakıldığı için hâlâ KENDİ (eski, ham nakit akışı) formülünü
-    // kullanıyor — bu, o formülün kendi iç tutarlılığını (regresyona karşı) doğrular, ring ile
-    // BİREBİR eşleşmesini DEĞİL.
     const coachCore = computeCashFlowSummary({
       income: totalIncome(), expenses: cashOutSpent(), debtPayments: monthlyDebtPayments(),
       remainingDays: daysLeft,
       remainingFixedEstimate: Math.max(0, (history.length ? history[history.length - 1].fixedExpense || 0 : 0) - totalFixedExpense()),
     }).safeDailySpend;
-    return { ringCore, coachCore, dom: document.getElementById('dailyAmountNum').textContent.trim(),
-             coach: answerHowMuchCanISpend() };
+    return { coachCore, coach: answerHowMuchCanISpend() };
   });
-  // Ring DOM'u artık canonical allocation havuzundan türeyen tempoyla eşleşmeli.
-  const fmtNum = Math.round(r.ringCore).toLocaleString('tr-TR');
-  assert.ok(r.dom.includes(fmtNum.split(',')[0]) || r.dom.includes(String(Math.round(r.ringCore))),
-    `DOM güvenli günlük (${r.dom}) canonical havuz değeriyle (${r.ringCore}) uyuşmuyor`);
-  // Koç metni hâlâ KENDİ (değiştirilmemiş) formülünden türemeli — bu FAZ 3.20 dışında bırakıldı.
   const coachFmtNum = Math.round(r.coachCore).toLocaleString('tr-TR');
   assert.ok(r.coach.includes(coachFmtNum) || r.coach.includes(String(Math.round(r.coachCore))),
     `koç cevabı (${r.coach.slice(0, 160)}) çekirdek değerle (${r.coachCore}) uyuşmuyor`);
