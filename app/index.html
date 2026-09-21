@@ -18379,7 +18379,10 @@ function renderAffordResult(r){
       <div class="stat"><span>${en?'Monthly commitment for this purchase':'Bu alım için aylık taahhüt'}</span>${paceValueHtml}</div>
       <div class="stat"><span>${en?'Financial safety result':'Finansal güvenlik sonucu'}</span><b class="${safetyCls}">${safetyLbl}</b></div>
       <div class="stat"><span>${en?'Estimated time':'Tahmini süre'}</span><b class="${eta.cls}">${eta.text}</b></div>
-    </div>`;
+    </div>
+    <p style="font-size:var(--fs-xs);color:var(--muted);margin:8px 0 0;line-height:1.5;">${en
+      ? `"Safe monthly capacity" is a broad estimate based on your overall pace — not the same figure as "This Month's Plan", which shows what's left after this month's debt/emergency-fund/other-goal priorities. It's normal for the two to differ.`
+      : `"Güvenli aylık kapasite", genel tempona göre geniş bir tahmindir — "Bu Ayın Planı"ndaki tutarla (bu ayki borç/acil fon/diğer hedef önceliklerinden SONRA kalan para) aynı rakam değildir. İkisinin farklı çıkması normaldir.`}</p>`;
 
   const steps = computeAffordRoute(r, en);
   document.getElementById('affordRouteList').innerHTML = steps.map((s,i)=>`<div class="priority-row">
