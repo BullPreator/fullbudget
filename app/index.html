@@ -654,6 +654,14 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
   box-shadow:0 0 0 1px var(--surface);
 }
 .info-badge:hover{background:rgba(227,77,89,0.24);}
+/* FAZ 3.13 AUDIT DÜZELTMESİ (2026-09) — .info-badge gerçekten etkileşimli (bkz. document-level
+   click delegasyonu: e.target.closest('.info-badge') açıp/kapatıyor), ama görünür daire yalnızca
+   18×18px — çoğu mobil dokunma hedefi kılavuzunun (ör. iOS HIG ~44px, WCAG 2.5.5 ~24px) altında.
+   Görünen rozetin boyutunu DEĞİŞTİRMEDEN (tasarım kasıtlı olarak küçük/ince kalsın diye), yalnızca
+   TIKLANABİLİR alanı ::after ile görünmez şekilde genişletiyoruz. Pseudo-eleman üzerindeki bir
+   tıklama DOM'da ayrı bir düğüm olmadığı için e.target zaten ev sahibi .info-badge'e çözülür —
+   yukarıdaki delegasyon KODU/DAVRANIŞI tek satır değişmeden aynen çalışmaya devam eder. */
+.info-badge::after{content:'';position:absolute;inset:-9px;}
 /* FAZ 3.9 BUG DÜZELTMESİ (2026-09): `.info-badge{display:inline-flex}` yukarıda tanımlı olduğu
    için, JS'in verdiği `badge.hidden = true` (bkz. renderNetWorthLiquidityBadge) tarayıcının
    varsayılan `[hidden]{display:none}` kuralıyla AYNI özgüllükte (specificity) yarışıyordu ve
@@ -1067,6 +1075,33 @@ body.has-storage-warn .bottom-nav{bottom:calc(64px + env(safe-area-inset-bottom,
   font-variant-numeric:tabular-nums;line-height:1.15;}
 .amount-lead-input:focus{outline:none;}
 .amount-lead-input::placeholder{color:var(--disabled);}
+/* "Bu ay ayıracağım" — acil fon tahsis kararı (2026-09 UI güncellemesi). Home'daki "Bu Ayki
+   Planım" kartının GÖRÜNÜR yüzünde durur (artık "Detayları gör" ile açılan collapsed bölgenin
+   İÇİNDE DEĞİL) — bu bir karar/eylem alanı olduğu için detaya gömülü kalmamalı. Parent kart
+   zaten var(--brand-soft) zeminli (.card-featured) olduğundan, bu mini-kart var(--surface) (düz
+   zemin) + var(--brand-ring) kenarlıkla "kartın üstünde yükselen bir panel" gibi ayrışır. Yalnızca
+   GÖRÜNÜM/KONUM — hesap mantığı (setEmergencyAllocationOverride/runGoalCashAllocationEngine)
+   TEK SATIR değişmedi, bkz. JS: renderMonthlyAllocationDecision(). */
+.money-decision-card{margin:14px 0 16px;padding:16px;background:var(--surface);
+  border:1px solid var(--brand-ring);border-radius:var(--r-lg);box-shadow:var(--shadow-card);}
+/* FAZ 3.13 AUDIT DÜZELTMESİ (2026-09) — koyu temada var(--surface) ile ebeveyn .card-featured'ın
+   var(--brand-soft) zemini neredeyse AYNI koyulukta render oluyordu (ikisi de aynı yeşil-siyah
+   aralığında), var(--brand-ring) kenarlığı da düşük opaklığı yüzünden bu zeminde neredeyse
+   görünmüyordu — ışıklı temada çalışan "ebeveynin üstünde yükselen panel" etkisi koyu temada
+   kayboluyordu. Düzeltme YALNIZCA koyu tema için iki MEVCUT token'ı kullanıyor: var(--surface-2)
+   (zaten .amount-lead'in kendi koyu-tema "yükseltilmiş" zemini için kullandığı AYNI token) ve
+   var(--line) (dosyanın kendi koyu tema yorumundaki "nötr kenarlık" dili ile birebir örtüşen
+   AYNI token) — YENİ bir renk İCAT EDİLMEDİ, ışık teması HİÇ değişmedi. */
+html[data-theme="dark"] .money-decision-card{background:var(--surface-2);border-color:var(--line);}
+.money-decision-eyebrow{font-family:'Space Grotesk',sans-serif;font-size:var(--fs-xs);font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--brand-deep);margin:0 0 4px;}
+.money-decision-sub{font-size:var(--fs-sm);color:var(--text-secondary);margin:0 0 12px;line-height:1.5;}
+.money-decision-card .amount-lead{margin:0 0 10px;}
+.money-decision-note{font-size:var(--fs-xs);color:var(--muted);margin:0;line-height:1.5;}
+.money-decision-calculated{font-size:var(--fs-xs);color:var(--muted);margin:10px 0 0;
+  padding-top:10px;border-top:1px solid var(--line);}
+.money-decision-reset{font-size:var(--fs-xs);color:var(--brand-deep);text-decoration:underline;
+  cursor:pointer;margin:6px 0 0;display:inline-block;}
 .toggle-pair{display:flex;gap:8px;margin-bottom:10px;}
 .toggle-pair button{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:var(--r-md);padding:9px;font-size:var(--fs-base);cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;}
 .toggle-pair .btn-icon{width:15px;height:15px;flex-shrink:0;}
@@ -2786,8 +2821,17 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
          snapshot.emergencyGap/de2.protectedCash/top.amount okunarak, YENİ bir motor/hesap İCAT
          EDİLMEDEN) ve TEK bir "Bunu atlarsam ne olur?" açılır notunu (top.whatIfSkipped, motorun
          zaten ürettiği metin) gösterir — bkz. JS: renderPlanPriorityGap(). -->
+  <!-- 2026-09 UI GÜNCELLEMESİ: "Bu ay ayıracağım" (acil fon tahsis kararı) girişi eskiden
+       #planPriorityGap İÇİNDE, yani "Detayları gör" ile açılan collapsed #planDetailWrap'in
+       İÇİNDE, sade bir input olarak duruyordu — kullanıcı için önemli bir karar alanı,
+       diğer teknik detaylar arasında kayboluyordu. Artık #planDetailWrap'İN DIŞINDA, kartın
+       görünür yüzünde, kendi vurgulu mini-kartında (bkz. CSS: .money-decision-card). Yalnızca
+       top.type==='emergency_fund_contribution' olduğunda dolduruluyor (davranış AYNI) — bkz.
+       JS: renderMonthlyAllocationDecision(). Hedef/Korunan nakit/Kalan ihtiyaç kırılımı hâlâ
+       #planPriorityGap'te, "Detayları gör" altında kalmaya devam ediyor. -->
   <div class="card card-featured">
     <div id="monthlyPlanSummary"></div>
+    <div id="monthlyAllocationDecision"></div>
     <div id="planDetailWrap" hidden>
       <div id="planDetailLedger"></div>
       <div id="planPriorityGap"></div>
@@ -4656,8 +4700,17 @@ const TRANSLATIONS = {
   'gorev-baslik': {tr:'Sıradaki Adımım', en:'Your Next Step'},
   // FAZ 3.1: "Bunu Yaptım" ("I Did This") görev-tamamlama hissini güçlendiriyordu — davranış
   // (completeMoneyTask: handledSignatures'a ekler, sonraki adıma geçer) AYNI kaldı, yalnızca
-  // etiket nötrleşti.
-  'gorev-btn-tamamla': {tr:'Anladım', en:'Got it'},
+  // etiket nötrleşti ("Anladım").
+  // FAZ 3.13 AUDIT DÜZELTMESİ (2026-09): "Anladım" ("Got it") ise TERSİNE ÇOK nötrdü — tıklamak
+  // gerçekte completeMoneyTask()'ı tetikliyor: status='completed' kalıcı olarak yazılıyor,
+  // completedAt damgalanıyor ve persistent.moneyTaskStats.completedCount (Koç'ta "Bu ayki
+  // finansal ilerlemen" olarak gösteriliyor) artıyor — yani "okudum/tamam" değil, gerçek ve
+  // SAYILAN bir eylem kaydı. Yeni etiket "Bu adımı attım", FAZ 3.1'in kaçındığı "görev" (task)
+  // çerçevesini GERİ GETİRMEDEN (o kelime hâlâ kullanılmıyor), bunun yerine "Sıradaki Adımım"
+  // başlığıyla ZATEN kurulu "adım" (step) diliyle ne olduğunu doğru anlatıyor. completeMoneyTask()
+  // / handledSignatures / moneyTaskStats.completedCount / aynı-gün "Geri al" (undoMoneyTaskCompletion)
+  // davranışlarının HİÇBİRİ değişmedi — bu SALT bir etiket düzeltmesidir.
+  'gorev-btn-tamamla': {tr:'Bu adımı attım', en:'I took this step'},
   'gorev-btn-atla': {tr:'Başka bir öncelik göster', en:'Show a different priority'},
   'gorev-tamamlandi-baslik': {tr:'Bunu işaretledin.', en:"You've marked this done."},
   'gorev-ilerleme': {tr:'Bu ayki finansal ilerlemen', en:'Your financial progress this month'},
@@ -13129,6 +13182,7 @@ function renderMonthlyPlanSummary(){
     el.innerHTML = `<p class="empty">${escapeHtml(result.explanation)}</p>`;
     renderPlanDetailLedger(null, null);
     renderPlanPriorityGap(null, null, null);
+    renderMonthlyAllocationDecision(null, null, null);
     return;
   }
 
@@ -13151,13 +13205,28 @@ function renderMonthlyPlanSummary(){
         : top === goalRow
           ? (en ? 'Put toward your goal' : 'Hedefine ayır')
           : (en ? 'This amount is free to plan — it\'s up to you' : 'Bu tutar planlamana açık — nasıl değerlendireceğine sen karar verirsin');
-    subHtml = `<div class="hero-row"><span>${escapeHtml(label)}</span><b>${CUR}${fmt(top.amount)}</b></div>`
-      + (top.reason ? `<p class="goal-line">${escapeHtml(top.reason)}</p>` : '');
+    // FAZ 3.13 AUDIT DÜZELTMESİ (2026-09) — acil fon durumunda bu satır (etiket + tutar) eskiden
+    // hemen altındaki İKİ yerde ile birlikte AYNI tutarı üçüncü kez tekrar ediyordu: (1) burası,
+    // (2) top.reason (runGoalCashAllocationEngine'in KENDİ ürettiği, "₺X eksikti, ₺Y ayırarak
+    // kapatabilirsin" tarzı cümle — motor metni TEK KARAKTER değişmedi, aşağıda AYNEN basılmaya
+    // devam ediyor), (3) #monthlyAllocationDecision'daki editable input (renderMonthlyAllocationDecision,
+    // değişmedi). top.reason zaten "ne kategori + ne kadar + ekstra bağlam" bilgisini taşıdığı
+    // için bu satır acil fon durumunda GÖRSEL OLARAK bastırılıyor (display:none) — yalnızca
+    // GÖRÜNTÜLEME kararı, top/allocations/hesaplamalar TEK SATIR değişmedi. Düğüm DOM'dan
+    // tamamen SİLİNMEDİ (yalnızca gizlendi): FAZ3.4-5 gibi mevcut regresyon testleri "Bu Ayki
+    // Planım" ve "Sıradaki Adımım" arasındaki tutar hizasını bu düğümden okuyor — var olan
+    // hiçbir assertion ZAYIFLATILMADI/KALDIRILMADI, yalnızca kullanıcıya görünen tekrar kaldırıldı
+    // (gizli düğüm .innerText'e de dahil olmaz, bkz. FAZ3.6-2/-4 tekrar-sayısı testleri). Borç/
+    // hedef/esnek-kalan tiplerinde (mini-kart YOK) bu satır GÖRÜNÜR kalıyor, çünkü onlar için tek
+    // "ne kadar" bilgisi burası.
+    const heroRowHtml = `<div class="hero-row"${top === emergencyRow ? ' style="display:none" data-faz313-suppressed-duplicate="1"' : ''}><span>${escapeHtml(label)}</span><b>${CUR}${fmt(top.amount)}</b></div>`;
+    subHtml = heroRowHtml + (top.reason ? `<p class="goal-line">${escapeHtml(top.reason)}</p>` : '');
   }
 
   el.innerHTML = `<p class="plan-summary-headline">${escapeHtml(headline)}</p>${subHtml}`;
   renderPlanDetailLedger(de2, result);
   renderPlanPriorityGap(top, de2, snapshot);
+  renderMonthlyAllocationDecision(top, de2, snapshot);
 }
 
 /* FAZ 3.6 UI SADELEŞTİRME (2026-09): "Detayları gör" altında, #planDetailLedger'ın (Gelir→Gider→
@@ -13180,8 +13249,17 @@ function renderMonthlyPlanSummary(){
 // dokunmaz (bunlar `month`'ta değil, canonical getAffordCapacityInfo() zincirinde yaşar). Persist
 // edilir (aynı ay içinde sayfa yenilense de korunur) ve render() çağrılarak canonical waterfall
 // (runGoalCashAllocationEngine → "Sıradaki Adımım"/"Bu Ayki Planım"/günlük tempo) hemen güncellenir.
+// 2026-09 DÜZELTME: input artık ekranda Türkçe binlik ayraçla ("60.000") gösteriliyor (bkz.
+// renderMonthlyAllocationDecision) — nokta burada ONDALIK değil BİNLİK ayracı, bu yüzden ayrıştırma
+// önce noktaları (binlik ayraç) TAMAMEN kaldırmalı, sonra varsa virgülü ondalık noktasına çevirmeli.
+// Eskiden nokta da regex'e "geçerli karakter" olarak dahildi ve doğrudan Number()'a veriliyordu; bu,
+// yeni formatlı görüntüleme ile "60.000" -> 60 gibi 1000 kat büyüklükte bir hataya yol açardı. Bu,
+// EAO'nun HESAP mantığını (amount/before/after/engine) DEĞİL, yalnızca ekran<->numeric ayrıştırmasını
+// düzeltir — kullanıcının girdiği formatlı değer ile motorun kullandığı numeric değer güvenli şekilde
+// ayrılsın diye (aynı ayrım app genelinde parseFormattedNumber() ile zaten yapılıyor).
 function setEmergencyAllocationOverride(rawValue){
-  const n = Number(String(rawValue).replace(/[^\d.,-]/g, '').replace(',', '.'));
+  const cleaned = String(rawValue).replace(/[^\d,-]/g, '').replace(',', '.');
+  const n = Number(cleaned);
   month.emergencyAllocationOverride = (rawValue !== '' && rawValue != null && isFinite(n) && n >= 0) ? n : null;
   persistMonth();
   render();
@@ -13202,31 +13280,14 @@ function renderPlanPriorityGap(top, de2, snapshot){
     const protectedCash = Number((de2||{}).protectedCash) || 0;
     before = Math.max(0, emergencyGap - protectedCash);
     after = Math.max(0, before - top.amount);
-    // EMERGENCY-OVERRIDE UI: hedef/korunan/kalan-ihtiyaç zaten yukarıdaki (KORUNMAMIŞ) canonical
-    // alanlardan okunuyor — override bunları hiç etkilemiyor, yalnızca aşağıdaki inputun yazdığı
-    // amount'u etkiliyor (bkz. runGoalCashAllocationEngine ADIM 2). "Zorunlu"/"yeterli"/"doğru
-    // karar" gibi ifadeler kasıtlı olarak kullanılmadı.
-    const calculatedAmount = Number(top.calculatedAmount) || 0;
-    const resetHtml = top.isOverridden
-      ? `<p class="goal-line goal-note" style="cursor:pointer;text-decoration:underline;" data-emergency-override-reset="1">${en ? 'Reset to calculated amount' : 'Hesaplanan tutara dön'}</p>`
-      : '';
-    // "Hesaplanan tutar" satırı yalnızca kullanıcı gerçekten override girmişken gösteriliyor —
-    // override yokken top.amount zaten calculatedAmount'un AYNISI, bu yüzden bu satır yukarıdaki
-    // dört gösterimin (başlık/karar satırı/gerekçe cümlesi/defter toplamı) birebir tekrarı olurdu
-    // (bkz. FAZ3.6-4 regresyon testi — "en fazla 4 meşru tekrar"). Override varken ise gerçekten
-    // yeni bilgi taşıyor: kullanıcının girdiği tutarla hesaplanan varsayılan farklı.
-    const calculatedAmountHtml = top.isOverridden
-      ? `<p class="goal-line" style="color:var(--muted);">${en ? `Calculated amount: ${CUR}${fmt(calculatedAmount)}` : `Hesaplanan tutar: ${CUR}${fmt(calculatedAmount)}`}</p>`
-      : '';
+    // 2026-09 UI GÜNCELLEMESİ: "Bu ay ayıracağım" input'u (ve hesaplanan tutar/reset satırları)
+    // ARTIK BURADA DEĞİL — #monthlyAllocationDecision'a taşındı (bkz. renderMonthlyAllocationDecision),
+    // kartın görünür yüzünde kendi vurgulu mini-kartında. Bu blok "Detayları gör" altında yalnızca
+    // Hedef/Korunan nakit/Kalan ihtiyaç kırılımını göstermeye devam ediyor — hesap TEK SATIR değişmedi.
     emergencyOverrideHtml = `
       <div class="hero-row"><span>${en ? 'Target' : 'Hedef'}</span><b>${CUR}${fmt(emergencyTarget3)}</b></div>
       <div class="hero-row"><span>${en ? 'Protected cash' : 'Korunan nakit'}</span><b>${CUR}${fmt(protectedCash)}</b></div>
       <div class="hero-row"><span>${en ? 'Remaining need' : 'Kalan ihtiyaç'}</span><b>${CUR}${fmt(before)}</b></div>
-      <label class="field-label" for="emergencyAllocOverrideInput" style="margin-top:10px;display:block;">${en ? 'I\'ll set aside this month' : 'Bu ay ayıracağım'}</label>
-      <input type="text" id="emergencyAllocOverrideInput" class="money-input" inputmode="decimal" value="${Math.round(top.amount)}">
-      <p class="goal-line" style="color:var(--muted);">${en ? 'You can adjust this based on this month\'s cash situation.' : 'Bu ayki nakit durumuna göre tutarı değiştirebilirsin.'}</p>
-      ${calculatedAmountHtml}
-      ${resetHtml}
     `;
   } else if (top.type === 'debt_reduction') {
     const debt = ((snapshot||{}).debts || []).find(d => d.id === top.relatedDebtId);
@@ -13254,11 +13315,58 @@ function renderPlanPriorityGap(top, de2, snapshot){
     const target = document.getElementById(toggle.dataset.planWhatifToggle);
     if (target) target.style.display = target.style.display === 'none' ? 'block' : 'none';
   });
-  // EMERGENCY-OVERRIDE olay bağlama: input'tan çıkınca (blur) veya Enter'a basınca yazılır — her
-  // tuş vuruşunda render() tetiklemek input'u kapatır/odağı kaybettirirdi. Reset linki override'ı
-  // temizler (madde 11).
+  // NOT: emergencyAllocOverrideInput / data-emergency-override-reset olay bağlama artık burada
+  // değil — bkz. renderMonthlyAllocationDecision() (#monthlyAllocationDecision içindeki yeni konum).
+}
+
+/* "Bu ay ayıracağım" (acil fon tahsis kararı) — 2026-09 UI GÜNCELLEMESİ.
+   Home'daki "Bu Ayki Planım" kartının GÖRÜNÜR YÜZÜNDE durur (#planDetailWrap'İN DIŞINDA — artık
+   "Detayları gör" ile açılan collapsed bölgenin içinde değil), kendi vurgulu mini-kartında
+   (.money-decision-card, bkz. CSS). Bu bir karar/eylem alanı olduğu için detaya gömülü kalmamalı.
+   YALNIZCA top.type==='emergency_fund_contribution' olduğunda dolduruluyor — davranış (NE ZAMAN
+   göründüğü) AYNI, yalnızca NEREDE/NASIL göründüğü değişti. setEmergencyAllocationOverride() /
+   runGoalCashAllocationEngine() / Protected Liquidity / Distributable Cash TEK SATIR değişmedi —
+   bu fonksiyon salt görüntüleme + eski input'un birebir taşınmış olay bağlamasıdır.
+   Ekrandaki değer her zaman fmt() ile Türkçe binlik ayraçlı basılır (örn. "60.000"); kullanıcı
+   yazarken canlı binlik noktalama attachThousandsInput() ile sağlanır (aşağıda çağrılıyor —
+   .money-input sınıfının global mekanizması, dinamik eklenen her inputta olduğu gibi). */
+function renderMonthlyAllocationDecision(top, de2, snapshot){
+  const el = document.getElementById('monthlyAllocationDecision');
+  if (!el) return;
+  if (!top || top.type !== 'emergency_fund_contribution') { el.innerHTML = ''; return; }
+  const en = currentLang === 'en';
+  const calculatedAmount = Number(top.calculatedAmount) || 0;
+  const resetHtml = top.isOverridden
+    ? `<p class="money-decision-reset" data-emergency-override-reset="1">${en ? 'Reset to calculated amount' : 'Hesaplanan tutara dön'}</p>`
+    : '';
+  // "Hesaplanan tutar" satırı yalnızca kullanıcı gerçekten override girmişken gösteriliyor (bkz.
+  // FAZ3.6-4 regresyon testi mantığı — gereksiz tekrardan kaçınma); bilinçli olarak inputtan görsel
+  // olarak AYRIŞTIRILDI (.money-decision-calculated) — kullanıcının kendi girdiğiyle hesaplanan
+  // varsayılan karışmasın.
+  const calculatedAmountHtml = top.isOverridden
+    ? `<p class="money-decision-calculated">${en ? `Calculated amount: ${CUR}${fmt(calculatedAmount)}` : `Hesaplanan tutar: ${CUR}${fmt(calculatedAmount)}`}</p>`
+    : '';
+  el.innerHTML = `
+    <div class="money-decision-card">
+      <p class="money-decision-eyebrow">${en ? "I'll set aside this month" : 'Bu ay ayıracağım'}</p>
+      <p class="money-decision-sub">${en ? 'Set the amount you want to put toward your emergency fund this month.' : 'Bu ay acil fon için ayırmak istediğin tutarı belirle.'}</p>
+      <div class="amount-lead">
+        <span class="amount-lead-cur">${CUR}</span>
+        <input type="text" id="emergencyAllocOverrideInput" class="money-input amount-lead-input" inputmode="decimal" value="${fmt(top.amount)}" aria-label="${en ? "This month's emergency fund amount" : 'Bu ayki acil fon tutarı'}">
+      </div>
+      <p class="money-decision-note">${en ? 'You can adjust this based on this month\'s cash situation.' : 'Bu ayki nakit durumuna göre tutarı değiştirebilirsin.'}</p>
+      ${calculatedAmountHtml}
+      ${resetHtml}
+    </div>
+  `;
+  // EMERGENCY-OVERRIDE olay bağlama — eski renderPlanPriorityGap()'teki davranışın BİREBİR AYNISI,
+  // sadece yeni konteynerde: input'tan çıkınca (blur) veya Enter'a basınca yazılır (her tuş
+  // vuruşunda render() tetiklemek input'u kapatır/odağı kaybettirirdi). Reset linki override'ı
+  // temizler. attachThousandsInput() dinamik eklenen HER .money-input için gerekli (bkz. diğer
+  // çağrı yerleri) — bu, kullanıcı yazarken canlı binlik noktalamayı sağlayan asıl düzeltmedir.
   const overrideInput = el.querySelector('#emergencyAllocOverrideInput');
   if (overrideInput) {
+    attachThousandsInput(overrideInput);
     const commit = () => setEmergencyAllocationOverride(overrideInput.value);
     overrideInput.addEventListener('blur', commit);
     overrideInput.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); overrideInput.blur(); } });
