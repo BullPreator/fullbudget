@@ -5346,9 +5346,13 @@ const RISK_PROFILES = {
   atak:     {label:'Atak',     nakit:5,  mevduat:15, altin:20, bist:35, abd:25},
 };
 
-const now = new Date();
-const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-const MONTH_KEY = `budget:${monthKey}`;
+// P0-1 (month transition fix): now/monthKey/MONTH_KEY artık `let` — uygulama açık kalıp
+// gerçek takvim ayı değişirse checkMonthRollover() (bkz. runMonthlyAutomation() altı) bu
+// üçünü günceller. Normal akışta (sayfa her zamanki gibi ay içinde yükleniyorsa) davranış
+// AYNEN eskisi gibi: bir kez hesaplanır, sabit kalır.
+let now = new Date();
+let monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+let MONTH_KEY = `budget:${monthKey}`;
 const PERSIST_KEY = `budget:persistent`;
 const HISTORY_KEY = `budget:history`;
 
@@ -5435,9 +5439,10 @@ const FullBudgetDataService = {
     try{ localStorage.removeItem(key); return true; }catch(e){ return false; }
   },
 };
-const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-const dayOfMonth = now.getDate();
-const daysLeft = daysInMonth - dayOfMonth + 1;
+// P0-1: bu üçü de `now`'a bağlı, checkMonthRollover() ay değiştiğinde bunları da tazeler.
+let daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+let dayOfMonth = now.getDate();
+let daysLeft = daysInMonth - dayOfMonth + 1;
 const monthNames = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 const monthNamesEn = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 /* Piyasa verisinin tarihi de dile uymalı; İngilizce cümlelerde "as of Ağustos 2026" çıkıyordu. */
@@ -6567,6 +6572,80 @@ function runMonthlyAutomation(){
   } else {
     persistPersistent(); // lastAutoMonth güncellemesini kaydet (kalem olmasa bile tekrar tetiklenmesin)
   }
+}
+
+/* P0-1 (audit fix — stale monthKey / month transition):
+   now/monthKey daha önce SADECE sayfa yüklenirken bir kez hesaplanıyordu (bkz. ~5349).
+   Uygulama açık bırakılıp gerçek takvim ayı değişirse (özellikle PWA olarak günlerce
+   kapatılmadan), monthKey hiç güncellenmiyor ve yeni girilen işlemler YANLIŞ (eski) aya
+   yazılmaya devam ediyordu.
+
+   Bu fonksiyon YENİ bir ay-geçişi mimarisi KURMUYOR — loadState()'in "2) Bu ayın akış
+   verisini yükle" adımıyla AYNI yükleme/normalizasyon mantığını (bilerek küçük bir
+   kod tekrarıyla, loadState()'in kendisine dokunmadan) ve runMonthlyAutomation()'ın
+   KENDİSİNİ (motor matematiğine dokunmadan) yeniden kullanıyor. Tek eklenen şey:
+   BU çağrının NE ZAMAN tetikleneceği (bkz. çağrı noktaları: visibilitychange→visible,
+   gelir/gider "ekle" butonları).
+
+   İdempotent: gerçek takvim ayı değişmediyse (en yaygın durum) tek satırlık bir
+   karşılaştırmadan sonra hemen çıkar. Ay gerçekten değiştiyse bile runMonthlyAutomation()
+   kendi lastAutoMonth kilidini KORUYOR, yani bu fonksiyon yanlışlıkla art arda birden
+   fazla kez çağrılsa bile (ör. hem visibilitychange hem "ekle" butonu neredeyse aynı anda
+   tetiklerse) düzenli gelir/gider şablonları yalnızca BİR KEZ eklenir. */
+/* P0-1 düzeltmesi (regresyon): checkMonthRollover() `async function` olduğu için,
+   ay değişmemiş olsa BİLE `await checkMonthRollover()` çağıran kod bir mikro-görev
+   (microtask) turu kadar ertelenir — JS'te bir async fonksiyonu `await`lemek, o fonksiyon
+   hiçbir zaman kendi içinde `await` kullanmasa/senkron dönse bile çağıranı en az bir
+   mikro-görev turu kadar askıya alır. Gelir/gider "ekle" butonları eskiden TAMAMEN senkrondu;
+   bu yüzden gerçek ay değişmemişken bile o buton handler'larına eklenen `await
+   checkMonthRollover()` çağrısı, handler'ın geri kalanının (month.incomes.push(...) vb.)
+   ÇALIŞMASINI bir tık geciktirdi — senkron test/otomasyon senaryolarında (butona basıp
+   HEMEN ardından state'i okuyanlar) "hiç kayıt eklenmemiş gibi" görünen bir regresyona yol
+   açtı (bkz. FAZ3.16-6 testi). Çözüm: en yaygın durumda (ay değişmedi) hiç `await`
+   kullanmadan çıkabilmek için ucuz senkron ön-kontrol — çağıran taraf yalnızca gerçekten
+   ay değiştiyse `await checkMonthRollover()` yapar. */
+function needsMonthRollover(){
+  const realNow = new Date();
+  const realMonthKey = `${realNow.getFullYear()}-${String(realNow.getMonth()+1).padStart(2,'0')}`;
+  return realMonthKey !== monthKey;
+}
+
+async function checkMonthRollover(){
+  const realNow = new Date();
+  const realMonthKey = `${realNow.getFullYear()}-${String(realNow.getMonth()+1).padStart(2,'0')}`;
+  if(realMonthKey === monthKey) return false; // ay değişmedi — yapılacak bir şey yok
+
+  // Eski ayın bekleyen (debounce'lu) yazması varsa, ay anahtarı değişmeden ÖNCE eski
+  // anahtarla diske yazılmasını garanti et — mevcut ay verisi kaybolmasın/bozulmasın.
+  flushPendingPersistence();
+
+  now = realNow;
+  monthKey = realMonthKey;
+  MONTH_KEY = `budget:${monthKey}`;
+  daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  dayOfMonth = now.getDate();
+  daysLeft = daysInMonth - dayOfMonth + 1;
+
+  // loadState()'in "2) Bu ayın akış verisini yükle" adımıyla BİREBİR aynı mantık
+  // (kasıtlı küçük kod tekrarı — loadState()'e dokunulmadı, bkz. yukarıdaki not).
+  month = { incomes: [], expenses: [], goal: {type:'save', amount:0} };
+  try{
+    const m = await FullBudgetDataService.loadMonth(monthKey);
+    if(m){
+      month.incomes = m.incomes || [];
+      month.expenses = m.expenses || [];
+      month.goal = m.goal || {type:'save', amount:0};
+      month.emergencyAllocationOverride = (m.emergencyAllocationOverride != null) ? m.emergencyAllocationOverride : null;
+      if(m.income && (!month.incomes || month.incomes.length===0)){
+        month.incomes = [{id:uid(), category:'Diğer', amount:m.income, note:'', recurring:false, accountId:''}];
+      }
+    }
+  }catch(e){ /* yok say */ }
+  month = normalizeMonthFinancialFields(month);
+
+  runMonthlyAutomation(); // kendi lastAutoMonth kilidiyle idempotent — motor matematiğine dokunulmadı
+  render();
+  return true;
 }
 
 function scheduleHistorySave(entry){
@@ -15865,9 +15944,14 @@ document.getElementById('refreshRatesBtn')?.addEventListener('click', async (e)=
   showToast(currentLang==='en' ? 'Rates updated' : 'Kurlar güncellendi');
 });
 
-/* Uygulama arka plandan öne geldiğinde de yaklaşan ödemeleri kontrol et (bildirim etkinse) */
+/* Uygulama arka plandan öne geldiğinde de yaklaşan ödemeleri kontrol et (bildirim etkinse).
+   P0-1: aynı anda gerçek takvim ayının değişip değişmediğini de kontrol et (bkz.
+   checkMonthRollover() — runMonthlyAutomation() tanımının hemen altında). */
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible') checkAndNotifyDuePayments();
+  if(document.visibilityState==='visible'){
+    checkAndNotifyDuePayments();
+    checkMonthRollover();
+  }
 });
 
 /* =========================================================
@@ -15895,7 +15979,12 @@ function exitIncomeEdit(){
 }
 document.getElementById('cancelIncomeEditBtn').addEventListener('click', exitIncomeEdit);
 
-document.getElementById('addIncomeBtn').addEventListener('click', ()=>{
+document.getElementById('addIncomeBtn').addEventListener('click', async ()=>{
+  // P0-1: yazmadan ÖNCE gerçek takvim ayının değişip değişmediğini kontrol et — aksi halde
+  // gece yarısını geçmiş bir oturumda bu gelir YANLIŞ (eski) aya yazılabilirdi.
+  // (regresyon düzeltmesi: yalnızca ay GERÇEKTEN değiştiyse `await` et — bkz.
+  // needsMonthRollover()'ın hemen üstündeki not; normal akışta hiç `await` YOK.)
+  if(needsMonthRollover()) await checkMonthRollover();
   const amountInput = document.getElementById('incomeAmountInput');
   const noteInput = document.getElementById('incomeNoteInput');
   const accountId = document.getElementById('incomeAccountSelect').value;
@@ -15988,7 +16077,12 @@ document.getElementById('expenseAccountSelect').addEventListener('change', syncI
 document.getElementById('expenseInstallmentSelect').addEventListener('change', syncInstallmentRow);
 document.getElementById('amountInput').addEventListener('input', syncInstallmentRow);
 
-document.getElementById('addBtn').addEventListener('click', ()=>{
+document.getElementById('addBtn').addEventListener('click', async ()=>{
+  // P0-1: yazmadan ÖNCE gerçek takvim ayının değişip değişmediğini kontrol et — aksi halde
+  // gece yarısını geçmiş bir oturumda bu gider YANLIŞ (eski) aya yazılabilirdi.
+  // (regresyon düzeltmesi: yalnızca ay GERÇEKTEN değiştiyse `await` et — bkz.
+  // needsMonthRollover()'ın hemen üstündeki not; normal akışta hiç `await` YOK.)
+  if(needsMonthRollover()) await checkMonthRollover();
   const amountInput = document.getElementById('amountInput');
   const noteInput = document.getElementById('noteInput');
   const {accountId, cardId} = parsePaymentMethodValue(document.getElementById('expenseAccountSelect').value);
