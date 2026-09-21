@@ -11018,6 +11018,30 @@ function hedefeParaYokNedeni(g){
   return '';
 }
 
+/* P0-2 (audit düzeltmesi — Goal "currentSaved" / canonical finansal durum tutarsızlığı):
+   sıradan hedeflerde (ev/araba/bilgisayar/telefon/tatil/motor/egitim/dugun/yatirim/diger)
+   computeGoalInfo() `alreadySaved`'i g.currentSaved'den okuyor (yukarıda: "let neededTotal = 0,
+   alreadySaved = g.currentSaved||0"). Bu alan eskiden yalnızca hedef OLUŞTURULURKEN bir kez
+   girilebiliyordu — uygulamada bunu SONRADAN düzenleyecek hiçbir akış yoktu (yalnızca "sil").
+   YENİ bir hedef motoru/otomatik senkron EKLENMEDİ — yalnızca var olan bu TEK alana küçük bir
+   düzenleme arayüzü eklendi (bkz. renderGoalList() içindeki "goal-saved-edit-btn" ve aşağıdaki
+   editGoalCurrentSaved()). acilfon/borcsuz/networth/fire/gelirartir türleri BURAYA dahil değil —
+   onlarda alreadySaved zaten canlı/kaynağından (totalLiquidAssets/netWorth/totalDebtTL/
+   totalIncome) okunuyor; bu YA DOĞRU desen, dokunulmadı, ve o türlerde düzenle düğmesi hiç
+   gösterilmiyor (elle üzerine yazılabilir olmamalı). */
+function isGoalCurrentSavedEditable(type){
+  return !['saving','debtfree','networth','fire','income_target'].includes(type.kind);
+}
+let editingGoalSavedId = null;
+function editGoalCurrentSaved(goalId, newValue){
+  if(newValue==null || isNaN(newValue) || newValue<0){ showToast(t('msg-gecerli-tutar')); return; }
+  const g = (persistent.goals||[]).find(x=>x.id===goalId);
+  if(!g) return;
+  g.currentSaved = newValue;
+  editingGoalSavedId = null;
+  persist(); render();
+}
+
 function computeGoalInfo(g){
   const type = GOAL_TYPES.find(t=>t.key===g.typeKey) || GOAL_TYPES[0];
   const toplamNakitAkisi = _cashFlowCache;
@@ -12147,7 +12171,13 @@ function renderGoalList(){
       <div class="goal-progress">
         <div class="goal-progress-top"><span>${en ? 'Progress' : 'İlerleme'}</span><b>${yzd(pct.toFixed(pct<10?1:0))}</b></div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${pct>=100?'var(--success)':type.color}"></div></div>
-        <div class="goal-progress-sub">${CUR}${fmt(info.alreadySaved)} / ${CUR}${fmt(info.neededTotal)}</div>
+        ${editingGoalSavedId===g.id
+          ? `<div class="goal-progress-sub goal-saved-editing">
+              <input type="text" inputmode="decimal" class="goal-saved-input" id="goalSavedInput-${g.id}" value="${fmt(g.currentSaved||0)}">
+              <button class="goal-saved-save-btn" data-id="${g.id}" type="button">${en?'Save':'Kaydet'}</button>
+              <button class="goal-saved-cancel-btn" data-id="${g.id}" type="button">${en?'Cancel':'Vazgeç'}</button>
+             </div>`
+          : `<div class="goal-progress-sub">${CUR}${fmt(info.alreadySaved)} / ${CUR}${fmt(info.neededTotal)}${isGoalCurrentSavedEditable(type)?`<button class="goal-saved-edit-btn" data-id="${g.id}" type="button" aria-label="${en?'Edit saved amount':'Biriktirileni düzenle'}">✎</button>`:''}</div>`}
       </div>
       <div class="goal-ledger">
         ${row(en ? 'Remaining' : 'Eksik kalan', `${CUR}${fmt(info.gap)}`, 'accent')}
@@ -12166,6 +12196,20 @@ function renderGoalList(){
     persist(); render();
   }));
   box.querySelectorAll('.goal-afford-btn').forEach(b=>b.addEventListener('click',()=>openGoalAfford(b.dataset.id)));
+  // P0-2: "biriktirileni düzenle" — bkz. editGoalCurrentSaved() ve isGoalCurrentSavedEditable().
+  box.querySelectorAll('.goal-saved-edit-btn').forEach(b=>b.addEventListener('click', ()=>{ editingGoalSavedId = b.dataset.id; render(); }));
+  box.querySelectorAll('.goal-saved-cancel-btn').forEach(b=>b.addEventListener('click', ()=>{ editingGoalSavedId = null; render(); }));
+  box.querySelectorAll('.goal-saved-save-btn').forEach(b=>b.addEventListener('click', ()=>{
+    const inp = document.getElementById('goalSavedInput-'+b.dataset.id);
+    editGoalCurrentSaved(b.dataset.id, inp ? parseFormattedNumber(inp.value) : NaN);
+  }));
+  box.querySelectorAll('.goal-saved-input').forEach(inp=>{
+    inp.addEventListener('keydown', e=>{
+      const goalId = inp.id.replace('goalSavedInput-','');
+      if(e.key==='Enter'){ e.preventDefault(); editGoalCurrentSaved(goalId, parseFormattedNumber(inp.value)); }
+      else if(e.key==='Escape'){ editingGoalSavedId = null; render(); }
+    });
+  });
 }
 
 // 'yatirim' (biriktirilen bir hedef değil, para YATIRMA hedefi) dışındaki satın-alınabilir
