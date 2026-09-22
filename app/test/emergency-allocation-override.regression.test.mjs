@@ -279,9 +279,293 @@ test('EK: Acil Fon override UI\'ı Hedef/Korunan nakit/Kalan ihtiyaç gösterir 
     return { wrapText, inputValue: input ? input.value : null, hasInput: !!input };
   });
   assert.equal(r.hasInput, true, 'emergencyAllocOverrideInput DOM\'da bulunmalı');
-  assert.equal(Math.round(Number(r.inputValue)), 60000, `Input varsayılan olarak hesaplanan tutarla dolu gelmeli, gerçek: ${r.inputValue}`);
+  // 2026-09 UI GÜNCELLEMESİ: input artık ekranda Türkçe binlik ayraçla ("60.000") geliyor
+  // (bkz. renderMonthlyAllocationDecision) — ayraç noktalarını kaldırıp sayıya çeviriyoruz.
+  const numericInputValue = Number(String(r.inputValue).replace(/\./g, ''));
+  assert.equal(Math.round(numericInputValue), 60000, `Input varsayılan olarak hesaplanan tutarla (binlik ayraçlı) dolu gelmeli, gerçek: ${r.inputValue}`);
+  assert.ok(/\./.test(r.inputValue), `Input varsayılan değeri Türkçe binlik ayraçla gösterilmeli (nokta içermeli), gerçek: ${r.inputValue}`);
   assert.ok(/Hedef/.test(r.wrapText) && /Korunan nakit/.test(r.wrapText) && /Kalan ihtiyaç/.test(r.wrapText), `Beklenen satırlar eksik: ${r.wrapText}`);
   assert.ok(!/zorunlu|yeterli|doğru karar|harcamalısın/i.test(r.wrapText), `Metin zorlayıcı/yönlendirici dil içermemeli: ${r.wrapText}`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+// -----------------------------------------------------------------------
+// 2026-09 UI GÜNCELLEMESİ: "Bu ay ayıracağım" artık kendi vurgulu mini-kartında
+// (#monthlyAllocationDecision), "Detayları gör" ile açılan #planDetailWrap'İN DIŞINDA/görünür
+// yüzde duruyor; ayrıca yazarken canlı Türkçe binlik noktalama ve normalize edilmiş commit.
+// -----------------------------------------------------------------------
+test('EK-UI-1: Bu ay ayıracağım kartı #planDetailWrap dışında, kartın görünür yüzünde durur', async () => {
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render(); // "Detayları gör" AÇILMADAN, yani #planDetailWrap hidden iken
+    const decisionEl = document.getElementById('monthlyAllocationDecision');
+    const wrapEl = document.getElementById('planDetailWrap');
+    const input = document.getElementById('emergencyAllocOverrideInput');
+    return {
+      hasDecisionEl: !!decisionEl,
+      decisionHasCard: !!(decisionEl && decisionEl.querySelector('.money-decision-card')),
+      wrapIsHidden: !!(wrapEl && wrapEl.hasAttribute('hidden')),
+      inputInsideDecisionEl: !!(decisionEl && input && decisionEl.contains(input)),
+      inputInsideWrap: !!(wrapEl && input && wrapEl.contains(input)),
+    };
+  });
+  assert.equal(r.hasDecisionEl, true, '#monthlyAllocationDecision DOM\'da bulunmalı');
+  assert.equal(r.decisionHasCard, true, '#monthlyAllocationDecision içinde .money-decision-card render edilmeli');
+  assert.equal(r.wrapIsHidden, true, '#planDetailWrap "Detayları gör" tıklanmadan hidden kalmalı (davranış değişmedi)');
+  assert.equal(r.inputInsideDecisionEl, true, 'emergencyAllocOverrideInput artık #monthlyAllocationDecision içinde olmalı');
+  assert.equal(r.inputInsideWrap, false, 'emergencyAllocOverrideInput artık gizli #planDetailWrap içinde OLMAMALI (asıl kaldırılan sorun)');
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('EK-UI-2: Bu ay ayıracağım input\'u yazarken Türkçe binlik ayraçla canlı formatlanır', async () => {
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render();
+    const input = document.getElementById('emergencyAllocOverrideInput');
+    input.focus();
+    input.value = '';
+    // Kullanıcı "120000" yazıyor gibi simüle ediyoruz (input event'i attachThousandsInput'u tetikler).
+    input.value = '120000';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const afterTyping = input.value;
+    input.value = '1500000';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const afterTyping2 = input.value;
+    return { afterTyping, afterTyping2 };
+  });
+  assert.equal(r.afterTyping, '120.000', `120000 yazınca "120.000" görünmeli, gerçek: ${r.afterTyping}`);
+  assert.equal(r.afterTyping2, '1.500.000', `1500000 yazınca "1.500.000" görünmeli, gerçek: ${r.afterTyping2}`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('EK-UI-3: Binlik ayraçlı görüntü değeri commit edildiğinde doğru numeric tutar olarak kaydedilir (1000 kat hata YOK)', async () => {
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render();
+    const input = document.getElementById('emergencyAllocOverrideInput');
+    // Not: distributableCash bu senaryoda 68000, bu yüzden distributableCash'i AŞMAYAN bir
+    // (ve hesaplanan varsayılan 60000'den farklı) bir tutar seçiyoruz — amaç engine'in kendi
+    // "min(remaining, override)" sınırlamasını değil, yalnızca ekran->numeric ayrıştırmasını
+    // (1000 kat hata olup olmadığını) doğrulamak (EMERGENCY-OVERRIDE-03 zaten üst sınır capping'ini
+    // ayrıca test ediyor).
+    input.value = '45.000'; // kullanıcı yazdıktan sonra ekranda duran binlik ayraçlı hâl
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    return {
+      monthField: month.emergencyAllocationOverride,
+      emergencyAmount: runMonthlyGoalCashAllocationLive().allocations.find(a => a.type === 'emergency_fund_contribution').amount,
+    };
+  });
+  assert.equal(Math.round(r.monthField), 45000, `Binlik ayraçlı "45.000" commit edilince 45000 olarak kaydedilmeli (45 DEĞİL), gerçek: ${r.monthField}`);
+  assert.equal(Math.round(r.emergencyAmount), 45000, `Motorun kullandığı tutar da 45000 olmalı, gerçek: ${r.emergencyAmount}`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('EK-UI-4: Reset linki tıklanınca override kalkar ve hesaplanan tutar satırı kaybolur', async () => {
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render();
+    setEmergencyAllocationOverride('20000');
+    const beforeReset = {
+      overridden: month.emergencyAllocationOverride,
+      hasResetLink: !!document.querySelector('#monthlyAllocationDecision [data-emergency-override-reset]'),
+      hasCalculatedLine: /Hesaplanan tutar/.test(document.getElementById('monthlyAllocationDecision').innerText),
+    };
+    document.querySelector('#monthlyAllocationDecision [data-emergency-override-reset]').click();
+    const afterReset = {
+      overridden: month.emergencyAllocationOverride,
+      hasResetLink: !!document.querySelector('#monthlyAllocationDecision [data-emergency-override-reset]'),
+    };
+    return { beforeReset, afterReset };
+  });
+  assert.equal(Math.round(r.beforeReset.overridden), 20000);
+  assert.equal(r.beforeReset.hasResetLink, true, 'Override varken reset linki #monthlyAllocationDecision içinde görünmeli');
+  assert.equal(r.beforeReset.hasCalculatedLine, true, 'Override varken "Hesaplanan tutar" satırı görünmeli');
+  assert.equal(r.afterReset.overridden, null, 'Reset sonrası override kalkmalı');
+  assert.equal(r.afterReset.hasResetLink, false, 'Reset sonrası reset linki kaybolmalı');
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+// -----------------------------------------------------------------------
+// 2026-09 EK DOĞRULAMA TURU: yapıştırma, ortadan düzenleme, geçersiz/negatif değer (gerçek DOM
+// input akışı üzerinden — doğrudan fonksiyon çağrısı değil), ekran<->numeric ayrımının açık
+// kanıtı, ve kullanıcının girdiği tutarın GERÇEKTEN motora (Goal & Cash Allocation Engine) girdi
+// olarak gittiğinin (motor MANTIĞININ değil, motorun aldığı SAYISAL DEĞERİN değiştiğinin) kanıtı.
+// -----------------------------------------------------------------------
+test('EK-UI-5: 50000/120000/1500000 canlı yazımda doğru Türkçe binlik formata dönüşür', async () => {
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render();
+    const input = document.getElementById('emergencyAllocOverrideInput');
+    function typeDigits(digits) {
+      input.focus();
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      for (const ch of digits) {
+        input.value += ch;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      return input.value;
+    }
+    return {
+      v50000: typeDigits('50000'),
+      v120000: typeDigits('120000'),
+      v1500000: typeDigits('1500000'),
+    };
+  });
+  assert.equal(r.v50000, '50.000', `50000 yazınca "50.000" olmalı, gerçek: ${r.v50000}`);
+  assert.equal(r.v120000, '120.000', `120000 yazınca "120.000" olmalı, gerçek: ${r.v120000}`);
+  assert.equal(r.v1500000, '1.500.000', `1500000 yazınca "1.500.000" olmalı, gerçek: ${r.v1500000}`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('EK-UI-6: yapıştırılan binlik ayraçlı/karışık bir değer doğru normalize edilir (paste)', async () => {
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render();
+    const input = document.getElementById('emergencyAllocOverrideInput');
+    input.focus();
+    input.value = '';
+    // Kullanıcının panosundan "75.500" yapıştırdığını simüle ediyoruz (paste sonrası tarayıcı
+    // input.value'yu zaten günceller, ardından 'input' event'i tetiklenir — attachThousandsInput
+    // bunu diğer tüm .money-input alanlarıyla aynı şekilde ele alır, paste için özel kod yoktur).
+    const dt = new DataTransfer();
+    dt.setData('text/plain', '75.500');
+    const pasteEvent = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+    input.dispatchEvent(pasteEvent);
+    input.value = '75.500';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const displayed = input.value;
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    return { displayed, monthField: month.emergencyAllocationOverride };
+  });
+  assert.equal(r.displayed, '75.500', `Yapıştırılan "75.500" ekranda binlik ayraçlı kalmalı, gerçek: ${r.displayed}`);
+  assert.equal(Math.round(r.monthField), 75500, `Yapıştırılan değer commit edilince 75500 olarak kaydedilmeli (755 veya 75500000 DEĞİL), gerçek: ${r.monthField}`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('EK-UI-7: sayının ortasına ekleme/düzenleme yapılırken cursor konumu ve değer doğru kalır', async () => {
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render();
+    const input = document.getElementById('emergencyAllocOverrideInput');
+    input.focus();
+    input.value = '50.000';
+    input.dispatchEvent(new Event('input', { bubbles: true })); // reformat: "50.000" (değişmez)
+    // "50" ile "000" arasına (nokta öncesi, index 2) "9" ekle -> rakamlar: 50 + 9 + 000 = 509000
+    const pos = 2;
+    input.setSelectionRange(pos, pos);
+    input.setRangeText('9', pos, pos, 'end');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return { value: input.value, cursorPos: input.selectionStart };
+  });
+  assert.equal(r.value, '509.000', `Ortaya "9" eklenince "509.000" olmalı, gerçek: ${r.value}`);
+  // Cursor, eklenen rakamdan hemen sonra kalmalı (3. rakamdan sonra = "509" dan sonra, nokta öncesi index 3).
+  assert.equal(r.cursorPos, 3, `Cursor eklenen rakamdan hemen sonra kalmalı, gerçek pos: ${r.cursorPos}`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('EK-UI-8: geçersiz/negatif/anlamsız input DOM üzerinden girilirse mevcut (DEĞİŞTİRİLMEYEN) finansal davranış aynen korunur', async () => {
+  // NOT: setEmergencyAllocationOverride()'ın "abc" gibi rakamsız girdilerde 0'a düşme davranışı
+  // (isFinite(Number(''))===false DEĞİL, Number('')===0 olduğu için) bu UI değişikliğinden ÖNCE de
+  // vardı — eski regex'te de `.replace(/[^\d.,-]/g,'')` "abc" için '' üretiyor, Number('')=0 oluyordu.
+  // Doğrulama: git show HEAD:app/index.html'deki ESKİ fonksiyon da AYNI girdide AYNI sonucu (0) veriyor.
+  // Bu test, "mevcut finansal davranış korunsun" gereksinimini bu GERÇEK (0'a düşme) davranışa göre
+  // doğruluyor — davranışı DEĞİŞTİRMEDEN, yalnızca binlik ayraçlı ("−5.000" gibi) girdilerin de aynı
+  // şekilde ele alındığını kanıtlıyor.
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render();
+    const input = document.getElementById('emergencyAllocOverrideInput');
+    function commit(rawText) {
+      input.value = rawText;
+      input.dispatchEvent(new Event('blur', { bubbles: true }));
+      return { monthField: month.emergencyAllocationOverride, calcAmount: Math.round(runMonthlyGoalCashAllocationLive().allocations.find(a => a.type === 'emergency_fund_contribution').amount) };
+    }
+    const negative = commit('-5.000'); // negatif -> reddedilir (n>=0 kontrolü), null'a düşer
+    const garbage = commit('abc'); // rakamsız -> Number('')=0 (mevcut/değişmeyen davranış)
+    const empty = commit(''); // boş -> override KALDIRILIR (null), madde 11'in "varsayılana dön" davranışı
+    return { negative, garbage, empty };
+  });
+  assert.equal(r.negative.monthField, null, `Negatif "-5.000" override olarak KAYDEDİLMEMELİ (n>=0 kontrolü), gerçek: ${r.negative.monthField}`);
+  assert.equal(r.negative.calcAmount, 60000, `Negatif değer reddedilince hesaplanan varsayılana (60000) dönmeli, gerçek: ${r.negative.calcAmount}`);
+  assert.equal(r.garbage.monthField, 0, `Rakamsız "abc" girdisinde ESKİ davranış AYNEN korunmalı (Number('')=0), gerçek: ${r.garbage.monthField}`);
+  assert.equal(r.empty.monthField, null, `Boş değer override\'ı KALDIRMALI (null), gerçek: ${r.empty.monthField}`);
+  assert.equal(r.empty.calcAmount, 60000, `Boş değerde hesaplanan varsayılana (60000) dönmeli, gerçek: ${r.empty.calcAmount}`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('EK-UI-9: ekrandaki formatlı değer (display) ile motorun kullandığı numeric değer birbirinden GERÇEKTEN ayrışmış', async () => {
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render();
+    const input = document.getElementById('emergencyAllocOverrideInput');
+    input.value = '30.000';
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    return {
+      // Ekranda hâlâ NOKTALI (formatlı) string duruyor mu?
+      displayedIsFormattedString: input.value,
+      // month.emergencyAllocationOverride SAF SAYI mı (nokta/virgül İÇERMEYEN bir number tipi)?
+      numericTypeofIsNumber: typeof month.emergencyAllocationOverride,
+      numericValue: month.emergencyAllocationOverride,
+    };
+  });
+  assert.equal(r.displayedIsFormattedString, '30.000', 'Ekranda binlik ayraçlı string kalmalı');
+  assert.equal(r.numericTypeofIsNumber, 'number', 'Motorun kullandığı depolanan değer saf JS number tipinde olmalı');
+  assert.equal(r.numericValue, 30000, `Depolanan numeric değer 30000 olmalı (30 DEĞİL, "30.000" string'i DEĞİL), gerçek: ${r.numericValue}`);
+  await page.close();
+  assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
+});
+
+test('EK-UI-10: kullanıcı tutarı değiştirince Goal & Cash Allocation Engine\'in aldığı numeric değer değişir, motor MANTIĞI (waterfall yapısı) değişmez', async () => {
+  const { page, pageErrors } = await newSession();
+  const r = await page.evaluate(() => {
+    render();
+    const input = document.getElementById('emergencyAllocOverrideInput');
+
+    // 1) Override YOKKEN motorun ürettiği sonuç (baseline).
+    const before = runMonthlyGoalCashAllocationLive();
+    const beforeEmergency = before.allocations.find(a => a.type === 'emergency_fund_contribution');
+    const beforeFlex = before.allocations.find(a => a.type === 'long_term_or_flexible');
+
+    // 2) Kullanıcı UI üzerinden "25.000" girip commit ediyor (input -> blur, gerçek akış).
+    input.value = '25.000';
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    const after = runMonthlyGoalCashAllocationLive();
+    const afterEmergency = after.allocations.find(a => a.type === 'emergency_fund_contribution');
+    const afterFlex = after.allocations.find(a => a.type === 'long_term_or_flexible');
+
+    return {
+      distributableCashBefore: before.distributableCash,
+      distributableCashAfter: after.distributableCash,
+      beforeEmergencyAmount: Math.round(beforeEmergency.amount),
+      afterEmergencyAmount: Math.round(afterEmergency.amount),
+      beforeFlexAmount: Math.round(beforeFlex ? beforeFlex.amount : 0),
+      afterFlexAmount: Math.round(afterFlex ? afterFlex.amount : 0),
+      afterCalculatedAmount: Math.round(afterEmergency.calculatedAmount),
+      afterIsOverridden: afterEmergency.isOverridden,
+    };
+  });
+  // Motorun YAPISI (distributableCash, waterfall'ın toplam pastası) DEĞİŞMEDİ.
+  assert.equal(r.distributableCashBefore, r.distributableCashAfter, 'distributableCash (motorun waterfall girdisi) değişmemeli — yalnızca dağıtım girdisi değişti');
+  // Ama motorun ADIM 2'ye verdiği GİRDİ (emergency tahsis miktarı) DEĞİŞTİ: 60000 (hesaplanan) -> 25000 (kullanıcı).
+  assert.equal(r.beforeEmergencyAmount, 60000, `Override öncesi hesaplanan varsayılan 60000 olmalı, gerçek: ${r.beforeEmergencyAmount}`);
+  assert.equal(r.afterEmergencyAmount, 25000, `Kullanıcı 25.000 girince motor 25000 kullanmalı, gerçek: ${r.afterEmergencyAmount}`);
+  assert.notEqual(r.beforeEmergencyAmount, r.afterEmergencyAmount, 'Kullanıcı tutarı değiştirince motorun aldığı numeric değer DEĞİŞMELİ');
+  // calculatedAmount (varsayılan) HÂLÂ 60000 olarak ayrıca raporlanmaya devam ediyor — motor "hesaplama" mantığı bozulmadı.
+  assert.equal(r.afterCalculatedAmount, 60000, 'Hesaplanan varsayılan (motorun kendi formülü) override sonrasında da değişmeden raporlanmalı');
+  assert.equal(r.afterIsOverridden, true, 'isOverridden bayrağı true olmalı');
+  // Farkın waterfall'ın geri kalanına (long_term_or_flexible) doğal olarak aktığı doğrulanıyor —
+  // yeni bir allocation sistemi İCAT EDİLMEDİĞİNİN kanıtı: 60000-25000=35000 fazlalık esnek kalana dönmeli.
+  assert.equal(r.afterFlexAmount - r.beforeFlexAmount, 35000, `Tahsis edilmeyen fark (35000) waterfall'ın esnek/kalan adımına akmalı, gerçek fark: ${r.afterFlexAmount - r.beforeFlexAmount}`);
   await page.close();
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });
