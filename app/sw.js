@@ -17,12 +17,18 @@
    bir artır (v1 -> v2 -> ...). Aksi halde bazı kullanıcılar çevrimdışı
    önbellekte eski bir sürümde takılı kalabilir.
    ========================================================= */
-const CACHE_VERSION = 'fullbudget-v12';
-// v12: uygulama ikonu (launcher icon) beyaz zemin + büyütülmüş FB logosuyla güncellendi.
-// icon-192/512 için ?v= sorgu parametresi eklendi — eski, önbelleğe alınmış ikon baytlarının
-// (hem bu SW cache'inin hem tarayıcı/manifest tarafının) yeni dosyayla karışmasını/asılı
-// kalmasını önlemek için (bkz. manifest.json'daki aynı ?v= etiketi).
-const PRECACHE_URLS = ['manifest.json', 'icon.svg', 'icon-192.png?v=20260920', 'icon-512.png?v=20260920'];
+const CACHE_VERSION = 'fullbudget-v13';
+// v13: "any" amaçlı ikonlar (icon-192/512) GERÇEKTEN opak beyaz zeminle yeniden
+// üretildi (v12'nin yorumu bunu iddia etmişti ama dosyalar hâlâ tamamen şeffaf
+// köşeliydi — Chrome/Android'in şeffaf "any" ikonları kendi otomatik adaptive-icon
+// sarmalayıcısına sokup ekstra küçültmesi, launcher'da logonun olması gerekenden
+// küçük görünmesinin asıl nedeniydi). Ayrıca hem "any" hem "maskable" ikonlarda
+// FullBudget logosu aynı oranlarla (stretch/crop yok) daha büyük render edildi.
+// icon-192/512 için ?v= sorgu parametresi bir üst sürüme çekildi — eski, önbelleğe
+// alınmış ikon baytlarının (hem bu SW cache'inin hem tarayıcı/manifest tarafının)
+// yeni dosyayla karışmasını/asılı kalmasını önlemek için (bkz. manifest.json'daki
+// aynı ?v= etiketi).
+const PRECACHE_URLS = ['manifest.json', 'icon.svg', 'icon-192.png?v=20260922', 'icon-512.png?v=20260922'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
