@@ -6627,42 +6627,72 @@ function needsMonthRollover(){
   return realMonthKey !== monthKey;
 }
 
+/* FAZ 3.14 IP-1 (race-condition hardening): checkMonthRollover()'ın SENKRON kısmı (monthKey'i
+   güncelleyip `month`'u geçici boş bir iskelete sıfırlaması) `await FullBudgetDataService.
+   loadMonth()`'tan ÖNCE tamamlanıyordu. Bu, tek bir çağrı içinde güvenliydi (aynı görev
+   kesintisiz çalışır) ama FARKLI bir olayın (örn. visibilitychange'in başlattığı rollover hâlâ
+   `loadMonth()`'u beklerken kullanıcının gelir/gider "ekle" butonuna basması) bu bekleme
+   penceresine girmesine engel değildi: o handler kendi `needsMonthRollover()` kontrolünde
+   `monthKey` ZATEN güncellendiği için `false` görüyor, checkMonthRollover()'ı hiç çağırmadan
+   doğrudan `month.incomes.push(...)`'a geçiyordu — ama `month` o an hâlâ boş iskeletti. Bekleyen
+   çağrı `await` sonrası `month.incomes = m.incomes || []` yaptığında bu push tamamen siliniyordu.
+   Düzeltme YENİ bir mimari KURMUYOR: `_monthRolloverInFlight` yalnızca aynı anda birden fazla
+   rollover'ın PAYLAŞILAN TEK bir Promise'e "katılmasını" sağlıyor — fonksiyonun kendi adım
+   sırası (flush → state güncelle → yükle → normalize → otomasyon → render) TEK SATIR
+   değişmeden aynen korunuyor, yalnızca bir IIFE'ye sarmalanıp bu değişkene atanıyor. */
+let _monthRolloverInFlight = null;
+
 async function checkMonthRollover(){
+  if(_monthRolloverInFlight) return await _monthRolloverInFlight; // zaten devam eden bir rollover var — yenisini başlatma, ona katıl
+
   const realNow = new Date();
   const realMonthKey = `${realNow.getFullYear()}-${String(realNow.getMonth()+1).padStart(2,'0')}`;
   if(realMonthKey === monthKey) return false; // ay değişmedi — yapılacak bir şey yok
 
-  // Eski ayın bekleyen (debounce'lu) yazması varsa, ay anahtarı değişmeden ÖNCE eski
-  // anahtarla diske yazılmasını garanti et — mevcut ay verisi kaybolmasın/bozulmasın.
-  flushPendingPersistence();
+  // `_monthRolloverInFlight` ataması ile aşağıdaki IIFE'nin ÇAĞRILMASI arasında hiçbir `await`
+  // yok — bu, iki eşzamanlı çağrının ikisinin de yukarıdaki `if(realMonthKey===monthKey)`
+  // kontrolünü GEÇİP burada yarışmasını (ikisinin de kilidi henüz görmeden kendi IIFE'sini
+  // başlatmasını) engelliyor: JS tek-thread'li olduğu için bu satırlar arası hiçbir başka kod
+  // araya giremez.
+  _monthRolloverInFlight = (async () => {
+    try{
+      // Eski ayın bekleyen (debounce'lu) yazması varsa, ay anahtarı değişmeden ÖNCE eski
+      // anahtarla diske yazılmasını garanti et — mevcut ay verisi kaybolmasın/bozulmasın.
+      flushPendingPersistence();
 
-  now = realNow;
-  monthKey = realMonthKey;
-  MONTH_KEY = `budget:${monthKey}`;
-  daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-  dayOfMonth = now.getDate();
-  daysLeft = daysInMonth - dayOfMonth + 1;
+      now = realNow;
+      monthKey = realMonthKey;
+      MONTH_KEY = `budget:${monthKey}`;
+      daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+      dayOfMonth = now.getDate();
+      daysLeft = daysInMonth - dayOfMonth + 1;
 
-  // loadState()'in "2) Bu ayın akış verisini yükle" adımıyla BİREBİR aynı mantık
-  // (kasıtlı küçük kod tekrarı — loadState()'e dokunulmadı, bkz. yukarıdaki not).
-  month = { incomes: [], expenses: [], goal: {type:'save', amount:0} };
-  try{
-    const m = await FullBudgetDataService.loadMonth(monthKey);
-    if(m){
-      month.incomes = m.incomes || [];
-      month.expenses = m.expenses || [];
-      month.goal = m.goal || {type:'save', amount:0};
-      month.emergencyAllocationOverride = (m.emergencyAllocationOverride != null) ? m.emergencyAllocationOverride : null;
-      if(m.income && (!month.incomes || month.incomes.length===0)){
-        month.incomes = [{id:uid(), category:'Diğer', amount:m.income, note:'', recurring:false, accountId:''}];
-      }
+      // loadState()'in "2) Bu ayın akış verisini yükle" adımıyla BİREBİR aynı mantık
+      // (kasıtlı küçük kod tekrarı — loadState()'e dokunulmadı, bkz. yukarıdaki not).
+      month = { incomes: [], expenses: [], goal: {type:'save', amount:0} };
+      try{
+        const m = await FullBudgetDataService.loadMonth(monthKey);
+        if(m){
+          month.incomes = m.incomes || [];
+          month.expenses = m.expenses || [];
+          month.goal = m.goal || {type:'save', amount:0};
+          month.emergencyAllocationOverride = (m.emergencyAllocationOverride != null) ? m.emergencyAllocationOverride : null;
+          if(m.income && (!month.incomes || month.incomes.length===0)){
+            month.incomes = [{id:uid(), category:'Diğer', amount:m.income, note:'', recurring:false, accountId:''}];
+          }
+        }
+      }catch(e){ /* yok say */ }
+      month = normalizeMonthFinancialFields(month);
+
+      runMonthlyAutomation(); // kendi lastAutoMonth kilidiyle idempotent — motor matematiğine dokunulmadı
+      render();
+      return true;
+    } finally {
+      _monthRolloverInFlight = null; // iş bitince (başarılı ya da hatalı) kilidi HER DURUMDA bırak
     }
-  }catch(e){ /* yok say */ }
-  month = normalizeMonthFinancialFields(month);
+  })();
 
-  runMonthlyAutomation(); // kendi lastAutoMonth kilidiyle idempotent — motor matematiğine dokunulmadı
-  render();
-  return true;
+  return await _monthRolloverInFlight;
 }
 
 function scheduleHistorySave(entry){
@@ -16023,7 +16053,13 @@ document.getElementById('addIncomeBtn').addEventListener('click', async ()=>{
   // gece yarısını geçmiş bir oturumda bu gelir YANLIŞ (eski) aya yazılabilirdi.
   // (regresyon düzeltmesi: yalnızca ay GERÇEKTEN değiştiyse `await` et — bkz.
   // needsMonthRollover()'ın hemen üstündeki not; normal akışta hiç `await` YOK.)
-  if(needsMonthRollover()) await checkMonthRollover();
+  // (FAZ 3.14 IP-1 race hardening: `_monthRolloverInFlight` de kontrol ediliyor —
+  // başka bir tetikleyicinin (örn. visibilitychange) başlattığı rollover hâlâ
+  // `loadMonth()`'u beklerken bu buton tıklanırsa, `needsMonthRollover()` artık
+  // `false` dönse bile bu handler'ın devam eden rollover'ı BEKLEMESİ gerekir;
+  // aksi halde `month` henüz boş iskeletken bu gelir ona yazılıp az sonra
+  // rollover'ın kendi ataması tarafından sessizce silinirdi.)
+  if(needsMonthRollover() || _monthRolloverInFlight) await checkMonthRollover();
   const amountInput = document.getElementById('incomeAmountInput');
   const noteInput = document.getElementById('incomeNoteInput');
   const accountId = document.getElementById('incomeAccountSelect').value;
@@ -16121,7 +16157,13 @@ document.getElementById('addBtn').addEventListener('click', async ()=>{
   // gece yarısını geçmiş bir oturumda bu gider YANLIŞ (eski) aya yazılabilirdi.
   // (regresyon düzeltmesi: yalnızca ay GERÇEKTEN değiştiyse `await` et — bkz.
   // needsMonthRollover()'ın hemen üstündeki not; normal akışta hiç `await` YOK.)
-  if(needsMonthRollover()) await checkMonthRollover();
+  // (FAZ 3.14 IP-1 race hardening: `_monthRolloverInFlight` de kontrol ediliyor —
+  // başka bir tetikleyicinin (örn. visibilitychange) başlattığı rollover hâlâ
+  // `loadMonth()`'u beklerken bu buton tıklanırsa, `needsMonthRollover()` artık
+  // `false` dönse bile bu handler'ın devam eden rollover'ı BEKLEMESİ gerekir;
+  // aksi halde `month` henüz boş iskeletken bu gider ona yazılıp az sonra
+  // rollover'ın kendi ataması tarafından sessizce silinirdi.)
+  if(needsMonthRollover() || _monthRolloverInFlight) await checkMonthRollover();
   const amountInput = document.getElementById('amountInput');
   const noteInput = document.getElementById('noteInput');
   const {accountId, cardId} = parsePaymentMethodValue(document.getElementById('expenseAccountSelect').value);
