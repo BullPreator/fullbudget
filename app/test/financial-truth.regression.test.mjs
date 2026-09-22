@@ -155,7 +155,6 @@ test('P0: var olmayan bir karta bağlı harcama nakit akışından YOK OLAMAZ (k
     debtPay: monthlyDebtPayments(),
     domKalan: document.getElementById('sumRemain').textContent.trim(),
     domSavings: document.getElementById('savingsRateStat').textContent.trim(),
-    domDaily: document.getElementById('dailyAmountNum').textContent.trim(),
     cap: getAffordCapacityInfo().monthlyCashFlow,
     safeCap: getAffordCapacityInfo().safeMonthlyCapacity,
     ai: buildAICoachContext().financialSnapshot.monthlyCashFlow,
@@ -207,7 +206,6 @@ test('SENARYO B: borç ödemesi dahil freeCashFlow=-20000 ve tüm katmanlar ayn�
     dom: document.getElementById('sumRemain').textContent.trim(),
     cap: getAffordCapacityInfo().monthlyCashFlow,
     ai: buildAICoachContext().financialSnapshot.monthlyCashFlow,
-    safeDaily: document.getElementById('dailyAmountNum').textContent.trim(),
   }));
   assert.equal(r.core, -20000);
   assert.ok(r.dom.includes('-') && r.dom.includes('20.000'), `DOM: ${r.dom}`);
@@ -223,7 +221,6 @@ test('SENARYO D: negatif ay (-30000) hiçbir ekranda POZİTİF tasarruf olarak g
     core: computeCashFlowSummary({ income: totalIncome(), expenses: cashOutSpent(), debtPayments: monthlyDebtPayments(), remainingDays: daysLeft }),
     dom: document.getElementById('sumRemain').textContent.trim(),
     domSavings: document.getElementById('savingsRateStat').textContent.trim(),
-    safeDaily: document.getElementById('dailyAmountNum').textContent.trim(),
   }));
   assert.equal(r.core.remaining, -30000);
   assert.ok(r.core.savingsRate < 0, 'negatif ayda tasarruf oranı negatif olmalı');
@@ -469,25 +466,29 @@ test('INV14 (SENARYO J): bu ayın toplamları yalnızca bu ayın kaydından geli
 });
 
 // ---------------------------------------------------------------------
-// Güvenli günlük harcama TEK kaynaktan gelir (ekran ile koç aynı sayıyı söyler)
+// RP-1 (2026-09): Bu test eskiden İKİ yarıdan oluşuyordu — (1) Home ring'inin DOM'unun canonical
+// Goal & Cash Allocation Engine'in "serbest/esnek kalan"ından (long_term_or_flexible) türediğini,
+// ve (2) Finans Koçu'nun answerHowMuchCanISpend()'inin hâlâ KENDİ ayrı (computeCashFlowSummary
+// tabanlı) formülünü kullandığını doğruluyordu — bu iki formülün BİLİNÇLİ ve GEÇİCİ bir ayrışması
+// olduğu belgeleniyordu. RP-1 ile ring TAMAMEN kaldırıldığı için (1) numaralı yarı KALDIRILDI
+// (ring/#dailyAmountNum/getCanonicalFreeSpendingPoolTL/computeSafeDailySpendTempo artık yok).
+// (2) numaralı yarı — AI Coach'un answerHowMuchCanISpend() formülüne KESİNLİKLE DOKUNULMADI — bu
+// testte AYNEN KORUNDU; formül hâlâ ayrı bir bulgu/risk olarak GUNLUK_GUVENLI_HARCAMA_KAPSAM_
+// AUDIT.md'de belgeleniyor.
 // ---------------------------------------------------------------------
-test('TEK KAYNAK: güvenli günlük harcama, ana ekran ile AI Coach cevabında AYNI değerden türetilir', async () => {
+test('AI COACH: answerHowMuchCanISpend() kendi (ring\'den bağımsız, DEĞİŞMEMİŞ) formülünü kullanmaya devam ediyor', async () => {
   const { page, pageErrors } = await session(SCEN_A);
   const r = await page.evaluate(() => {
-    const cf = computeCashFlowSummary({
+    const coachCore = computeCashFlowSummary({
       income: totalIncome(), expenses: cashOutSpent(), debtPayments: monthlyDebtPayments(),
       remainingDays: daysLeft,
       remainingFixedEstimate: Math.max(0, (history.length ? history[history.length - 1].fixedExpense || 0 : 0) - totalFixedExpense()),
-    });
-    return { core: cf.safeDailySpend, dom: document.getElementById('dailyAmountNum').textContent.trim(),
-             coach: answerHowMuchCanISpend() };
+    }).safeDailySpend;
+    return { coachCore, coach: answerHowMuchCanISpend() };
   });
-  // DOM ve koç metni aynı çekirdek değerden türemeli (biçimlendirme farkı olabilir, rakam aynı).
-  const fmtNum = Math.round(r.core).toLocaleString('tr-TR');
-  assert.ok(r.dom.includes(fmtNum.split(',')[0]) || r.dom.includes(String(Math.round(r.core))),
-    `DOM güvenli günlük (${r.dom}) çekirdek değerle (${r.core}) uyuşmuyor`);
-  assert.ok(r.coach.includes(fmtNum) || r.coach.includes(String(Math.round(r.core))),
-    `koç cevabı (${r.coach.slice(0, 160)}) çekirdek değerle (${r.core}) uyuşmuyor`);
+  const coachFmtNum = Math.round(r.coachCore).toLocaleString('tr-TR');
+  assert.ok(r.coach.includes(coachFmtNum) || r.coach.includes(String(Math.round(r.coachCore))),
+    `koç cevabı (${r.coach.slice(0, 160)}) çekirdek değerle (${r.coachCore}) uyuşmuyor`);
   await page.close();
   assert.equal(pageErrors.length, 0, JSON.stringify(pageErrors));
 });

@@ -17,8 +17,12 @@
    bir artır (v1 -> v2 -> ...). Aksi halde bazı kullanıcılar çevrimdışı
    önbellekte eski bir sürümde takılı kalabilir.
    ========================================================= */
-const CACHE_VERSION = 'fullbudget-v11';
-const PRECACHE_URLS = ['manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const CACHE_VERSION = 'fullbudget-v12';
+// v12: uygulama ikonu (launcher icon) beyaz zemin + büyütülmüş FB logosuyla güncellendi.
+// icon-192/512 için ?v= sorgu parametresi eklendi — eski, önbelleğe alınmış ikon baytlarının
+// (hem bu SW cache'inin hem tarayıcı/manifest tarafının) yeni dosyayla karışmasını/asılı
+// kalmasını önlemek için (bkz. manifest.json'daki aynı ?v= etiketi).
+const PRECACHE_URLS = ['manifest.json', 'icon.svg', 'icon-192.png?v=20260920', 'icon-512.png?v=20260920'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
