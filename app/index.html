@@ -15465,6 +15465,20 @@ function renderMonthlyReport(){
   const topCatEntry = Object.entries(catSums).sort((a,b)=>b[1]-a[1])[0];
   const topCatPct = topCatEntry && spent>0 ? Math.round((topCatEntry[1]/spent)*100) : 0;
 
+  /* FAZ 3.14 IP-8 (kategori bazında ay karşılaştırması): mevcut ayın tarafı için
+     history[].categoryBreakdown YERİNE bilerek yukarıdaki catSums kullanılıyor — catSums
+     zaten bu render() geçişindeki month.expenses'ten (yukarıda, tek satır değişmeden)
+     hesaplanmış; bu, ekranda gösterilen "Top category"/"Gider" satırlarıyla BİREBİR
+     aynı canlı veriye dayanmasını garanti ediyor. Önceki ay için tek kaynak zaten
+     history[] olduğundan prev.categoryBreakdown kullanılıyor (yoksa boş nesneye düşer —
+     categoryBreakdown alanı eklenmeden ÖNCEKİ eski kayıtlarda hata vermesin diye). */
+  const prevCatBreakdown = prev ? (prev.categoryBreakdown || {}) : {};
+  const currCatBreakdown = catSums;
+  // Yalnızca GERÇEKTEN değişen (mevcut ≠ önceki) kategoriler dahil edilir — hem hiç
+  // harcanmamış hem de iki ayda birebir aynı tutarda harcanan kategoriler listelenmez.
+  const changedCategories = Array.from(new Set([...Object.keys(prevCatBreakdown), ...Object.keys(currCatBreakdown)]))
+    .filter(c => (currCatBreakdown[c]||0) !== (prevCatBreakdown[c]||0));
+
   const monthLabel = (en ? monthNamesEn : monthNames)[now.getMonth()];
   let rows = `
     <div class="report-row"><span>${en ? 'Income' : 'Gelir'}</span><b class="val">${CUR}${fmt(income)}</b></div>
@@ -15478,6 +15492,25 @@ function renderMonthlyReport(){
   }
   if(topCatEntry){
     rows += `<div class="report-row"><span>${en ? 'Top category' : 'En çok harcanan'}</span><b class="val">${catLabel(topCatEntry[0])} (${yzd(topCatPct)})</b></div>`;
+  }
+  if(prev && changedCategories.length){
+    // FAZ 3.14 IP-8: mevcut ay ile önceki ay arasında kategori bazında değişim listesi.
+    // |delta| büyükten küçüğe sıralanır, en fazla 5 kategori gösterilir. Bu noktada
+    // changedCategories zaten yalnızca delta!==0 olan kategorileri içerir (yukarıda
+    // filtrelendi), bu yüzden aşağıdaki işaret/renk mantığında bir "değişim yok" dalına
+    // gerek yoktur.
+    const topChanged = changedCategories
+      .map(c => ({ c, delta: (currCatBreakdown[c]||0) - (prevCatBreakdown[c]||0) }))
+      .sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta))
+      .slice(0, 5);
+    rows += `<div class="report-row"><span>${en ? 'Category changes (vs last month)' : 'Kategori bazında değişim (geçen aya göre)'}</span><span></span></div>`;
+    topChanged.forEach(({c, delta}) => {
+      const isIncrease = delta > 0;
+      const sign = isIncrease ? '+' : '-';
+      const color = isIncrease ? 'var(--coral)' : 'var(--teal)';
+      const cur = currCatBreakdown[c] || 0;
+      rows += `<div class="report-row"><span>${catLabel(c)}</span><b class="val">${CUR}${fmt(cur)} <span style="font-weight:400;font-size:var(--fs-sm);color:${color}">(${sign}${CUR}${fmt(Math.abs(delta))})</span></b></div>`;
+    });
   }
 
   let bestDecision;
