@@ -9472,9 +9472,23 @@ function computeCashFlowSummary({ income, expenses, debtPayments, remainingDays,
 function computeNetWorth({ assets, totalDebt }){
   return (Number(assets) || 0) - (Number(totalDebt) || 0);
 }
+/* FAZ 3.14 IP-6 (remainingFixedEstimate duplicate temizliği — audit: render() ve
+   answerHowMuchCanISpend() aynı "Math.max(0, lastMonthFixed - fixedSpent)" satırını birebir
+   iki kez elle yazıyordu). Bu, SADECE bu iki satırlık saf hesaplamayı tek yere taşıyan pure bir
+   fonksiyon — computeCashFlowSummary()'ye TEK SATIR dokunulmadı, imzası/davranışı/çıktısı
+   AYNEN korunuyor. "history" erişimi KASITLI OLARAK bu fonksiyonun İÇİNE taşınmadı: her iki
+   call-site de "lastMonthFixed"i bugünkü gibi kendi yerinde (history[history.length-1]
+   üzerinden) hesaplamaya devam ediyor; helper yalnızca zaten hesaplanmış lastMonthFixed/
+   fixedSpent sayılarını girdi olarak alıyor. Sonuç, önceki iki elle yazılmış satırla
+   matematiksel olarak BİREBİR aynıdır (bkz. app/test/remaining-fixed-estimate.regression.test.mjs). */
+function computeRemainingFixedEstimate({ lastMonthFixed, fixedSpent }){
+  lastMonthFixed = Number(lastMonthFixed) || 0;
+  fixedSpent = Number(fixedSpent) || 0;
+  return Math.max(0, lastMonthFixed - fixedSpent);
+}
 /* FINANCE-CORE-END */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { computeCashFlowSummary, computeNetWorth };
+  module.exports = { computeCashFlowSummary, computeNetWorth, computeRemainingFixedEstimate };
 }
 
 /* =========================================================
@@ -9526,7 +9540,10 @@ function render(){
   // KALIR (yalnızca yer değiştirir, kaybolmaz) — bu yüzden yıl sonu tahmini hâlâ TAM kalan nakit
   // akışını kullanmalı, yalnızca "serbest/esnek" dilimi değil. Formül DEĞİŞMEDİ.
   const lastMonthFixed = history.length ? history[history.length-1].fixedExpense||0 : 0;
-  const remainingFixedEstimate = Math.max(0, lastMonthFixed - fixedSpent);
+  // FAZ 3.14 IP-6: bu satır eskiden "Math.max(0, lastMonthFixed - fixedSpent)" olarak elle
+  // yazılıyordu (answerHowMuchCanISpend()'deki BİREBİR aynı satırla duplicate) — artık ortak
+  // pure helper'a yönlendirildi (FINANCE-CORE bloğu). Sonuç/formül DEĞİŞMEDİ.
+  const remainingFixedEstimate = computeRemainingFixedEstimate({ lastMonthFixed, fixedSpent });
   const _cfSafe = computeCashFlowSummary({ income, expenses: cashOutSpent(), debtPayments: debtPay, remainingDays: daysLeft, remainingFixedEstimate });
   const restOfMonthCashFlowEstimate = _cfSafe.safeRemaining; // yalnızca madde 12'de okunur
 
@@ -14856,14 +14873,18 @@ function answerHowMuchCanISpend(){
   if(!income) return en ? "Add your income first so I can calculate this." : 'Bunu hesaplayabilmem için önce gelirini eklemen gerekiyor.';
   const spent = totalSpent(), debtPay = monthlyDebtPayments(), fixedSpent = totalFixedExpense();
   const lastMonthFixed = history.length ? history[history.length-1].fixedExpense||0 : 0;
-  const remainingFixedEstimate = Math.max(0, lastMonthFixed - fixedSpent);
   /* P2 denetim düzeltmesi (TEK KAYNAK): burada güvenli günlük harcama formülü ELLE tekrar
      yazılıyordu (income - cashOutSpent() - remainingFixedEstimate - debtPay, sonra /daysLeft).
      Sonuç bugün render()'daki ile aynıydı, ama AYNI finansal gerçeğin iki ayrı kopyası vardı -
      biri değişince ekran ile koç birbirinden farklı sayı söyleyebilirdi. Artık ikisi de AYNI
      FINANCE-CORE fonksiyonundan besleniyor (computeCashFlowSummary); ayrıca o fonksiyon
      remainingDays>0 korumasını da içeriyor (elle yazılan sürüm daysLeft=0 durumunda Infinity
-     üretebilirdi). Formül/sonuç DEĞİŞMEDİ. */
+     üretebilirdi). Formül/sonuç DEĞİŞMEDİ.
+     FAZ 3.14 IP-6 (EK): "remainingFixedEstimate"in kendisi de artık render() ile AYNI ortak
+     pure helper'dan (computeRemainingFixedEstimate) geliyor — eskiden burada da elle
+     "Math.max(0, lastMonthFixed - fixedSpent)" yazılıyordu (render()'daki ile duplicate).
+     Formül/sonuç DEĞİŞMEDİ; yalnızca tek kaynağa taşındı. */
+  const remainingFixedEstimate = computeRemainingFixedEstimate({ lastMonthFixed, fixedSpent });
   const _cf = computeCashFlowSummary({ income, expenses: cashOutSpent(), debtPayments: debtPay, remainingDays: daysLeft, remainingFixedEstimate });
   const safeRemaining = _cf.safeRemaining; // kartla finanse edilen harcama burada da düşülmez (bkz. cashOutSpent)
   const safeDaily = _cf.safeDailySpend;
