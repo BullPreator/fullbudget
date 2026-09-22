@@ -6426,6 +6426,21 @@ function migrateDebt(d){
    tarafından, sayfa gerçekten kapanırken bekleyen yazmayı atlamamak için okunur -
    normal debounce akışını etkilemezler. */
 let _monthDirty = false, _persistentDirty = false;
+/* FAZ 3.14 IP-5 (history flush safety net — audit: "history" yazımının kapatma-öncesi
+   flush güvencesine dahil edilmesi): _monthDirty/_persistentDirty deseninin AYNI mantıkla
+   history[]'ye genişletilmesi. AYRI bir bayrak — yukarıdaki iki bayrağa veya
+   persistMonth()/persistPersistent()'a dokunulmadı. history[] yalnızca görüntüleme/analiz
+   amaçlı (Decision Engine v2/GCAE'ye hiç girdi olarak gitmiyor — buildMonthlySnapshot()
+   "history" hiç okumuyor); tek istisna remainingFixedEstimate → safeDailySpend/safeRemaining
+   ("Günün Güvenli Harcama Alanı" ring'i) zinciri — bu da zaten belgelenmiş bir "yaprak"
+   (leaf) görüntüleme değeri, motor girdisi değil, ama kullanıcıya gösterilen bu davranış
+   BOZULMASIN diye history'nin doğru/güncel yazılması önemli. scheduleHistorySave() bu
+   bayrağı true yapar (bkz. aşağı); tek düşürme noktası historyTimer'ın kendi callback'i
+   (yazma GERÇEKTEN tamamlandıktan sonra) VE flushPendingPersistence()'daki izole history
+   bloğu (kapanış anında en iyi çaba ile, month/persistent'in ZATEN kabul edilmiş fire-
+   and-forget/senkron-localStorage desenini birebir izleyerek — yeni/daha güçlü bir garanti
+   İCAT EDİLMEDİ). */
+let _historyDirty = false;
 function persistMonth(){
   _monthDirty = true;
   clearTimeout(saveTimer);
@@ -6460,7 +6475,9 @@ function persist(){ persistMonth(); persistPersistent(); }
    (window.storage) varsa en iyi çaba ile (fire-and-forget) çağrılır - senkron
    garanti o zaman platformun kendi köprüsüne bağlıdır. */
 function flushPendingPersistence(){
-  if(!_monthDirty && !_persistentDirty) return; // bekleyen yazma yoksa hiçbir şey yapma
+  // FAZ 3.14 IP-5: erken-çıkış koşuluna yalnızca "|| _historyDirty" eklendi — month/persistent
+  // için davranış birebir aynı kaldı (üçü de false ise hâlâ hiçbir şey yapılmıyor).
+  if(!_monthDirty && !_persistentDirty && !_historyDirty) return; // bekleyen yazma yoksa hiçbir şey yapma
   try{ clearTimeout(saveTimer); }catch(e){}
   try{ clearTimeout(persistTimer2); }catch(e){}
   const hasBridge = (typeof window !== 'undefined' && window.storage && typeof window.storage.set === 'function');
@@ -6474,6 +6491,18 @@ function flushPendingPersistence(){
     if(hasBridge){ FullBudgetDataService.savePersistent(persistent).catch(()=>{}); }
     else{ try{ localStorage.setItem(PERSIST_KEY, JSON.stringify(persistent)); }catch(e){} }
     _persistentDirty = false;
+  }
+  // FAZ 3.14 IP-5 (history flush safety net) — YUKARIDAKİ iki bloktan TAMAMEN İZOLE, yeni,
+  // ayrı bir blok: month/persistent blokları tek satır değişmedi. history[] için de AYNI
+  // best-effort/senkron-localStorage deseni izleniyor — yeni/daha güçlü bir garanti İCAT
+  // EDİLMİYOR: no-bridge yolda localStorage.setItem() senkron tamamlanır; host köprüsü
+  // varsa (bugün test edilemeyen, ama kodun zaten öngördüğü senaryo) fire-and-forget'tir —
+  // month/persistent'in kendi köprü dalıyla BİREBİR aynı kabul edilmiş sınır.
+  try{ clearTimeout(historyTimer); }catch(e){}
+  if(_historyDirty){
+    if(hasBridge){ FullBudgetDataService.saveHistory(history).catch(()=>{}); }
+    else{ try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); }catch(e){} }
+    _historyDirty = false;
   }
 }
 // "pagehide" mobil tarayıcılarda sekme kapatma/uygulamadan çıkma için en güvenilir sinyaldir;
@@ -6700,8 +6729,21 @@ function scheduleHistorySave(entry){
   if(idx>=0) history[idx] = entry; else history.push(entry);
   history.sort((a,b)=>a.monthKey.localeCompare(b.monthKey));
   if(history.length>18) history = history.slice(history.length-18);
+  // FAZ 3.14 IP-5: bellek-içi history[] güncellemesi hâlâ SENKRON (yukarıdaki 4 satır,
+  // değişmedi) — yalnızca diske yazma (aşağıdaki 400ms'lik setTimeout) ertelenmiş bir
+  // durum. _historyDirty burada true olur; flushPendingPersistence() sayfa gerçekten
+  // kapanırken bunu görüp bekleyen yazmayı atlamıyor (bkz. o fonksiyondaki izole blok).
+  _historyDirty = true;
   clearTimeout(historyTimer);
-  historyTimer = setTimeout(async ()=>{ await FullBudgetDataService.saveHistory(history); }, 400);
+  historyTimer = setTimeout(async ()=>{
+    await FullBudgetDataService.saveHistory(history);
+    // Bayrak, yazma GERÇEKTEN tamamlandıktan SONRA düşürülüyor — erken temizleme,
+    // bu 400ms'lik pencere içinde sayfa kapanırsa flushPendingPersistence()'ın "zaten
+    // yazıldı" sanıp history'yi atlamasına yol açardı. Mevcut hata/yutma davranışı
+    // (saveHistory()'nin reddi/false dönüşü burada zaten hiç kontrol edilmiyordu)
+    // GEREKSİZ YERE değiştirilmedi — yalnızca dirty-temizleme zamanlaması düzeltildi.
+    _historyDirty = false;
+  }, 400);
 }
 
 /* =========================================================
