@@ -2365,6 +2365,141 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
 
 /* AŞAMA 2: onboarding üst şeridinde küçük marka işareti — ilerleme çubuğunun solunda. */
 .ob-brand{width:32px; height:32px; object-fit:contain; flex:none; filter:none;}
+
+/* =========================================================
+   FİNANS KOÇU — YÜZEN LAUNCHER + PANEL (yeni sunum katmanı)
+   ÖNEMLİ: Bu blok YENİ bir AI/chat mantığı İCAT ETMEZ. Var olan tek gerçek
+   kaynak olan aiChatHistory / askCoach() / aiCoachService / renderAiChatLog()
+   akışını (bkz. index.html'de "Finans Koçun" sekmesi) AYNEN kullanır; burada
+   yalnızca aynı veriyi ana sayfanın sağ-altına açılır/kapanır ikinci bir yüzey
+   olarak gösteren DOM + stil + ince bir bağlayıcı script vardır. Robot/yıldız/
+   parlama/mor-mavi AI gradyanı yok; FullBudget'ın kendi yeşil/nötr marka dilini
+   ve tasarım token'larını (var(--brand), var(--surface), var(--line) vb.) kullanır.
+   Gelecekteki FullFin robotu bu launcher'ın İÇİNE (fc-launcher-badge) oturacak
+   şekilde ayrı bir katman olarak bırakıldı. */
+.fc-launcher{
+  position:fixed; right:20px; z-index:75;
+  bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  width:60px; height:60px; border-radius:var(--r-pill);
+  background:var(--surface); border:1px solid var(--line);
+  box-shadow:0 10px 28px -12px rgba(0,0,0,.28);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:transform .15s ease, box-shadow .2s ease;
+  padding:0;
+}
+.fc-launcher:hover{transform:translateY(-2px); box-shadow:0 14px 32px -12px rgba(0,0,0,.34);}
+.fc-launcher:active{transform:scale(.96);}
+.fc-launcher-badge{
+  width:100%; height:100%; border-radius:var(--r-pill);
+  display:flex; align-items:center; justify-content:center;
+  background:var(--surface); color:var(--brand);
+}
+.fc-launcher-badge svg{width:26px; height:26px;}
+.fc-launcher-dot{
+  position:absolute; top:6px; right:6px; width:9px; height:9px; border-radius:50%;
+  background:var(--brand); border:2px solid var(--surface); display:none;
+}
+.fc-launcher-dot.on{display:block;}
+@media (min-width:860px){
+  .fc-launcher{bottom:24px; right:28px;}
+}
+/* Mobilde alt gezinme çubuğuyla çakışmasın diye onun üstüne kalkar (bkz. .bottom-nav). */
+@media (max-width:859.98px){
+  .fc-launcher{bottom:calc(96px + env(safe-area-inset-bottom,0px));}
+  body.has-storage-warn .fc-launcher{bottom:calc(160px + env(safe-area-inset-bottom,0px));}
+}
+.fc-launcher[hidden], .fc-panel[hidden]{display:none !important;}
+
+.fc-backdrop{
+  position:fixed; inset:0; z-index:74; background:rgba(0,0,0,.32);
+  opacity:0; pointer-events:none; transition:opacity .18s ease;
+}
+.fc-backdrop.on{opacity:1; pointer-events:auto;}
+@media (min-width:860px){ .fc-backdrop{display:none;} }
+
+.fc-panel{
+  position:fixed; z-index:76; display:flex; flex-direction:column;
+  background:var(--surface); border:1px solid var(--line);
+  box-shadow:0 20px 50px -18px rgba(0,0,0,.38);
+  opacity:0; transform:translateY(12px) scale(.98); pointer-events:none;
+  transition:opacity .16s ease, transform .16s ease;
+}
+.fc-panel.on{opacity:1; transform:translateY(0) scale(1); pointer-events:auto;}
+@media (min-width:860px){
+  .fc-panel{
+    right:28px; bottom:96px; width:400px; height:min(600px, calc(100vh - 140px));
+    border-radius:var(--r-lg,16px); max-width:calc(100vw - 40px);
+  }
+}
+@media (max-width:859.98px){
+  .fc-panel{
+    left:0; right:0; bottom:0; top:auto; width:100%;
+    height:min(82vh, 640px); border-radius:18px 18px 0 0;
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+}
+.fc-header{
+  display:flex; align-items:flex-start; gap:10px; padding:16px 16px 12px;
+  border-bottom:1px solid var(--line); flex:none;
+}
+.fc-header-text{flex:1; min-width:0;}
+.fc-header-title{font-size:var(--fs-lg,16px); font-weight:700; color:var(--text); margin:0;}
+.fc-header-sub{font-size:var(--fs-xs,12px); color:var(--muted); margin:3px 0 0; line-height:1.4;}
+.fc-close-btn{
+  flex:none; width:32px; height:32px; border-radius:var(--r-md); border:1px solid transparent;
+  background:none; color:var(--muted); display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+}
+.fc-close-btn:hover{background:var(--surface-2); color:var(--text);}
+.fc-close-btn svg{width:18px; height:18px;}
+
+.fc-messages{flex:1; min-height:0; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px;}
+.fc-msg{max-width:86%; padding:10px 13px; border-radius:var(--r-lg,14px); font-size:var(--fs-sm,13.5px); line-height:1.5; white-space:pre-wrap;}
+.fc-msg.user{align-self:flex-end; background:var(--brand); color:#FFFFFF; border-bottom-right-radius:4px;}
+.fc-msg.assistant{align-self:flex-start; background:var(--surface-2); color:var(--text); border-bottom-left-radius:4px;}
+.fc-msg.assistant.error{background:var(--surface-2); border:1px solid var(--coral); color:var(--text);}
+.fc-msg-tag{font-size:10.5px; color:var(--muted); margin-top:5px;}
+.fc-retry-btn{
+  margin-top:8px; font-size:12.5px; font-weight:600; color:var(--brand);
+  background:none; border:1px solid var(--brand); border-radius:var(--r-pill);
+  padding:5px 12px; cursor:pointer;
+}
+.fc-retry-btn:hover{background:var(--brand); color:#fff;}
+/* Yükleme durumu: üç zıplayan nokta yerine, marka rengi tek bir "nabız" çizgisi —
+   spesifikasyonun istediği gibi jenerik AI daktilo animasyonu değil. */
+.fc-loading{align-self:flex-start; display:flex; align-items:center; gap:8px; padding:10px 13px;
+  border-radius:var(--r-lg,14px); background:var(--surface-2);}
+.fc-loading-pulse{width:36px; height:14px;}
+.fc-loading-pulse path{fill:none; stroke:var(--brand); stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+  stroke-dasharray:60; stroke-dashoffset:0; animation:fcPulseMove 1.1s ease-in-out infinite;}
+@keyframes fcPulseMove{ 0%,100%{opacity:.45;} 50%{opacity:1;} }
+@media (prefers-reduced-motion:reduce){ .fc-loading-pulse path{animation:none; opacity:.85;} }
+
+.fc-welcome{padding:4px 2px 8px;}
+.fc-welcome-title{font-size:var(--fs-base,14px); font-weight:650; color:var(--text); margin:0 0 4px;}
+.fc-welcome-sub{font-size:var(--fs-xs,12px); color:var(--muted); margin:0 0 12px; line-height:1.5;}
+.fc-quick{display:flex; flex-direction:column; gap:8px;}
+.fc-quick-btn{
+  text-align:left; font-size:var(--fs-sm,13px); color:var(--text); font-weight:500;
+  background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-md,10px);
+  padding:10px 12px; cursor:pointer; transition:border-color .15s ease, background .15s ease;
+}
+.fc-quick-btn:hover{border-color:var(--brand); background:var(--surface);}
+
+.fc-input-row{flex:none; display:flex; align-items:flex-end; gap:8px; padding:10px 12px; border-top:1px solid var(--line);}
+.fc-input{
+  flex:1; resize:none; max-height:120px; min-height:40px; padding:10px 12px;
+  border-radius:var(--r-md,10px); border:1px solid var(--line); background:var(--bg);
+  color:var(--text); font:inherit; font-size:var(--fs-sm,13.5px); line-height:1.4;
+}
+.fc-input:focus{outline:2px solid var(--brand); outline-offset:1px;}
+.fc-send-btn{
+  flex:none; width:40px; height:40px; border-radius:var(--r-pill); border:none;
+  background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:opacity .15s ease;
+}
+.fc-send-btn:disabled{opacity:.45; cursor:not-allowed;}
+.fc-send-btn svg{width:18px; height:18px;}
 </style>
 </head>
 <body>
@@ -15273,6 +15408,10 @@ function renderAiChatLog(){
     return `<div class="${cls}">${m.ik?sohbetIkonSvg(m.ik):''}${escapeHtml(m.text).replace(/\n/g,'<br>')}${tag}</div>`;
   }).join('');
   box.scrollTop = box.scrollHeight;
+  /* Yeni: sağ-alt yüzen Finans Koçu paneli AÇIKSA, aynı aiChatHistory'yi orada
+     da yansıt. Yeni bir state/servis eklemez; salt bir çizim tetikleyicisidir
+     (bkz. dosya sonundaki renderFinanceCoachFloating). Panel yoksa/kapalıysa no-op. */
+  if(typeof window.renderFinanceCoachFloating === 'function') window.renderFinanceCoachFloating();
 }
 document.getElementById('aiChatClearBtn').addEventListener('click', ()=>{
   aiChatHistory = [];
@@ -21155,6 +21294,196 @@ function syncAuthThemeIcons(){
   readAuthCallback();
 })();
 
+</script>
+
+<!-- =========================================================
+     FİNANS KOÇU — YÜZEN LAUNCHER + PANEL (DOM)
+     Bu yüzey YENİ bir sohbet/AI sistemi değildir: aynı aiChatHistory /
+     askCoach() / aiCoachService akışını, "Finans Koçun" sekmesindeki
+     #aiChatLog/#aiChatInput'tan BAĞIMSIZ ama AYNI VERİYİ paylaşan ikinci
+     bir arayüz olarak gösterir (bkz. az yukarıdaki <script> içindeki
+     renderFinanceCoachFloating()). Robot/yıldız/parlama YOKTUR. -->
+<button id="fcLauncher" type="button" class="fc-launcher" aria-haspopup="dialog" aria-expanded="false" aria-controls="fcPanel" aria-label="Finans Koçunu aç" data-i18n-aria="aria-fc-ac">
+  <span class="fc-launcher-badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12h4l2 6 4-12 2 6h6"/>
+    </svg>
+  </span>
+  <span class="fc-launcher-dot" id="fcLauncherDot"></span>
+</button>
+
+<div class="fc-backdrop" id="fcBackdrop" hidden></div>
+
+<div class="fc-panel" id="fcPanel" role="dialog" aria-modal="true" aria-labelledby="fcHeaderTitle" hidden>
+  <div class="fc-header">
+    <div class="fc-header-text">
+      <p class="fc-header-title" id="fcHeaderTitle" data-i18n="ai-koc-baslik">Finans Koçun</p>
+      <p class="fc-header-sub" data-i18n="ai-koc-not">Finans Koçuna sor. Gerçek verilerine bakarak sana senaryoları ve hesaplamaları açıklar — kararı sen verirsin.</p>
+    </div>
+    <button id="fcCloseBtn" type="button" class="fc-close-btn" aria-label="Kapat" data-i18n-aria="aria-fc-kapat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="fc-messages" id="fcMessages" aria-live="polite"></div>
+  <div class="fc-input-row">
+    <textarea id="fcInput" class="fc-input" rows="1" placeholder="Finansın hakkında bir şey sor..." data-i18n-placeholder="ph-ai-soru" aria-label="Finans Koçuna mesaj yaz"></textarea>
+    <button id="fcSendBtn" type="button" class="fc-send-btn" aria-label="Gönder" data-i18n-aria="aria-gonder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 12 3 4.5l3 7.5-3 7.5z"/><path d="M6 12h15.5"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   FİNANS KOÇU — YÜZEN LAUNCHER + PANEL (bağlayıcı script)
+   Kural: Bu dosya yeni bir AI/backend/servis KATMANI eklemez. Tüm gönderme
+   işlemleri mevcut askCoach() üzerinden gider (aynı aiCoachService, aynı
+   Cloudflare Worker backend'i, aynı aiChatHistory dizisi). Burada sadece:
+   (1) launcher açma/kapama, (2) panel içine aiChatHistory'yi ÇİZME,
+   (3) hoş geldin/hazır soru durumu, (4) çok satırlı input + Enter/Shift+Enter,
+   (5) erişilebilirlik (ESC, odak yönetimi) vardır. Decision Engine V2 ve
+   Goal & Cash Allocation Engine motorlarına HİÇBİR ŞEKİLDE dokunulmadı. */
+(function(){
+  const launcher = document.getElementById('fcLauncher');
+  const backdrop = document.getElementById('fcBackdrop');
+  const panel = document.getElementById('fcPanel');
+  const closeBtn = document.getElementById('fcCloseBtn');
+  const messages = document.getElementById('fcMessages');
+  const input = document.getElementById('fcInput');
+  const sendBtn = document.getElementById('fcSendBtn');
+  if(!launcher || !panel || !messages || !input || !sendBtn) return;
+
+  /* Panelin en son gösterdiği HATALI kullanıcı sorusu — "Tekrar deneyelim"
+     düğmesi bunu yeniden gönderir. Yeni bir hata/başarı motoru değildir;
+     aiChatHistory'deki mevcut error kaydını okuyup askCoach()'u TEKRAR çağırır. */
+  let fcLastFailedQuestion = null;
+  let fcOpen = false;
+
+  /* Spesifikasyonun verdiği örnek hızlı istemler — hiçbiri "şunu al/sat" gibi
+     yatırım yönlendirmesi İÇERMEZ, yalnızca kullanıcının KENDİ mevcut verisini
+     açıklamasını ister. Tıklanınca AYNI askCoach() çağrılır — ayrı bir yol yok. */
+  const FC_QUICK_PROMPTS = currentLang==='en' ? [
+    'Where is my money going this month?',
+    'Check my budget',
+    'Review my goals',
+    'Summarize my financial situation',
+  ] : [
+    'Bu ay param nereye gidiyor?',
+    'Bütçemi kontrol et',
+    'Hedeflerimi gözden geçir',
+    'Finansal durumumu özetle',
+  ];
+
+  function fcAutoGrow(){
+    input.style.height = 'auto';
+    input.style.height = Math.min(120, input.scrollHeight) + 'px';
+  }
+
+  function fcRenderWelcome(){
+    const en = currentLang==='en';
+    const title = en ? 'Hello, I\'m your finance coach' : 'Merhaba, ben senin finans koçun';
+    const sub = en
+      ? 'Ask about your real spending, budget or goals — I explain what your data already shows.'
+      : 'Gerçek harcama, bütçe veya hedeflerin hakkında sor — verinin zaten gösterdiğini açıklarım.';
+    const chips = FC_QUICK_PROMPTS.map(q=>`<button type="button" class="fc-quick-btn">${escapeHtml(q)}</button>`).join('');
+    messages.innerHTML = `<div class="fc-welcome"><p class="fc-welcome-title">${escapeHtml(title)}</p><p class="fc-welcome-sub">${escapeHtml(sub)}</p><div class="fc-quick">${chips}</div></div>`;
+    messages.querySelectorAll('.fc-quick-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ askCoach(btn.textContent); });
+    });
+  }
+
+  /* aiChatHistory'yi (TEK gerçek kaynak) panelin kendi baloncuk/tipografi
+     diliyle çizer. renderAiChatLog() ile AYNI veriyi okur, kopyalamaz. */
+  function fcRenderMessages(){
+    if(!aiChatHistory.length){ fcRenderWelcome(); return; }
+    const en = currentLang==='en';
+    const AI_TAG = en ? 'AI explanation — not financial advice' : 'Yapay zekâ açıklaması — kesin tavsiye değildir';
+    const RETRY_LABEL = en ? "Couldn't get a response. Let's try again." : 'Yanıt alınamadı. Tekrar deneyelim.';
+    const RETRY_BTN = en ? 'Retry' : 'Tekrar dene';
+    messages.innerHTML = aiChatHistory.map((m, idx)=>{
+      if(m.loading){
+        return `<div class="fc-loading"><svg class="fc-loading-pulse" viewBox="0 0 60 24" aria-hidden="true"><path d="M2 12h10l4-9 6 18 4-13 4 4h28"/></svg></div>`;
+      }
+      const cls = `fc-msg ${m.role}${m.error?' error':''}`;
+      const tag = (m.source==='ai' && !m.error) ? `<div class="fc-msg-tag">${escapeHtml(AI_TAG)}</div>` : '';
+      let retry = '';
+      if(m.error && idx===aiChatHistory.length-1 && fcLastFailedQuestion){
+        retry = `<div style="margin-top:6px;font-size:11.5px;color:var(--muted);">${escapeHtml(RETRY_LABEL)}</div><button type="button" class="fc-retry-btn" id="fcRetryBtn">${escapeHtml(RETRY_BTN)}</button>`;
+      }
+      return `<div class="${cls}">${escapeHtml(m.text).replace(/\n/g,'<br>')}${tag}${retry}</div>`;
+    }).join('');
+    const retryBtn = document.getElementById('fcRetryBtn');
+    if(retryBtn) retryBtn.addEventListener('click', ()=>{
+      const q = fcLastFailedQuestion; fcLastFailedQuestion = null;
+      if(q) askCoach(q);
+    });
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  /* renderAiChatLog() (mevcut "Finans Koçun" sekmesi) her çağrıldığında bu
+     fonksiyonu da tetikler (bkz. o fonksiyonun sonu) — böylece iki yüzey
+     her zaman aynı aiChatHistory durumunu gösterir; ayrı bir state YOKTUR. */
+  window.renderFinanceCoachFloating = function(){
+    if(!fcOpen){
+      // Panel kapalıyken ağır DOM işi yapılmaz (performans şartı); yalnızca
+      // yeni bir asistan mesajı geldiyse launcher üstünde küçük bir nokta göster.
+      const last = aiChatHistory[aiChatHistory.length-1];
+      const dot = document.getElementById('fcLauncherDot');
+      if(dot && last && last.role==='assistant' && !last.loading) dot.classList.add('on');
+      return;
+    }
+    fcRenderMessages();
+  };
+
+  function fcOpenPanel(){
+    fcOpen = true;
+    panel.hidden = false; backdrop.hidden = false;
+    requestAnimationFrame(()=>{ panel.classList.add('on'); backdrop.classList.add('on'); });
+    launcher.setAttribute('aria-expanded','true');
+    const dot = document.getElementById('fcLauncherDot');
+    if(dot) dot.classList.remove('on');
+    fcRenderMessages();
+    setTimeout(()=>input.focus(), 60);
+    document.addEventListener('keydown', fcOnKeydown);
+  }
+  function fcClosePanel(){
+    fcOpen = false;
+    panel.classList.remove('on'); backdrop.classList.remove('on');
+    launcher.setAttribute('aria-expanded','false');
+    document.removeEventListener('keydown', fcOnKeydown);
+    setTimeout(()=>{ if(!fcOpen){ panel.hidden = true; backdrop.hidden = true; } }, 180);
+    launcher.focus();
+  }
+  function fcOnKeydown(e){
+    if(e.key === 'Escape') fcClosePanel();
+  }
+
+  launcher.addEventListener('click', ()=>{ fcOpen ? fcClosePanel() : fcOpenPanel(); });
+  closeBtn.addEventListener('click', fcClosePanel);
+  backdrop.addEventListener('click', fcClosePanel);
+
+  input.addEventListener('input', fcAutoGrow);
+  input.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      fcSend();
+    }
+  });
+  sendBtn.addEventListener('click', fcSend);
+
+  function fcSend(){
+    const q = input.value.trim();
+    if(!q) return; // boş mesaj engeli
+    if(typeof aiRequestInFlight !== 'undefined' && aiRequestInFlight) return; // çift-gönderim engeli (mevcut bayrak)
+    fcLastFailedQuestion = q;
+    input.value = ''; fcAutoGrow();
+    askCoach(q);
+  }
+
+  /* Ana sayfa ilk yüklenirken panel kapalı olduğu için burada ağır hiçbir
+     iş YAPILMAZ (P0 performans şartı) — tüm çizim yalnızca fcOpenPanel()
+     çağrıldığında (kullanıcı launcher'a bastığında) tetiklenir. */
+})();
 </script>
 </body>
 </html>
