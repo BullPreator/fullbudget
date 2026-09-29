@@ -2406,6 +2406,7 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
 /* Mobilde alt gezinme çubuğuyla çakışmasın diye onun üstüne kalkar (bkz. .bottom-nav). */
 @media (max-width:859.98px){
   .fc-launcher{bottom:calc(96px + env(safe-area-inset-bottom,0px));}
+  body{padding-bottom:calc(172px + env(safe-area-inset-bottom,0px));}
   body.has-storage-warn .fc-launcher{bottom:calc(160px + env(safe-area-inset-bottom,0px));}
 }
 .fc-launcher[hidden], .fc-panel[hidden]{display:none !important;}
@@ -14728,7 +14729,7 @@ function resolveAIBackendUrl(){
   try{
     var loc = window.location;
     var isLocalDev = (loc.protocol === 'file:') || loc.hostname === 'localhost' || loc.hostname === '127.0.0.1' || loc.hostname === '';
-    if(isLocalDev) return 'http://localhost:3000';
+    if(isLocalDev) return 'http://127.0.0.1:8787';
     // Üretim: dokümante edilmiş "api.<domain>" kuralı (bkz. FB_AUTH_CONFIG örneği).
     return loc.protocol + '//api.' + loc.hostname;
   }catch(e){
