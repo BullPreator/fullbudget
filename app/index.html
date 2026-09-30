@@ -2400,6 +2400,33 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   background:var(--brand); border:2px solid var(--surface); display:none;
 }
 .fc-launcher-dot.on{display:block;}
+
+/* PULSE — NEON KALP ATIMI (yalnızca görsel).
+   İkonun kendisi (sembol, boyut, konum, renk, aria-label, tıklama) DEĞİŞMEDİ; efekt tamamen
+   ayrı bir ::after katmanında ve pointer-events:none olduğu için tıklama/hit-test'i etkilemez.
+   z-index:-1 sayesinde halka düğmenin ARKASINDA kalır: kenar erimez, ikon net durur.
+   Ritim iki kısa atış + kısa bekleme (gerçek bir nabız gibi); aura küçük ve düşük opaklıkta
+   tutuldu — strobe/RGB değil, canlı bir sistem hissi. Saf CSS, JS zamanlayıcı yok. */
+.fc-launcher{ --fc-glow:0,184,137; }
+html[data-theme="dark"] .fc-launcher{ --fc-glow:0,201,149; }
+.fc-launcher::after{
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  pointer-events:none; z-index:-1;
+  box-shadow:0 0 7px 0 rgba(var(--fc-glow),.16);
+  animation:fcHeartbeat 4.2s ease-out infinite;
+}
+@keyframes fcHeartbeat{
+  0%   { box-shadow:0 0 7px 0 rgba(var(--fc-glow),.16), 0 0 0 0 rgba(var(--fc-glow),0); }
+  6%   { box-shadow:0 0 15px 2px rgba(var(--fc-glow),.38), 0 0 0 4px rgba(var(--fc-glow),.11); }
+  15%  { box-shadow:0 0 7px 0 rgba(var(--fc-glow),.16), 0 0 0 0 rgba(var(--fc-glow),0); }
+  23%  { box-shadow:0 0 13px 1px rgba(var(--fc-glow),.30), 0 0 0 3px rgba(var(--fc-glow),.09); }
+  34%  { box-shadow:0 0 7px 0 rgba(var(--fc-glow),.16), 0 0 0 0 rgba(var(--fc-glow),0); }
+  100% { box-shadow:0 0 7px 0 rgba(var(--fc-glow),.16), 0 0 0 0 rgba(var(--fc-glow),0); }
+}
+/* Hareket hassasiyeti: nabız durur, yerinde sabit ve çok hafif bir hâle kalır. */
+@media (prefers-reduced-motion: reduce){
+  .fc-launcher::after{ animation:none; box-shadow:0 0 8px 0 rgba(var(--fc-glow),.18); }
+}
 @media (min-width:860px){
   .fc-launcher{bottom:24px; right:28px;}
 }
@@ -2410,6 +2437,31 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   body.has-storage-warn .fc-launcher{bottom:calc(160px + env(safe-area-inset-bottom,0px));}
 }
 .fc-launcher[hidden], .fc-panel[hidden]{display:none !important;}
+
+/* FULLFIN NOTU (Ana Sayfa) — kart DEĞİL, tek satırlık bir tetikleyici. Bilerek mevcut
+   .card gölgesi/dolgusu kullanılmıyor: burası yeni bir widget değil, FullFin'e giden
+   küçük bir kapı. Renkler/aralıklar mevcut token'lardan gelir. */
+.fullfin-note{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  margin:0 0 14px; padding:10px 12px;
+  border:1px solid var(--line); border-radius:var(--r-lg,14px);
+  background:var(--surface);
+}
+.fullfin-note[hidden]{display:none !important;}
+.fullfin-note-label{
+  font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--brand); flex:none;
+}
+.fullfin-note-text{
+  margin:0; flex:1 1 180px; min-width:0;
+  font-size:var(--fs-sm,13.5px); color:var(--text); line-height:1.45;
+}
+.fullfin-note-ask{
+  flex:none; background:none; border:none; padding:2px 0; cursor:pointer;
+  font-family:inherit; font-size:var(--fs-sm,13.5px); font-weight:600; color:var(--brand);
+}
+.fullfin-note-ask:hover{text-decoration:underline;}
+.fullfin-note-ask:focus-visible{outline:2px solid var(--brand); outline-offset:2px; border-radius:4px;}
 
 .fc-backdrop{
   position:fixed; inset:0; z-index:74; background:rgba(0,0,0,.32);
@@ -2476,9 +2528,7 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
 @keyframes fcPulseMove{ 0%,100%{opacity:.45;} 50%{opacity:1;} }
 @media (prefers-reduced-motion:reduce){ .fc-loading-pulse path{animation:none; opacity:.85;} }
 
-.fc-welcome{padding:4px 2px 8px;}
-.fc-welcome-title{font-size:var(--fs-base,14px); font-weight:650; color:var(--text); margin:0 0 4px;}
-.fc-welcome-sub{font-size:var(--fs-xs,12px); color:var(--muted); margin:0 0 12px; line-height:1.5;}
+.fc-starters{padding:4px 2px 8px;}
 .fc-quick{display:flex; flex-direction:column; gap:8px;}
 .fc-quick-btn{
   text-align:left; font-size:var(--fs-sm,13px); color:var(--text); font-weight:500;
@@ -2486,6 +2536,9 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   padding:10px 12px; cursor:pointer; transition:border-color .15s ease, background .15s ease;
 }
 .fc-quick-btn:hover{border-color:var(--brand); background:var(--surface);}
+/* Bağlamsal çip (o anki ekranın gerçek verisinden üretilen soru) en üstte ve bir tık daha
+   belirgin durur — yeni bir renk sistemi değil, mevcut marka renginin ince bir kullanımı. */
+.fc-quick-btn-context{border-color:var(--brand); color:var(--text); font-weight:600;}
 
 .fc-input-row{flex:none; display:flex; align-items:flex-end; gap:8px; padding:10px 12px; border-top:1px solid var(--line);}
 .fc-input{
@@ -2845,6 +2898,12 @@ details.settings-row-card[open] > .settings-row-summary .settings-row-chev{trans
   <!-- Karşılama bloğu: sayfa "chrome"u, taşınabilir bir içerik bölümü değil — data-section
        niteliği YOK, applySectionOrder() bunu görmez ve her zaman en üstte sabit kalır. -->
   <div class="home-greeting" id="homeGreeting"></div>
+
+  <!-- FULLFIN NOTU: Ana Sayfa'daki kartların hiçbirini TEKRARLAMAYAN, tek cümlelik bir
+       mikro tetikleyici. İçeriği yalnızca gerçek veriden (history[] üzerinden geçen ay
+       karşılaştırması) üretilir; güvenilir veri yoksa element gizli kalır (uydurma içgörü
+       YOK). data-section niteliği yoktur, applySectionOrder() bunu görmez. -->
+  <div class="fullfin-note" id="fullfinNote" hidden></div>
 
   <!-- AŞAMA 1 hiyerarşisi (1) Finansal durum -- FAZ 3.5 HOME UX SADELEŞTİRME (2026-09):
        eskiden burada İKİ ayrı kart vardı: "NET VARLIĞIN" (networth) ve hemen ring'in altında
@@ -4799,6 +4858,15 @@ const TRANSLATIONS = {
      Sadece bilgilendirme metni; hiçbir hesaplama/backend mantığına dokunmuyor. */
   'ai-koc-veri-bilgi': {tr:'Sorduğun soruyla birlikte finansal özetin (gelir, gider, borç ve hedef durumun) cevap üretmek için sunucumuz üzerinden işlenir. İsim, telefon, IBAN veya kart numarası bu özete dahil edilmez.', en:'Your question and a summary of your finances (income, expenses, debts, and goal progress) are processed through our server to generate a reply. Your name, phone number, IBAN, or card number is not included in this summary.'},
   'ph-ai-soru': {tr:'Bir soru sor...', en:'Ask a question...'},
+  /* FULLFIN (yüzen pulse yüzeyi) — bilerek 'ai-koc-baslik'/'ai-koc-not'tan AYRI anahtarlar:
+     o ikisi "Finans Koçun" SEKMESİNİN başlığı/notudur ve olduğu gibi kalır. Buradaki metinler
+     yalnızca pulse ile açılan sayfanın başlığı/alt satırıdır. */
+  'fullfin-baslik': {tr:'FullFin', en:'FullFin'},
+  'fullfin-alt': {tr:'Verine bakarak netleştir. Karar sende kalır.', en:'Get clarity from your own data. The decision stays yours.'},
+  'aria-fc-ac': {tr:"FullFin'i aç", en:'Open FullFin'},
+  'aria-fc-kapat': {tr:'Kapat', en:'Close'},
+  'aria-fullfin-mesaj': {tr:"FullFin'e mesaj yaz", en:'Write a message to FullFin'},
+  'fullfin-sor': {tr:'Sor', en:'Ask'},
   'ai-ornek-sorular': {tr:'Örnek sorular', en:'Example questions'},
   'ai-koc-hata': {tr:'Bir hata oluştu, tekrar dener misin?', en:'Something went wrong, could you try again?'},
   'gelir-trend': {tr:'Gelir Trendin', en:'Income Trend'},
@@ -8174,6 +8242,118 @@ function renderHomeGreeting(){
      ileride geri istenirse diye SİLİNMEDİ. */
   box.innerHTML = '';
 }
+/* =========================================================
+   FULLFIN — BAĞLAM ÇÖZÜCÜ (context resolver)
+   =========================================================
+   VERİ → HESAP → DİL → ERİŞİM zincirinin "DİL" ucundaki TEK giriş noktası.
+   Burada HİÇBİR finansal hesap YAPILMAZ: her ekranın bağlamı, o ekranı zaten besleyen
+   mevcut motor/okuyucu fonksiyonlardan OKUNUR (runMonthlyGoalCashAllocationLive,
+   pickPrimaryGoal/computeGoalInfo, totalDebtTL, totalAssets). Yeni bir paralel motor
+   veya ikinci bir doğruluk kaynağı oluşmaz.
+
+   Dönen değer: {screen, prompt, hasContext} — prompt null ise bağlamsal çip GÖSTERİLMEZ
+   (sahte/uydurma soru üretilmez), yalnızca sabit çipler kalır.
+
+   Yeni ekran eklemek için EKRAN_ADI: () => ... satırı eklemek yeterlidir; if/else yığını
+   büyütülmez. */
+function resolveFullFinContext(){
+  const screen = (typeof aktifYaprak === 'function') ? aktifYaprak() : 'home';
+  const en = currentLang === 'en';
+  const money = v => `${CUR}${fmt(v)}`;
+
+  /* Her çözücü ya bir soru metni ya da null döndürür. Hepsi SALT OKUNURDUR. */
+  const resolvers = {
+    // Ana sayfa: "Planlanabilir tutar" satırıyla BİREBİR aynı kaynak (GCAE distributableCash).
+    home(){
+      const result = runMonthlyGoalCashAllocationLive();
+      if(!result || result.status === 'needs_more_data' || result.status === 'negative_cash_flow') return null;
+      const amount = result.distributableCash;
+      if(!(amount > 0)) return null;
+      /* Soru bilerek "nasıl kullanayım" DEĞİL: cevabı veren answerOverallStatus() bu tutarın
+         finansal durum içindeki ANLAMINI açıklar, harcama/birikim/yatırım senaryosu üretmez.
+         Çip ile cevap semantik olarak aynı şeyi sorar. */
+      return en
+        ? `What does this ${money(amount)} mean?`
+        : `Bu ${money(amount)} ne anlama geliyor?`;
+    },
+    // Hedefler: kullanıcının birincil hedefi (mevcut pickPrimaryGoal seçimi, yeni sıralama YOK).
+    goals(){
+      const primary = (typeof pickPrimaryGoal === 'function') ? pickPrimaryGoal() : null;
+      if(!primary || !primary.g) return null;
+      const name = goalDisplayName(primary.g);
+      if(!name) return null;
+      return en ? `How far am I from my ${name} goal?` : `${name} hedefime ne kadar kaldı?`;
+    },
+    debts(){
+      if(!(totalDebtTL() > 0)) return null;
+      return en ? 'How do my debts affect my budget?' : 'Borçlarım bütçemi nasıl etkiliyor?';
+    },
+    assets(){
+      if(!(totalAssets() > 0)) return null;
+      return en ? 'What is the overall state of my assets?' : 'Varlıklarımın toplam durumu ne?';
+    },
+  };
+
+  let prompt = null;
+  try{
+    const fn = resolvers[screen];
+    if(fn) prompt = fn() || null;
+  }catch(e){ prompt = null; }   // bağlam çözülemezse çip yok — panel her hâlükârda açılır
+  return { screen, prompt, hasContext: !!prompt };
+}
+
+/* =========================================================
+   FULLFIN NOTU (Ana Sayfa) — tek cümle + "Sor →"
+   =========================================================
+   Ana Sayfa'daki mevcut kartların HİÇBİRİNİ tekrar anlatmaz ve yeni bir hesap yapmaz:
+   yalnızca renderMonthlyReport()'un da kullandığı AYNI history[] kaydından bu ay/geçen ay
+   harcama karşılaştırmasını okur. Gerçek ve anlamlı bir değişim yoksa (geçen ay kaydı yok,
+   ya da değişim %10'un altında) element GİZLİ kalır — "AI yazmış gibi görünsün" diye
+   rastgele cümle üretilmez. */
+function fullFinNoteCandidates(){
+  const en = currentLang === 'en';
+  const out = [];
+  try{
+    /* Önceki ay = monthKey'i BU aydan küçük olan son kayıt. renderMonthlyReport()'taki
+       "currIdx-1" kalıbı yerine bilerek bu kullanılıyor: bu fonksiyon render() içinde
+       scheduleHistorySave()'den ÖNCE çalışıyor, yani bu ayın kaydı history[]'de henüz
+       olmayabilir. Kaynak ve alan adı (expense) aynı; yeni bir hesap yok. */
+    const prev = [...history]
+      .filter(h => h && h.monthKey && h.monthKey < monthKey)
+      .sort((a,b)=>a.monthKey.localeCompare(b.monthKey))
+      .pop() || null;
+    const prevSpent = prev ? (prev.expense||0) : 0;
+    const spent = totalSpent();
+    if(prevSpent > 0 && spent > 0){
+      const change = (spent - prevSpent) / prevSpent;
+      if(Math.abs(change) >= 0.10){
+        out.push(change > 0
+          ? (en ? 'Your spending is higher than last month.' : 'Bu ay harcamaların geçen aya göre arttı.')
+          : (en ? 'Your spending is lower than last month.' : 'Bu ay harcamaların geçen aya göre azaldı.'));
+      }
+    }
+  }catch(e){ /* veri okunamazsa not gösterilmez */ }
+  return out;
+}
+
+function renderFullFinNote(){
+  const box = document.getElementById('fullfinNote');
+  if(!box) return;
+  const note = fullFinNoteCandidates()[0];
+  if(!note){ box.hidden = true; box.innerHTML = ''; return; }
+  const en = currentLang === 'en';
+  const ask = en ? 'Ask' : 'Sor';
+  box.innerHTML = `<span class="fullfin-note-label">FullFin</span>`
+    + `<p class="fullfin-note-text">${escapeHtml(note)}</p>`
+    + `<button type="button" class="fullfin-note-ask" id="fullfinNoteAsk">${escapeHtml(ask)} <span aria-hidden="true">&rarr;</span></button>`;
+  box.hidden = false;
+  const btn = document.getElementById('fullfinNoteAsk');
+  if(btn) btn.addEventListener('click', ()=>{
+    if(typeof window.openFullFin === 'function') window.openFullFin();
+    else { const l = document.getElementById('fcLauncher'); if(l) l.click(); }
+  });
+}
+
 /* Bir alert'i "Bugün Bilmen Gerekenler" mini-listesinde VE #alertSheet'in tam listesinde aynı
    şekilde gösteren TEK satır şablonu — iki görünüm birbirinden bağımsız markup üretmez.
    detailed=true iken (yalnızca sheet'te) "Ne yapmalı?" satırı da eklenir. targetSection sayesinde
@@ -9758,6 +9938,7 @@ function render(){
       : `<b>Net varlık likidite ile aynı şey değildir.</b> ${CUR}${fmt(assets)} toplam varlığının yaklaşık ${CUR}${fmt(liquidVal)} kadarı (%${Math.round(liquidPct)}) likit (nakit/banka), ${CUR}${fmt(illiquidVal)} kadarı ise başka yerde (yatırım, gayrimenkul vb.) bağlı. Yüksek net varlık, bugün beklenmedik bir gideri karşılayabileceğin anlamına otomatik olarak gelmez.`;
   })();
   renderHomeGreeting();
+  renderFullFinNote();
   const homeAlertBox = document.getElementById('homeAlertSummary');
   if(homeAlertBox){
     homeAlertBox.innerHTML = renderAlertSummaryHtml(getFinancialAlerts());
@@ -15170,6 +15351,28 @@ function answerGoalTimeline(){
   }
   return text;
 }
+/* "Hedefime ne kadar kaldı?" — bu soru ÖNCE kalan TUTARI sorar; süre ikincil bilgidir.
+   (answerGoalTimeline() bilerek DEĞİŞTİRİLMEDİ: o, "hedefe ne zaman ulaşırım?" sorusunun
+   cevabıdır ve kendi çağıranları vardır.) YENİ FİNANSAL HESAP YOK: gap / neededTotal /
+   alreadySaved / projectedMonths / monthsLeft zaten computeGoalInfo()'dan geliyor, yüzde
+   ifadesi de hedef kartlarındaki (renderGoals/computeGoalScenarios) ile BİREBİR AYNI. */
+function answerGoalRemaining(){
+  const en = currentLang==='en';
+  const primary = pickPrimaryGoal();
+  if(!primary) return en ? "You don't have an active goal with a remaining amount yet — add one in the Goals tab." : 'Şu an ilerleme kaydeden aktif bir hedefin yok — Hedefler sekmesinden ekleyebilirsin.';
+  const {g, info} = primary;
+  const name = goalDisplayName(g);
+  const pct = info.neededTotal>0 ? Math.min(100,(info.alreadySaved/info.neededTotal)*100) : 0;
+  let text = en
+    ? `${name}: ${CUR}${fmt(info.gap)} left of a ${CUR}${fmt(info.neededTotal)} target (${Math.round(pct)}% done).`
+    : `${name}: kalan ${CUR}${fmt(info.gap)} / hedef ${CUR}${fmt(info.neededTotal)} (%${Math.round(pct)}).`;
+  if(isFinite(info.projectedMonths)){
+    text += en ? ` At your current pace, about ${info.projectedMonths} months.` : ` Bu tempoyla yaklaşık ${info.projectedMonths} ay.`;
+  } else if(g.targetDate && info.monthsLeft!=null){
+    text += en ? ` Your target date leaves ${info.monthsLeft} months.` : ` Hedef tarihine ${info.monthsLeft} ay kaldı.`;
+  }
+  return text;
+}
 function answerGoalFaster(){
   const en = currentLang==='en';
   const primary = pickPrimaryGoal();
@@ -15360,6 +15563,16 @@ function answerTemplateQuestion(question){
      .../(save|set aside).../ ve "Borç mu yatırım mı?") önce eşleşme şansını kullanır ve
      hiçbir çalışan eşleşme bozulmaz. */
   if(/(ne kadar|how much).{0,30}(tasarruf|birikim|birikt|\bsave\b|\bsaving)|(tasarruf|birikim|birikt|\bsaving).{0,30}(ne kadar|how much)|tasarruf ed|birikt(ir)?ebil|birikim yap|kenara.{0,15}(ayir|koy)|(can|should) i save|put aside/.test(q)) return answerOverallStatus();
+
+  /* FULLFIN BAĞLAMSAL ÇİPLERİ — bu satırlar bilerek zincirin EN SONUNA, fallback'ten hemen
+     ÖNCEYE konuldu: yukarıdaki TÜM mevcut desenler önce eşleşme şansını kullanır, hiçbir
+     çalışan eşleşme değişmez. Hepsi ZATEN VAR OLAN cevap fonksiyonlarına yönlendirir —
+     yeni bir finansal hesap/şablon yazılmadı. */
+  if(/ne anlama gel|ne demek oluyor|what does this .{0,20}mean|what.{0,15}does it mean/.test(q)) return answerOverallStatus();
+  if(/(hedef).{0,30}(ne kadar kaldi|ne kadar var|kalan)|(ne kadar kaldi).{0,30}hedef|how (much|far).{0,30}goal|goal.{0,30}(how much|how far)/.test(q)) return answerGoalRemaining();
+  if(/durumu(mu)? ozetle|ozetle.{0,15}durum|summari[sz]e my (situation|finances|financial)/.test(q)) return answerOverallStatus();
+  if(/borc.{0,30}(butce|etkil|nasil etki)|debt.{0,30}(budget|affect)/.test(q)) return answerTotalDebt();
+  if(/varlik.{0,30}(toplam|durum)|(toplam|genel).{0,30}varlik|(overall|total).{0,20}asset/.test(q)) return answerOverallStatus();
 
   return en
     ? 'I can\'t match that to one of my ready-made topics yet — try one of the questions below, or ask about your spending, debt, goals, or overall finances.'
@@ -21304,7 +21517,7 @@ function syncAuthThemeIcons(){
      #aiChatLog/#aiChatInput'tan BAĞIMSIZ ama AYNI VERİYİ paylaşan ikinci
      bir arayüz olarak gösterir (bkz. az yukarıdaki <script> içindeki
      renderFinanceCoachFloating()). Robot/yıldız/parlama YOKTUR. -->
-<button id="fcLauncher" type="button" class="fc-launcher" aria-haspopup="dialog" aria-expanded="false" aria-controls="fcPanel" aria-label="Finans Koçunu aç" data-i18n-aria="aria-fc-ac">
+<button id="fcLauncher" type="button" class="fc-launcher" aria-haspopup="dialog" aria-expanded="false" aria-controls="fcPanel" aria-label="FullFin'i aç" data-i18n-aria="aria-fc-ac">
   <span class="fc-launcher-badge">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M3 12h4l2 6 4-12 2 6h6"/>
@@ -21318,8 +21531,8 @@ function syncAuthThemeIcons(){
 <div class="fc-panel" id="fcPanel" role="dialog" aria-modal="true" aria-labelledby="fcHeaderTitle" hidden>
   <div class="fc-header">
     <div class="fc-header-text">
-      <p class="fc-header-title" id="fcHeaderTitle" data-i18n="ai-koc-baslik">Finans Koçun</p>
-      <p class="fc-header-sub" data-i18n="ai-koc-not">Finans Koçuna sor. Gerçek verilerine bakarak sana senaryoları ve hesaplamaları açıklar — kararı sen verirsin.</p>
+      <p class="fc-header-title" id="fcHeaderTitle" data-i18n="fullfin-baslik">FullFin</p>
+      <p class="fc-header-sub" id="fcHeaderSub" data-i18n="fullfin-alt">Verine bakarak netleştir. Karar sende kalır.</p>
     </div>
     <button id="fcCloseBtn" type="button" class="fc-close-btn" aria-label="Kapat" data-i18n-aria="aria-fc-kapat">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
@@ -21327,7 +21540,7 @@ function syncAuthThemeIcons(){
   </div>
   <div class="fc-messages" id="fcMessages" aria-live="polite"></div>
   <div class="fc-input-row">
-    <textarea id="fcInput" class="fc-input" rows="1" placeholder="Finansın hakkında bir şey sor..." data-i18n-placeholder="ph-ai-soru" aria-label="Finans Koçuna mesaj yaz"></textarea>
+    <textarea id="fcInput" class="fc-input" rows="1" placeholder="Finansın hakkında bir şey sor..." data-i18n-placeholder="ph-ai-soru" data-i18n-aria="aria-fullfin-mesaj" aria-label="FullFin'e mesaj yaz"></textarea>
     <button id="fcSendBtn" type="button" class="fc-send-btn" aria-label="Gönder" data-i18n-aria="aria-gonder">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 12 3 4.5l3 7.5-3 7.5z"/><path d="M6 12h15.5"/></svg>
     </button>
@@ -21360,43 +21573,53 @@ function syncAuthThemeIcons(){
   let fcLastFailedQuestion = null;
   let fcOpen = false;
 
-  /* Spesifikasyonun verdiği örnek hızlı istemler — hiçbiri "şunu al/sat" gibi
-     yatırım yönlendirmesi İÇERMEZ, yalnızca kullanıcının KENDİ mevcut verisini
-     açıklamasını ister. Tıklanınca AYNI askCoach() çağrılır — ayrı bir yol yok. */
-  const FC_QUICK_PROMPTS = currentLang==='en' ? [
-    'Where is my money going this month?',
-    'Check my budget',
-    'Review my goals',
-    'Summarize my financial situation',
-  ] : [
-    'Bu ay param nereye gidiyor?',
-    'Bütçemi kontrol et',
-    'Hedeflerimi gözden geçir',
-    'Finansal durumumu özetle',
-  ];
+  /* SABİT ÇİPLER — genel FullBudget kullanımını temsil eden ÜÇ soru. Hiçbiri "şunu al/sat"
+     gibi yatırım yönlendirmesi İÇERMEZ, yalnızca kullanıcının KENDİ mevcut verisini
+     açıklamasını ister. Tıklanınca AYNI askCoach() çağrılır — ayrı bir yol yok.
+     "Hedeflerimi gözden geçir" bilerek SABİT listeden çıkarıldı: hedef bağlamı artık yalnızca
+     Hedefler ekranındayken, bağlamsal çip olarak (gerçek hedef adıyla) görünür. */
+  function fcFixedPrompts(){
+    return currentLang==='en' ? [
+      'Where is my money going this month?',
+      'Is my budget on track?',
+      'Summarize my situation',
+    ] : [
+      'Bu ay param nereye gidiyor?',
+      'Bütçem tutuyor mu?',
+      'Durumumu özetle',
+    ];
+  }
 
   function fcAutoGrow(){
     input.style.height = 'auto';
     input.style.height = Math.min(120, input.scrollHeight) + 'px';
   }
 
-  function fcRenderWelcome(){
-    const en = currentLang==='en';
-    const title = en ? 'Hello, I\'m your finance coach' : 'Merhaba, ben senin finans koçun';
-    const sub = en
-      ? 'Ask about your real spending, budget or goals — I explain what your data already shows.'
-      : 'Gerçek harcama, bütçe veya hedeflerin hakkında sor — verinin zaten gösterdiğini açıklarım.';
-    const chips = FC_QUICK_PROMPTS.map(q=>`<button type="button" class="fc-quick-btn">${escapeHtml(q)}</button>`).join('');
-    messages.innerHTML = `<div class="fc-welcome"><p class="fc-welcome-title">${escapeHtml(title)}</p><p class="fc-welcome-sub">${escapeHtml(sub)}</p><div class="fc-quick">${chips}</div></div>`;
+  /* SESSİZ BAŞLANGIÇ: panel açılırken FullFin KONUŞMAZ — karşılama/tanıtma cümlesi,
+     selamlama ve emoji YOKTUR (başlık + alt satır zaten ne olduğunu söylüyor). Gövdede
+     yalnızca çipler durur; ilk gerçek FullFin mesajı ancak kullanıcı bir çipe basınca ya da
+     kendi sorusunu gönderince oluşur.
+     Çip düzeni: EN ÜSTTE bir bağlamsal çip (varsa) + ÜÇ sabit çip. Bağlam yoksa yalnızca üç
+     sabit çip kalır — toplam hiçbir zaman 4'ü aşmaz. */
+  function fcRenderStarters(){
+    const ctx = (typeof resolveFullFinContext === 'function') ? resolveFullFinContext() : {prompt:null};
+    const prompts = [];
+    if(ctx && ctx.prompt) prompts.push({text: ctx.prompt, contextual: true});
+    fcFixedPrompts().forEach(q=>prompts.push({text: q, contextual: false}));
+    const chips = prompts.map(p=>`<button type="button" class="fc-quick-btn${p.contextual?' fc-quick-btn-context':''}"${p.contextual?' data-fc-context="1"':''}>${escapeHtml(p.text)}</button>`).join('');
+    messages.innerHTML = `<div class="fc-starters"><div class="fc-quick">${chips}</div></div>`;
     messages.querySelectorAll('.fc-quick-btn').forEach(btn=>{
-      btn.addEventListener('click', ()=>{ askCoach(btn.textContent); });
+      btn.addEventListener('click', ()=>{
+        if(typeof aiRequestInFlight !== 'undefined' && aiRequestInFlight) return;
+        askCoach(btn.textContent);
+      });
     });
   }
 
   /* aiChatHistory'yi (TEK gerçek kaynak) panelin kendi baloncuk/tipografi
      diliyle çizer. renderAiChatLog() ile AYNI veriyi okur, kopyalamaz. */
   function fcRenderMessages(){
-    if(!aiChatHistory.length){ fcRenderWelcome(); return; }
+    if(!aiChatHistory.length){ fcRenderStarters(); return; }
     const en = currentLang==='en';
     const AI_TAG = en ? 'AI explanation — not financial advice' : 'Yapay zekâ açıklaması — kesin tavsiye değildir';
     const RETRY_LABEL = en ? "Couldn't get a response. Let's try again." : 'Yanıt alınamadı. Tekrar deneyelim.';
@@ -21460,6 +21683,9 @@ function syncAuthThemeIcons(){
   }
 
   launcher.addEventListener('click', ()=>{ fcOpen ? fcClosePanel() : fcOpenPanel(); });
+  /* Ana Sayfa'daki FullFin notunun "Sor →" düğmesi bu paneli açar. Ayrı bir açma yolu/ikinci
+     bir panel DEĞİLDİR — launcher'ın çağırdığı AYNI fcOpenPanel()'dir. */
+  window.openFullFin = function(){ if(!fcOpen) fcOpenPanel(); };
   closeBtn.addEventListener('click', fcClosePanel);
   backdrop.addEventListener('click', fcClosePanel);
 
