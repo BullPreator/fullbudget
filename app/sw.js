@@ -17,7 +17,10 @@
    bir artır (v1 -> v2 -> ...). Aksi halde bazı kullanıcılar çevrimdışı
    önbellekte eski bir sürümde takılı kalabilir.
    ========================================================= */
-const CACHE_VERSION = 'fullbudget-v13';
+const CACHE_VERSION = 'fullbudget-v14';
+// v14: Android/PWA açılış (splash) ekranı: manifest background_color/theme_color giriş ekranı
+// zemini (#F7F9F8) ile aynı yapıldı ve splash'e özel şeffaf logo (splash-icon-384.png) eklendi.
+// Eski, önbellekteki manifest'in servis edilmemesi için sürüm artırıldı. Uygulama ikonları DEĞİŞMEDİ.
 // v13: "any" amaçlı ikonlar (icon-192/512) GERÇEKTEN opak beyaz zeminle yeniden
 // üretildi (v12'nin yorumu bunu iddia etmişti ama dosyalar hâlâ tamamen şeffaf
 // köşeliydi — Chrome/Android'in şeffaf "any" ikonları kendi otomatik adaptive-icon
@@ -28,7 +31,7 @@ const CACHE_VERSION = 'fullbudget-v13';
 // alınmış ikon baytlarının (hem bu SW cache'inin hem tarayıcı/manifest tarafının)
 // yeni dosyayla karışmasını/asılı kalmasını önlemek için (bkz. manifest.json'daki
 // aynı ?v= etiketi).
-const PRECACHE_URLS = ['manifest.json', 'icon.svg', 'icon-192.png?v=20260922', 'icon-512.png?v=20260922'];
+const PRECACHE_URLS = ['manifest.json', 'icon.svg', 'icon-192.png?v=20260922', 'icon-512.png?v=20260922', 'splash-icon-384.png?v=20260930'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
