@@ -12627,6 +12627,32 @@ function isAffordableGoalType(type){
   return type.kind==='custom' && type.key!=='yatirim';
 }
 
+// Hedef türü kartına dokunulunca, altta render edilen form alanlarını (#goalFieldsBox) görünür
+// alana getirir. Tür başına ayrı kod YOK: hangi tür seçiliyse renderGoalFields() aynı kutuyu
+// doldurur, bu yardımcı o kutuyu dinamik bulur. Yalnızca form ekran dışındaysa kaydırır (aynı
+// karta tekrar dokunmak gereksiz kaydırma yapmaz); alt gezinme çubuğunun altında kalmaz.
+// Hesap/state/kayıt mantığına DOKUNMAZ - salt gezinme (UX) davranışı.
+function scrollGoalFormIntoView(){
+  const box = document.getElementById('goalFieldsBox');
+  if(!box || !box.firstElementChild) return;
+  const TOP_OFFSET = 100;   // kaydırma bitince form üstü ekranın ~100px altında (80-120 aralığı)
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  // Mobilde sabit alt şerit; masaüstünde sol ray (alt şerit sayılmaz).
+  let bottomLimit = vh;
+  const nav = document.querySelector('.bottom-nav');
+  if(nav){
+    const nr = nav.getBoundingClientRect();
+    if(nr.height>0 && nr.top > vh*0.5) bottomLimit = nr.top;
+  }
+  const r = box.getBoundingClientRect();
+  const first = box.querySelector('input, select, button') || box.firstElementChild;
+  const fr = first.getBoundingClientRect();
+  // Form zaten görünürse (üstü başlığın altında, ilk alan alt şeridin üstünde) kaydırma.
+  if(r.top >= 60 && fr.bottom <= bottomLimit - 8) return;
+  const hedef = window.scrollY + r.top - TOP_OFFSET;
+  window.scrollTo({top: Math.max(0, hedef), behavior: prefersReducedMotion() ? 'auto' : 'smooth'});
+}
+
 function buildGoalTypeGrid(){
   const grid = document.getElementById('goalTypeGrid');
   GOAL_TYPES.forEach(t=>{
@@ -12636,9 +12662,21 @@ function buildGoalTypeGrid(){
     btn.innerHTML = `<span class="goal-type-icon">${goalTypeIconSvg(t.key)}</span><span>${catLabel(t.label)}</span>`;
     btn.addEventListener('click', ()=>{
       activeGoalType = t.key;
+      const scrollY0 = window.scrollY;  // dokunma anındaki konum (aşağıdaki geri yükleme için)
       grid.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       renderGoalFields();
+      // Form DOM'a yazıldıktan sonra (yerleşim oturunca) kaydır. ÖNEMLİ: renderGoalFields ->
+      // applyTranslations() sekme yeniden çizimini setTimeout(0) ile erteler ve o da setTab()
+      // üzerinden window.scrollTo(0,0) çağırır; kaydırmayı doğrudan/rAF ile yaparsak o ertelenmiş
+      // çağrı sayfayı en üste geri atar. Zamanlayıcılar sıralı (FIFO) çalıştığı için, bizim
+      // zamanlayıcımız onunkinden SONRA (aynı 0ms) çalışır; ardından yerleşim için rAF beklenir.
+      // O ertelenmiş setTab() sayfayı en üste attığı için, önce kullanıcının bulunduğu konumu
+      // anında geri yükle (form zaten görünürse hiçbir şey oynamasın), sonra gerekirse smooth kaydır.
+      setTimeout(()=>{
+        if(Math.abs(window.scrollY - scrollY0) > 1) window.scrollTo({top: scrollY0, behavior: 'instant'});
+        requestAnimationFrame(scrollGoalFormIntoView);
+      }, 0);
     });
     grid.appendChild(btn);
   });
