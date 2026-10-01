@@ -168,6 +168,7 @@ for (const key of TYPES) {
 test('form zaten görünürken (uzun ekran) smooth kaydırma yapılmaz', async () => {
   const { page } = await newPage({ width: 430, height: 2000 });
   await openGoalForm(page);
+  await settle(page);
   await spyScroll(page);
   await tapType(page, 'bilgisayar');
   await settle(page);
