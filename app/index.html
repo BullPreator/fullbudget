@@ -3542,6 +3542,9 @@ html[data-theme="dark"] .fc-launcher{ --fc-glow:0,201,149; }
     <div id="installmentBurdenBox"></div>
   </div>
 
+  </div>
+
+  <!-- Ekstre İncelemesi: "Taksit Yükü" kapsayıcısından AYRI (taksit yokken o bölüm gizlenir; inceleme ekranı yine görünür olmalı) -->
   <div id="csvReviewSection" style="display:none;">
     <p class="section-title">Ekstre İncelemesi</p>
     <div class="card">
@@ -3561,7 +3564,7 @@ html[data-theme="dark"] .fc-launcher{ --fc-glow:0,201,149; }
     </div>
   </div>
 
-  </div><div class="reorder-section" data-section="borclar"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title"><span data-i18n="borclar">Borçların</span></p>
+  <div class="reorder-section" data-section="borclar"><div class="reorder-controls"><button class="reorder-btn" data-dir="up" type="button" aria-label="Yukarı taşı"><svg viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15"/></svg></button><button class="reorder-btn" data-dir="down" type="button" aria-label="Aşağı taşı"><svg viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9"/></svg></button></div><p class="section-title"><span data-i18n="borclar">Borçların</span></p>
   <div class="card">
     <div id="dolarRateWarning"></div>
     <div class="stat-grid">
@@ -7542,6 +7545,13 @@ function detectCsvColumns(headerCells){
 }
 /* CSV metnini yapılandırılmış (henüz ONAYLANMAMIŞ) işlem taslaklarına çevirir.
    Her taslak: {date, merchant, amount, category, installment, isDuplicate, isPayment, include} */
+/* Olası mükerrer (isDuplicate) taslaklar varsayılan olarak SEÇİLİ DEĞİL — CSV, PDF ve fiş taslakları için tek kural.
+   Satır silinmez/gizlenmez: "Olası kopya" rozetiyle listede durur, kullanıcı isterse işaretleyip içe aktarabilir.
+   Mükerrer kontrolün kendisi (isDuplicateTransaction) DEĞİŞMEDİ; yalnızca varsayılan seçim. */
+function applyDuplicateDefaultSelection(drafts){
+  drafts.forEach(d=>{ if(d && d.isDuplicate) d.include = false; });
+  return drafts;
+}
 function parseCsvTransactions(csvText, cardId){
   const lines = csvText.split(/\r?\n/).filter(l=>l.trim().length>0);
   if(lines.length<2) return {transactions:[], error:'no-rows'};
@@ -7577,10 +7587,12 @@ function parseCsvTransactions(csvText, cardId){
       installment,
       isPayment, isRefund,
       isDuplicate: !isPayment && isDuplicateTransaction(cardId, date, rawDesc, Math.abs(amount)),
-      include: true, // ödeme satırları artık işlevsel (bakiyeyi azaltıyor), bu yüzden varsayılan olarak işaretli
+      // Ödeme satırları işlevsel (bakiyeyi azaltıyor) → varsayılan işaretli. OLASI MÜKERRER satırlar ise
+      // varsayılan olarak SEÇİLİ DEĞİL (aşağıda); kullanıcı isterse inceleme ekranında işaretleyebilir.
+      include: true,
     });
   }
-  return {transactions: drafts, error: null};
+  return {transactions: applyDuplicateDefaultSelection(drafts), error: null};
 }
 
 /* =========================================================
@@ -7726,10 +7738,11 @@ function buildDraftsFromPdfLines(lines, cardId){
       sourceType: 'pdf',
       installment, isPayment, isRefund,
       isDuplicate: !isPayment && isDuplicateTransaction(cardId, parsed.date, parsed.merchant, parsed.amount),
-      include: true, // ödeme satırları artık işlevsel (bakiyeyi azaltıyor), bu yüzden varsayılan olarak işaretli
+      // Ödeme satırları işlevsel → varsayılan işaretli. OLASI MÜKERRER satırlar varsayılan olarak SEÇİLİ DEĞİL.
+      include: true,
     });
   });
-  return {transactions: drafts, skippedLines: skippedCount, totalLines: lines.length,
+  return {transactions: applyDuplicateDefaultSelection(drafts), skippedLines: skippedCount, totalLines: lines.length,
           components: extractStatementComponents(lines)};
 }
 
@@ -7826,7 +7839,7 @@ function parseReceiptText(rawText){
     sourceType: 'photo', itemCount: itemCount>1 ? itemCount : null,
     installment: null, isPayment: false, isRefund: false,
     isDuplicate: isDuplicateTransaction('', date, merchant, amount),
-    include: true,
+    include: !isDuplicateTransaction('', date, merchant, amount),   // olası mükerrer fiş varsayılan olarak seçili değil
   };
 }
 
@@ -17126,10 +17139,15 @@ document.getElementById('uploadCsvBtn').addEventListener('click', ()=>{
   }
   document.getElementById('csvFileInput').click();
 });
-document.getElementById('csvFileInput').addEventListener('change', async (e)=>{
+document.getElementById('csvFileInput').addEventListener('change', (e)=>{
   const file = e.target.files && e.target.files[0];
   e.target.value = '';
   if(!file) return;
+  importCsvFile(file);
+});
+/* Web Share Target aynı fonksiyonu kullanır (yeni parser YOK). opts.onDrafts verilirse, taslaklar hazır
+   olunca doğrudan inceleme ekranını açmak yerine o geri çağrı çalışır (önce özet/onay göstermek için). */
+async function importCsvFile(file, opts){
   const en = currentLang==='en';
   // Basit boyut güvenliği: aşırı büyük dosyalarda tarayıcıyı kilitleme
   if(file.size > 5*1024*1024){
@@ -17146,11 +17164,11 @@ document.getElementById('csvFileInput').addEventListener('change', async (e)=>{
     }
     csvDraftTransactions = result.transactions;
     csvStatementComponents = [];   // CSV'de ekstre kalemi kavramı yok
-    renderCsvReview();
+    if(opts && opts.onDrafts) opts.onDrafts(); else renderCsvReview();
   }catch(err){
     showToast(en ? 'Could not read the file' : 'Dosya okunamadı');
   }
-});
+}
 
 document.getElementById('uploadPdfBtn').addEventListener('click', ()=>{
   if(!persistent.creditCards.length){
@@ -17159,10 +17177,13 @@ document.getElementById('uploadPdfBtn').addEventListener('click', ()=>{
   }
   document.getElementById('pdfFileInput').click();
 });
-document.getElementById('pdfFileInput').addEventListener('change', async (e)=>{
+document.getElementById('pdfFileInput').addEventListener('change', (e)=>{
   const file = e.target.files && e.target.files[0];
   e.target.value = '';
   if(!file) return;
+  importPdfFile(file);
+});
+async function importPdfFile(file, opts){
   const en = currentLang==='en';
   const progressNote = document.getElementById('pdfProgressNote');
   if(file.size > 15*1024*1024){
@@ -17197,6 +17218,7 @@ document.getElementById('pdfFileInput').addEventListener('change', async (e)=>{
     }
     csvDraftTransactions = result.transactions;
     csvStatementComponents = result.components || [];
+    if(opts && opts.onDrafts){ opts.onDrafts(); return; }
     renderCsvReview();
     /* Eski mesaj "311 satırdan 119 tanesi tanındı" diyordu ve kullanıcıda 192 işlemin
        kaybolduğu izlenimi bırakıyordu. Oysa kalan satırlar başlık, adres, reklam metni,
@@ -17208,7 +17230,7 @@ document.getElementById('pdfFileInput').addEventListener('change', async (e)=>{
     progressNote.style.display = 'none';
     showToast(en ? 'Could not read this PDF.' : 'Bu PDF okunamadı.');
   }
-});
+}
 
 document.getElementById('uploadReceiptBtn').addEventListener('click', ()=>{
   document.getElementById('receiptPhotoInput').click();
@@ -17432,6 +17454,150 @@ document.getElementById('csvApproveBtn').addEventListener('click', ()=>{
     ? `${toApprove.length} transactions imported (${CUR}${fmt(addedExpense)} expense${addedRefund?`, ${CUR}${fmt(addedRefund)} refund`:''}${addedPayment?`, ${CUR}${fmt(addedPayment)} payment applied`:''})`
     : `${toApprove.length} işlem içe aktarıldı (${CUR}${fmt(addedExpense)} harcama${addedRefund?`, ${CUR}${fmt(addedRefund)} iade`:''}${addedPayment?`, ${CUR}${fmt(addedPayment)} ödeme işlendi`:''})`);
 });
+
+/* =========================================================
+   📤 WEB SHARE TARGET — giriş kapısı (Android: Paylaş → FullBudget)
+   Bu bölüm YENİ bir içe aktarma sistemi DEĞİLDİR; yalnızca mevcut CSV/PDF hattına yeni bir giriş sağlar:
+     Share Target → File → importCsvFile/importPdfFile (mevcut parser) → csvDraftTransactions
+     (mevcut mükerrer kontrolü: isDuplicateTransaction) → ÖZET + ONAY → mevcut inceleme ekranı →
+     mevcut "Seçilenleri Onayla" (csvApproveBtn).
+   Kullanıcı onaylamadan hiçbir bütçe/hesap/hedef/Decision Engine verisi değişmez: taslaklar yalnızca bellekte
+   (csvDraftTransactions) durur; kalıcı yazım yalnızca csvApproveBtn'de olur.
+   SW tarafı: bkz. sw.js (handleShareTarget). Dosya 'shared-files' önbelleğinde 'latest' anahtarıyla bekler.
+   ========================================================= */
+const SHARED_FILES_CACHE = 'shared-files';
+let _sharedIntakeStarted = false;
+/* Anahtar SW'deki new URL('latest', registration.scope) ile aynı adrese çözülür (sw.js ve sayfa aynı dizinde),
+   böylece GitHub Pages alt yolunda ("/fullbudget/") da mutlak "/" varsayılmadan eşleşir. */
+function sharedLatestKey(){ return new URL('latest', new URL('./', location.href)).href; }
+function classifySharedFile(file){
+  const n = (file && file.name || '').toLowerCase();
+  const ty = (file && file.type || '').toLowerCase();
+  if(/\.pdf$/.test(n) || ty==='application/pdf') return 'pdf';
+  // Android bazen .csv'ye application/vnd.ms-excel MIME'ı verir: uzantı MIME'dan ÖNCE değerlendirilir.
+  if(/\.csv$/.test(n) || ty==='text/csv' || ty==='application/csv' || ty==='text/comma-separated-values') return 'csv';
+  if(/\.xlsx?$/.test(n) || /spreadsheetml|ms-excel/.test(ty)) return 'excel';
+  return 'unknown';
+}
+async function readSharedFileFromCache(){
+  if(!('caches' in window)) return null;
+  const cache = await caches.open(SHARED_FILES_CACHE);
+  const key = sharedLatestKey();
+  const res = await cache.match(key);
+  if(!res) return null;
+  try{
+    const blob = await res.blob();
+    let name = res.headers.get('X-Name') || '';
+    try{ name = decodeURIComponent(name); }catch(e){}
+    const type = res.headers.get('Content-Type') || blob.type || '';
+    return new File([blob], name || 'shared', {type});   // özgün ad + MIME korunur
+  } finally {
+    // Okunduktan sonra (başarılı ya da değil) kayıt temizlenir: eski bir dosya bir sonraki açılışta tekrar çıkmasın.
+    try{ await cache.delete(key); }catch(e){}
+  }
+}
+/* customConfirm'i (mevcut onay diyaloğu) yeniden kullanır: yeni modal/HTML eklenmez. */
+async function sharedDialog(message, okText, cancelText){
+  const msgEl = document.getElementById('customConfirmMsg');
+  const cancelBtn = document.getElementById('customConfirmCancelBtn');
+  const prevWs = msgEl ? msgEl.style.whiteSpace : '';
+  const prevDisp = cancelBtn ? cancelBtn.style.display : '';
+  if(msgEl) msgEl.style.whiteSpace = 'pre-line';
+  if(cancelBtn) cancelBtn.style.display = cancelText ? '' : 'none';
+  try{
+    return await customConfirm(message, {okText, cancelText});
+  } finally {
+    if(msgEl) msgEl.style.whiteSpace = prevWs;
+    if(cancelBtn) cancelBtn.style.display = prevDisp;
+  }
+}
+function sharedNotice(message){
+  return sharedDialog(message, currentLang==='en' ? 'OK' : 'Tamam', null);
+}
+function sharedImportSummaryText(file, card){
+  const en = currentLang==='en';
+  const total = csvDraftTransactions.length;
+  const dup = csvDraftTransactions.filter(t=>t.isDuplicate).length;
+  const fresh = total - dup;
+  const lines = en
+    ? [`${total} transactions found`, `${fresh} new`, `${dup} already exist`, '', `File: ${file.name}`, `Card: ${card ? card.name : '—'}`, '',
+       'Tapping Import opens the review screen. Nothing is saved until you approve there.']
+    : [`${total} işlem bulundu`, `${fresh} yeni işlem`, `${dup} işlem zaten mevcut`, '', `Dosya: ${file.name}`, `Kart: ${card ? card.name : '—'}`, '',
+       'İçe Aktar\'a basınca inceleme ekranı açılır. Orada onaylamadan hiçbir şey kaydedilmez.'];
+  return lines.join('\n');
+}
+async function consumeSharedFile(){
+  if(_sharedIntakeStarted) return;
+  _sharedIntakeStarted = true;
+  let flag = null;
+  try{ flag = new URLSearchParams(location.search).get('shared'); }catch(e){}
+  if(!flag) return;
+  // Sayfa yenilenirse akış tekrar tetiklenmesin: ?shared parametresini adres çubuğundan kaldır.
+  try{ window.history.replaceState(window.history.state, '', location.pathname + location.hash); }catch(e){}   // NOT: bu dosyada 'history' adlı global (aylık geçmiş) window.history'yi gölgeliyor — window. ile çağır
+  const en = currentLang==='en';
+  const failMsg = en ? "Couldn't receive the file.\nPlease try sharing it again." : 'Dosya alınamadı.\nLütfen dosyayı tekrar paylaşmayı dene.';
+  try{
+    if(flag==='error'){ await sharedNotice(failMsg); return; }
+    if(flag!=='1') return;
+    let file = null;
+    try{ file = await readSharedFileFromCache(); }catch(e){ file = null; }
+    if(!file || !(file.size>0)){ await sharedNotice(failMsg); return; }
+    const kind = classifySharedFile(file);
+    if(kind==='excel'){
+      await sharedNotice(en
+        ? "Excel files can't be read directly yet.\nPlease export the statement as CSV or PDF and share it again."
+        : 'Excel dosyaları henüz doğrudan okunamıyor.\nLütfen ekstreyi CSV veya PDF olarak dışa aktarıp tekrar paylaş.');
+      return;
+    }
+    if(kind==='unknown'){
+      await sharedNotice(en
+        ? "This file type isn't supported.\nShare a PDF or CSV statement."
+        : 'Bu dosya türü desteklenmiyor.\nPDF veya CSV ekstre paylaşmayı dene.');
+      return;
+    }
+    if(!persistent.creditCards.length){
+      await sharedNotice(en
+        ? 'Add a credit card first, then share the statement again.'
+        : 'Önce bir kredi kartı ekle, sonra ekstreyi tekrar paylaş.');
+      return;
+    }
+    let ok = false;
+    const onDrafts = ()=>{ ok = true; };
+    if(kind==='csv') await importCsvFile(file, {onDrafts}); else await importPdfFile(file, {onDrafts});
+    if(!ok){ csvDraftTransactions = []; csvStatementComponents = []; return; }  // mevcut hat nedenini zaten bildirdi
+    const card = persistent.creditCards.find(c=>c.id===csvActiveCardId);
+    const go = await sharedDialog(sharedImportSummaryText(file, card), en ? 'Import' : 'İçe Aktar', en ? 'Cancel' : 'Vazgeç');
+    if(!go){
+      csvDraftTransactions = []; csvStatementComponents = [];   // veriye hiç dokunulmadı
+      showToast(en ? 'Import cancelled' : 'İçe aktarma iptal edildi');
+      return;
+    }
+    // Kullanıcı onayladı → MEVCUT inceleme ekranı (kart seçimi, kategori, "Olası kopya" rozetleri) → mevcut onay düğmesi.
+    setTab('debts');
+    renderCsvReview();
+    setTimeout(()=>{ const sec = document.getElementById('csvReviewSection'); if(sec) sec.scrollIntoView({behavior:'smooth', block:'start'}); }, 150);
+  }catch(err){
+    csvDraftTransactions = []; csvStatementComponents = [];
+    try{ await sharedNotice(failMsg); }catch(e){}
+  }
+}
+function startSharedIntake(){
+  let flag = null;
+  try{ flag = new URLSearchParams(location.search).get('shared'); }catch(e){}
+  if(!flag) return;   // normal açılış: hiçbir şey yapma
+  const run = ()=> setTimeout(consumeSharedFile, 400);
+  if(document.documentElement.getAttribute('data-locked')==='true'){
+    // PIN kilidi varsa dosya, kilit açılana kadar önbellekte bekler.
+    const mo = new MutationObserver(()=>{
+      if(document.documentElement.getAttribute('data-locked')!=='true'){ mo.disconnect(); run(); }
+    });
+    mo.observe(document.documentElement, {attributes:true, attributeFilter:['data-locked']});
+    return;
+  }
+  run();
+}
+if(document.readyState==='complete') startSharedIntake();
+else window.addEventListener('load', startSharedIntake);
 
 document.getElementById('addDebtBtn').addEventListener('click', ()=>{
   const balanceInput = document.getElementById('debtBalanceInput');

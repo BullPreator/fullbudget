@@ -17,7 +17,12 @@
    bir artır (v1 -> v2 -> ...). Aksi halde bazı kullanıcılar çevrimdışı
    önbellekte eski bir sürümde takılı kalabilir.
    ========================================================= */
-const CACHE_VERSION = 'fullbudget-v14';
+const CACHE_VERSION = 'fullbudget-v15';
+// v15: Web Share Target (Android "Paylaş → FullBudget"). Yalnızca ./share-target'a gelen POST yakalanır;
+// paylaşılan dosya GEÇİCİ olarak 'shared-files' önbelleğine ('latest' anahtarı) konur ve uygulamaya
+// ./?shared=1 ile yönlendirilir. 'shared-files' sürümlü bir önbellek DEĞİLDİR: activate'teki genel
+// temizlik onu silmez (aksi halde SW güncellemesi paylaşılan dosyayı sessizce yok ederdi).
+// Diğer tüm fetch davranışları (navigate: önce ağ, statik: önce önbellek) DEĞİŞMEDİ.
 // v14: Android/PWA açılış (splash) ekranı: manifest background_color/theme_color giriş ekranı
 // zemini (#F7F9F8) ile aynı yapıldı ve splash'e özel şeffaf logo (splash-icon-384.png) eklendi.
 // Eski, önbellekteki manifest'in servis edilmemesi için sürüm artırıldı. Uygulama ikonları DEĞİŞMEDİ.
@@ -31,6 +36,7 @@ const CACHE_VERSION = 'fullbudget-v14';
 // alınmış ikon baytlarının (hem bu SW cache'inin hem tarayıcı/manifest tarafının)
 // yeni dosyayla karışmasını/asılı kalmasını önlemek için (bkz. manifest.json'daki
 // aynı ?v= etiketi).
+const SHARED_CACHE = 'shared-files'; // sürüm temizliğinden MUAF (bkz. activate)
 const PRECACHE_URLS = ['manifest.json', 'icon.svg', 'icon-192.png?v=20260922', 'icon-512.png?v=20260922', 'splash-icon-384.png?v=20260930'];
 
 self.addEventListener('install', (event) => {
@@ -43,13 +49,43 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_VERSION && k !== SHARED_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
+/* Web Share Target: manifest'teki "action": "./share-target" (POST, multipart/form-data, alan adı "file").
+   GitHub Pages alt yolu uyumu için hiçbir yerde mutlak "/share-target" kullanılmaz: yönlendirme ve
+   önbellek anahtarı SW kapsamına (registration.scope) göre üretilir. */
+function isShareTargetRequest(req) {
+  if (req.method !== 'POST') return false;
+  try { return new URL(req.url).pathname.endsWith('/share-target'); } catch (e) { return false; }
+}
+async function handleShareTarget(req) {
+  const errorUrl = new URL('./?shared=error', self.registration.scope).href;
+  try {
+    const form = await req.formData();
+    const file = form.get('file');
+    if (!file || typeof file === 'string' || !(file.size > 0)) return Response.redirect(errorUrl, 303);
+    const cache = await caches.open(SHARED_CACHE);
+    await cache.put(
+      new URL('latest', self.registration.scope).href,
+      new Response(file, {
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream', // MIME korunur
+          'X-Name': encodeURIComponent(file.name || 'shared'),      // özgün dosya adı
+        },
+      })
+    );
+    return Response.redirect(new URL('./?shared=1', self.registration.scope).href, 303);
+  } catch (e) {
+    return Response.redirect(errorUrl, 303);
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+  if (isShareTargetRequest(req)) { event.respondWith(handleShareTarget(req)); return; }
   if (req.method !== 'GET') return; // POST vb. isteklere karışma
 
   const url = new URL(req.url);
