@@ -392,30 +392,219 @@ test('U: mobil sheet alt gezinme çubuğunun üstünde kalır, input ve gönder 
 });
 
 // ---------------------------------------------------------------- Home çipi: metin + routing
-test('Home bağlamsal çipi "ne anlama geliyor?" metnini kullanır ve answerOverallStatus yoluna bağlanır', async () => {
+test('Home çipi "Bu ₺X\'i nasıl kullanayım?" → howToUsePlannable(); serbest "ne anlama geliyor?" hâlâ answerOverallStatus()', async () => {
   const { page } = await newPage(MOBILE);
   await page.evaluate(() => { FB_AI_CONFIG.backendUrl = ''; });   // mevcut şablon yolu
   await seed(page, { income: 90000, expenses: 24000, assets: 150000 });
   await page.evaluate(() => { setTab('home'); render(); });
   await openFullFin(page);
 
+  // Test 1 — çip canlı distributableCash değerini (doğru Türkçe ekle) taşır.
   const first = (await chips(page))[0];
-  const expected = await page.evaluate(() => {
+  const live = await page.evaluate(() => {
     const a = runMonthlyGoalCashAllocationLive().distributableCash;
-    return `Bu ${CUR}${fmt(a)} ne anlama geliyor?`;
+    return { amount: a, money: `${CUR}${fmt(a)}`, chip: `Bu ${CUR}${fmt(a)}'${turkishAccusativeSuffix(a)} nasıl kullanayım?` };
   });
-  assert.equal(first, expected, 'Home çipi tutarın ANLAMINI sormalı');
-  assert.equal(/nasıl kullanayım/i.test(first), false, 'eski "nasıl kullanayım" metni kalmamalı');
+  assert.ok(live.amount > 0, 'kurulum planlanabilir tutar üretmeli');
+  assert.equal(first, live.chip, 'Home çipi canlı planlanabilir tutarla "nasıl kullanayım?" sormalı');
 
-  // Çip ile cevap aynı şeyi sorar: answerOverallStatus() yolu çalışır, fallback dönmez.
-  const direct = await page.evaluate((q) => ({ viaRouter: answerTemplateQuestion(q), viaAnswer: answerOverallStatus() }), expected);
-  assert.equal(direct.viaRouter, direct.viaAnswer, 'çip metni answerOverallStatus() cevabına eşlenmeli');
+  // Router: çip → howToUsePlannable(); serbest "ne anlama geliyor?" → answerOverallStatus() (DEĞİŞMEDİ).
+  const r = await page.evaluate((c) => ({
+    chipRoute: answerTemplateQuestion(c.chip),
+    plan: howToUsePlannable(),
+    meaningRoute: answerTemplateQuestion(`Bu ${c.money} ne anlama geliyor?`),
+    overall: answerOverallStatus(),
+  }), live);
+  assert.equal(r.chipRoute, r.plan, 'çip howToUsePlannable() yoluna gitmeli');
+  assert.equal(r.meaningRoute, r.overall, '"ne anlama geliyor?" serbest girişi answerOverallStatus() yolunda kalmalı');
 
+  // Panelde görünen cevap aynı çeviri ve fallback değil.
   await page.locator('#fcMessages .fc-quick-btn').first().click();
   await page.waitForFunction(() => !aiRequestInFlight, null, { timeout: 15000 });
   const answer = (await page.locator('#fcMessages .fc-msg.assistant').first().textContent()).trim();
-  assert.equal(/eşleyemedim|can't match/i.test(answer), false, `fallback cevabı dönmemeli: ${answer}`);
-  assert.equal(answer, direct.viaAnswer, 'panelde görünen cevap answerOverallStatus() çıktısı olmalı');
+  assert.equal(/eşleyemedim|can't match/i.test(answer), false, `fallback dönmemeli: ${answer}`);
+  assert.ok(answer.includes(live.money), `cevap canlı tutarı içermeli: ${answer}`);
+  await page.close();
+});
+
+// ---------------------------------------------------------------- howToUsePlannable(): senaryo çevirisi
+const PLAN_GOAL_MARK = 'yönünde kullanmayı seçersen';
+const PLAN_DEBT_MARK = 'Borçta ek ödemeyi seçersen';
+const PLAN_CASH_LINE = 'Nakit tutarsan bu tutar likit kalır; net varlık görünümü şu an değişmez.';
+const PLAN_CLOSE = 'Bu bir sıralama değil. Hangisinin sana uyduğu kararı sana ait.';
+
+test('Test 2/3: howToUsePlannable gerçek tutarı içerir, answerOverallStatus\'tan farklıdır, yasaklı dil yok', async () => {
+  const { page } = await newPage(MOBILE);
+  await seed(page, { income: 90000, expenses: 24000, assets: 150000 });
+  const r = await page.evaluate(() => ({
+    plan: howToUsePlannable(),
+    overall: answerOverallStatus(),
+    money: `${CUR}${fmt(runMonthlyGoalCashAllocationLive().distributableCash)}`,
+  }));
+  assert.ok(r.plan.startsWith(`${r.money} şu anda planlanabilir nakit. Henüz belirli bir kullanıma bağlanmış değil.`), `giriş cümlesi canlı tutarla başlamalı: ${r.plan}`);
+  assert.notEqual(r.plan, r.overall, 'senaryo çevirisi genel durum özetiyle aynı olmamalı');
+  assert.ok(r.plan.includes(PLAN_CASH_LINE), 'nakit senaryosu her zaman olmalı');
+  assert.ok(r.plan.trim().endsWith(PLAN_CLOSE), 'kapanış cümlesiyle bitmeli');
+  for (const bad of [/yapmalısın/i, /en doğru/i, /kesinlikle/i, /yatır/i, /satın al/i, /hedefe ayır/i]) {
+    assert.equal(bad.test(r.plan), false, `yasaklı ifade bulunmamalı (${bad}): ${r.plan}`);
+  }
+  await page.close();
+});
+
+test('Test 4/5 + yalnızca-nakit: borç 0 iken borç, birincil hedef yokken hedef senaryosu YOK; chip yine açılır', async () => {
+  const { page } = await newPage(MOBILE);
+  await page.evaluate(() => { FB_AI_CONFIG.backendUrl = ''; });
+  await seed(page, { income: 90000, expenses: 24000, assets: 150000, goals: [], debts: [] });
+  const r = await page.evaluate(() => ({ plan: howToUsePlannable(), debt: totalDebtTL(), goal: pickPrimaryGoal(), overall: answerOverallStatus() }));
+  assert.equal(r.debt, 0);
+  assert.equal(r.goal, null);
+  assert.equal(r.plan.includes(PLAN_DEBT_MARK), false, 'borç 0 iken borç senaryosu olmamalı');
+  assert.equal(r.plan.includes(PLAN_GOAL_MARK), false, 'birincil hedef yokken hedef senaryosu olmamalı');
+  // Yalnızca nakit: giriş + nakit + kapanış (3 blok), ve "ne anlama geliyor?" cevabına düşmez.
+  assert.equal(r.plan.split('\n\n').length, 3, `yalnızca giriş + nakit + kapanış olmalı: ${r.plan}`);
+  assert.notEqual(r.plan, r.overall);
+  await page.evaluate(() => { setTab('home'); render(); });
+  await openFullFin(page);
+  assert.equal(await page.locator('#fcMessages .fc-quick-btn[data-fc-context="1"]').count(), 1, 'yalnızca nakit senaryosu varken de çip açılmalı');
+  await page.close();
+});
+
+test('kapılar gerçek motor çıktısından açılır: GCAE hedef payı ve borç ek ödemesi ürettiyse senaryolar görünür', async () => {
+  const { page } = await newPage(MOBILE);
+  const far = new Date(Date.now() + 500 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  await seed(page, {
+    income: 90000, expenses: 20000, assets: 400000,
+    goals: [{ id: 'g1', typeKey: 'telefon', targetAmount: 40000, currentSaved: 10000, targetDate: far }],
+    debts: [{ id: 'd1', category: 'ihtiyac', note: 'Pahalı Borç', balance: 20000, rate: 8, minPayment: 0, extraPayment: 0, currency: 'TRY' }],
+  });
+  const r = await page.evaluate(() => {
+    const g = runMonthlyGoalCashAllocationLive();
+    const primary = pickPrimaryGoal();
+    const goalLine = g.allocations.find(a => a.type === 'goal_contribution' && a.relatedGoalId === primary.g.id);
+    const impact = g.goalImpact.find(x => x.goalId === primary.g.id);
+    const debtLine = g.allocations.find(a => a.type === 'debt_reduction' && a.amount > 0);
+    return {
+      plan: howToUsePlannable(),
+      name: goalDisplayName(primary.g),
+      goalLine: !!goalLine, debtLine: debtLine ? `${CUR}${fmt(debtLine.amount)}` : null,
+      alloc: impact ? `${CUR}${fmt(impact.allocatedThisMonth)}` : null,
+      gap: impact ? `${CUR}${fmt(impact.gap)}` : null,
+      months: impact ? impact.projectedMonthsAtThisAllocation : null,
+    };
+  });
+  // Ön koşul: motor bu kalemleri GERÇEKTEN üretmiş olmalı (kapı motor çıktısına bağlı).
+  assert.equal(r.goalLine, true, 'kurulum GCAE goal_contribution üretmeli');
+  assert.ok(r.debtLine, 'kurulum GCAE debt_reduction üretmeli');
+  const goalPart = r.plan.split('\n\n').find(p => p.includes(PLAN_GOAL_MARK));
+  assert.ok(goalPart && goalPart.startsWith(r.name), `hedef senaryosu gerçek hedef adıyla görünmeli: ${r.plan}`);
+  assert.ok(goalPart.includes(r.alloc) && goalPart.includes(r.gap), `hedef rakamları goalImpact'ten gelmeli: ${goalPart}`);
+  if (r.months != null) assert.ok(goalPart.includes(`${r.months} ayda`), 'ay bilgisi motorun projectedMonthsAtThisAllocation alanından gelmeli');
+  assert.equal(/kısalır/.test(goalPart), false, 'motorda hazır olmayan "kısalır" değeri yazılmamalı');
+  const debtPart = r.plan.split('\n\n').find(p => p.includes(PLAN_DEBT_MARK));
+  assert.ok(debtPart && debtPart.includes(r.debtLine), `borç senaryosu GCAE debt_reduction tutarıyla görünmeli: ${r.plan}`);
+  // En fazla 3 senaryo: giriş + (nakit, hedef, borç) + kapanış = 5 blok.
+  assert.ok(r.plan.split('\n\n').length <= 5);
+  await page.close();
+});
+
+test('borç var ama motor ek ödeme kalemi ÜRETMİYORSA borç senaryosu görünmez (varsayım yok)', async () => {
+  const { page } = await newPage(MOBILE);
+  // Taksitli kredi: sözleşmesi sabit (fixedSchedule) → GCAE debt_reduction üretmez.
+  await seed(page, {
+    income: 90000, expenses: 20000, assets: 150000,
+    debts: [{ id: 'd1', category: 'Kredi', note: 'Taksitli Kredi', balance: 50000, rate: 8, minPayment: 3000, extraPayment: 0, currency: 'TRY', termRemaining: 10, installment: 5000 }],
+  });
+  const r = await page.evaluate(() => ({
+    debt: totalDebtTL(),
+    hasLine: runMonthlyGoalCashAllocationLive().allocations.some(a => a.type === 'debt_reduction' && a.amount > 0),
+    plan: howToUsePlannable(),
+  }));
+  assert.ok(r.debt > 0, 'borç mevcut');
+  assert.equal(r.hasLine, false, 'kurulum: motor bu borç için ek ödeme kalemi üretmemeli');
+  assert.equal(r.plan.includes(PLAN_DEBT_MARK), false, 'motor kalem üretmediyse borç senaryosu olmamalı');
+  await page.close();
+});
+
+test('Test 6: çipe basmak / senaryo çevirisi motor çıktısını değiştirmez', async () => {
+  const { page } = await newPage(MOBILE);
+  await page.evaluate(() => { FB_AI_CONFIG.backendUrl = ''; });
+  await seed(page, {
+    income: 90000, expenses: 20000, assets: 400000,
+    debts: [{ id: 'd1', category: 'ihtiyac', note: 'Pahalı Borç', balance: 20000, rate: 8, minPayment: 0, extraPayment: 0, currency: 'TRY' }],
+  });
+  const snap = () => page.evaluate(() => {
+    const de2 = runMonthlyDecisionEngineLive();
+    const g = runMonthlyGoalCashAllocationLive();
+    return JSON.stringify({ a: de2.availableCash, p: de2.protectedCash, d: g.distributableCash, al: g.allocations.map(x => [x.type, x.amount]) });
+  });
+  const before = await snap();
+  await page.evaluate(() => { setTab('home'); render(); });
+  await openFullFin(page);
+  await page.locator('#fcMessages .fc-quick-btn').first().click();
+  await page.waitForFunction(() => !aiRequestInFlight, null, { timeout: 15000 });
+  await page.evaluate(() => howToUsePlannable());
+  assert.equal(await snap(), before, 'FullFin yalnızca okur; motor çıktısı değişmemeli');
+  await page.close();
+});
+
+// ---------------------------------------------------------------- Home çipi: deterministik yol (AI yok)
+test('Home çipi tıklanınca howToUsePlannable() çıktısı birebir gösterilir', async () => {
+  const { page } = await newPage(MOBILE);
+  await seed(page, { income: 90000, expenses: 24000, assets: 150000 });
+  await page.evaluate(() => { setTab('home'); render(); });
+  await openFullFin(page);
+  await page.locator('#fcMessages .fc-quick-btn[data-fc-context="1"]').click();
+  await page.waitForTimeout(80);
+  const r = await page.evaluate(() => {
+    const last = aiChatHistory[aiChatHistory.length - 1];
+    return { expected: howToUsePlannable(), stored: last && last.text, role: last && last.role, source: last && last.source,
+             shown: document.querySelector('#fcMessages .fc-msg.assistant')?.innerText.trim() };
+  });
+  assert.equal(r.role, 'assistant');
+  assert.equal(r.stored, r.expected, 'sohbet geçmişine yazılan cevap howToUsePlannable() çıktısı olmalı');
+  assert.equal(r.source, undefined, 'motor çevirisi "AI açıklaması" olarak etiketlenmemeli');
+  assert.equal(r.shown.replace(/\s+/g, ' '), r.expected.replace(/\s+/g, ' '), 'panelde gösterilen metin howToUsePlannable() çıktısı olmalı');
+  await page.close();
+});
+
+test('AI backend aktifken bile Home çipi AI\'a gitmez; serbest sorular AI akışında kalır', async () => {
+  const { page } = await newPage(MOBILE);
+  await seed(page, { income: 90000, expenses: 24000, assets: 150000 });
+  // Gerçek AI yolunu AÇ (mevcut kapılar: backend URL + yerel test bayrağı) ve askCoachAI'ı
+  // gözlemlenebilir bir sahteyle değiştir: çağrılırsa cevabı "AI REWRITE" olarak yazar.
+  await page.evaluate(() => {
+    FB_AI_CONFIG.backendUrl = 'https://ai-mock.invalid';
+    window.FB_LOCAL_AI_TEST = true;
+    window.__aiCalls = [];
+    askCoachAI = async (q) => {
+      window.__aiCalls.push(q);
+      aiChatHistory.push({ role: 'user', text: q });
+      aiChatHistory.push({ role: 'assistant', source: 'ai', text: 'AI REWRITE' });
+      renderAiChatLog();
+    };
+    setTab('home'); render();
+  });
+  assert.equal(await page.evaluate(() => canUseRealAICoach()), true, 'kurulum: gerçek AI yolu aktif olmalı');
+  await openFullFin(page);
+
+  await page.locator('#fcMessages .fc-quick-btn[data-fc-context="1"]').click();
+  await page.waitForTimeout(80);
+  const chip = await page.evaluate(() => ({
+    calls: window.__aiCalls.length,
+    last: aiChatHistory[aiChatHistory.length - 1].text,
+    expected: howToUsePlannable(),
+  }));
+  assert.equal(chip.calls, 0, 'Home çipi AI backend\'e gönderilmemeli');
+  assert.equal(chip.last, chip.expected, 'cevap AI tarafından yeniden yazılmamalı');
+  assert.equal(chip.last.includes('AI REWRITE'), false);
+
+  // Serbest soru (ve sabit çipler) mevcut AI akışında kalır — davranış değişmedi.
+  await page.locator('#fcInput').fill('Bu ay neye dikkat etmeliyim?');
+  await page.locator('#fcSendBtn').click();
+  await page.waitForFunction(() => !aiRequestInFlight, null, { timeout: 8000 });
+  const free = await page.evaluate(() => ({ calls: window.__aiCalls.slice(), last: aiChatHistory[aiChatHistory.length - 1].text }));
+  assert.deepEqual(free.calls, ['Bu ay neye dikkat etmeliyim?'], 'serbest soru AI yoluna gitmeli');
+  assert.equal(free.last, 'AI REWRITE');
   await page.close();
 });
 

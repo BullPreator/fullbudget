@@ -8256,6 +8256,21 @@ function renderHomeGreeting(){
 
    Yeni ekran eklemek için EKRAN_ADI: () => ... satırı eklemek yeterlidir; if/else yığını
    büyütülmez. */
+/* Türkçe belirtme (-i) eki: çip metnindeki "Bu ₺X'i" kalıbı için. Ek, sayının SESLİ okunuşundaki
+   SON kelimeye göre değişir (…bin → 'i, …üç → 'ü, …yüz → 'ü, …altmış → 'ı) ve rakamdan
+   deterministik olarak bulunur. Yalnızca bir DİL yardımcısıdır — finansal hesap yapmaz. */
+function turkishAccusativeSuffix(n){
+  const v = Math.abs(Math.round(Number(n) || 0));
+  if(!v) return 'ı';                                   // sıfır → sıfırı
+  const ONES = {1:'i', 2:'yi', 3:'ü', 4:'ü', 5:'i', 6:'yı', 7:'yi', 8:'i', 9:'u'};
+  const TENS = {1:'u', 2:'yi', 3:'u', 4:'ı', 5:'yi', 6:'ı', 7:'i', 8:'i', 9:'ı'};
+  if(v % 10) return ONES[v % 10];
+  if(v % 100) return TENS[(v % 100) / 10];
+  if(v % 1000) return 'ü';                             // …yüz
+  if(v % 1e6) return 'i';                              // …bin
+  return 'u';                                          // …milyon / …milyar
+}
+
 function resolveFullFinContext(){
   const screen = (typeof aktifYaprak === 'function') ? aktifYaprak() : 'home';
   const en = currentLang === 'en';
@@ -8269,12 +8284,16 @@ function resolveFullFinContext(){
       if(!result || result.status === 'needs_more_data' || result.status === 'negative_cash_flow') return null;
       const amount = result.distributableCash;
       if(!(amount > 0)) return null;
-      /* Soru bilerek "nasıl kullanayım" DEĞİL: cevabı veren answerOverallStatus() bu tutarın
-         finansal durum içindeki ANLAMINI açıklar, harcama/birikim/yatırım senaryosu üretmez.
-         Çip ile cevap semantik olarak aynı şeyi sorar. */
-      return en
-        ? `What does this ${money(amount)} mean?`
-        : `Bu ${money(amount)} ne anlama geliyor?`;
+      /* Çipin cevabı howToUsePlannable(): bu tutar için motorun (GCAE) GERÇEKTEN ürettiği
+         seçenekleri (nakit / hedef / borç) dile çevirir. Serbest yazılan "ne anlama geliyor?"
+         sorusu ise ayrı kalır ve answerOverallStatus()'a gider. */
+      // answer: bu çipin cevabı AI'a gönderilmez; doğrudan motor çevirisi gösterilir (bkz. fcAskDeterministic).
+      return {
+        prompt: en
+          ? `How could I use this ${money(amount)}?`
+          : `Bu ${money(amount)}'${turkishAccusativeSuffix(amount)} nasıl kullanayım?`,
+        answer: howToUsePlannable,
+      };
     },
     // Hedefler: kullanıcının birincil hedefi (mevcut pickPrimaryGoal seçimi, yeni sıralama YOK).
     goals(){
@@ -8294,12 +8313,16 @@ function resolveFullFinContext(){
     },
   };
 
-  let prompt = null;
+  /* Çözücü ya düz bir soru metni ya da {prompt, answer} döndürür. `answer` varsa o çipin cevabı
+     DETERMİNİSTİKTİR: AI backend'e gitmez, bu fonksiyonun çıktısı olduğu gibi gösterilir. */
+  let prompt = null, answer = null;
   try{
     const fn = resolvers[screen];
-    if(fn) prompt = fn() || null;
-  }catch(e){ prompt = null; }   // bağlam çözülemezse çip yok — panel her hâlükârda açılır
-  return { screen, prompt, hasContext: !!prompt };
+    const r = fn ? fn() : null;
+    if(r && typeof r === 'object'){ prompt = r.prompt || null; answer = (typeof r.answer === 'function') ? r.answer : null; }
+    else prompt = r || null;
+  }catch(e){ prompt = null; answer = null; }   // bağlam çözülemezse çip yok — panel her hâlükârda açılır
+  return { screen, prompt, hasContext: !!prompt, answer: prompt ? answer : null };
 }
 
 /* =========================================================
@@ -15373,6 +15396,79 @@ function answerGoalRemaining(){
   }
   return text;
 }
+/* "Bu ₺X'i nasıl kullanayım?" — PLANLANABİLİR NAKDİN SENARYO ÇEVİRİSİ.
+   YENİ MOTOR / YENİ HESAP YOK. Tek kaynak runMonthlyGoalCashAllocationLive() (Ana Sayfa'daki
+   "Planlanabilir tutar" satırıyla birebir aynı GCAE sonucu; acil fon override'ı dahil). Her senaryo
+   yalnızca motor o kalemi GERÇEKTEN ürettiyse gösterilir:
+     • Nakit  — distributableCash > 0 (her zaman geçerli)
+     • Hedef  — pickPrimaryGoal() var VE GCAE o hedef için 'goal_contribution' üretmiş; rakamlar
+                goalImpact[] kaydından (allocatedThisMonth / gap / projectedMonthsAtThisAllocation)
+     • Borç   — totalDebtTL() > 0 VE GCAE en az bir 'debt_reduction' üretmiş
+   Burada toplama/çıkarma/yüzde/ay farkı YAPILMAZ: "kalan ₺X olur" veya "Y ay kısalır" gibi motorda
+   hazır olmayan değerler bilerek yazılmaz. FullFin karar vermez; sıralama yapmaz, emir kipi yok. */
+function howToUsePlannable(){
+  const en = currentLang === 'en';
+  const money = v => `${CUR}${fmt(v)}`;
+  const gcae = runMonthlyGoalCashAllocationLive();
+  if(!gcae || gcae.status === 'needs_more_data' || gcae.status === 'negative_cash_flow' || !(gcae.distributableCash > 0)){
+    // Çip bu durumda hiç gösterilmez; buraya yalnızca serbest yazılmış bir soruyla gelinir.
+    return answerOverallStatus();
+  }
+  const amount = gcae.distributableCash;
+  const allocations = gcae.allocations || [];
+  const parts = [];
+
+  parts.push(en
+    ? `${money(amount)} is plannable cash right now. It isn't tied to a specific use yet.`
+    : `${money(amount)} şu anda planlanabilir nakit. Henüz belirli bir kullanıma bağlanmış değil.`);
+
+  // A — Nakit (her zaman geçerli)
+  parts.push(en
+    ? 'If you keep it as cash, it stays liquid; your net worth picture doesn\'t change for now.'
+    : 'Nakit tutarsan bu tutar likit kalır; net varlık görünümü şu an değişmez.');
+
+  // B — Hedef (yalnızca motor bu hedef için gerçekten pay ürettiyse)
+  const primary = (typeof pickPrimaryGoal === 'function') ? pickPrimaryGoal() : null;
+  if(primary && primary.g){
+    const goalId = primary.g.id;
+    const line = allocations.find(a => a.type === 'goal_contribution' && a.relatedGoalId === goalId && a.amount > 0);
+    const impact = (gcae.goalImpact || []).find(x => x.goalId === goalId);
+    if(line && impact){
+      const name = goalDisplayName(primary.g);
+      let txt = en
+        ? `If you choose to use it toward ${name}: the plan shows ${money(impact.allocatedThisMonth)} for this goal this month; the goal's remaining amount is ${money(impact.gap)}.`
+        : `${name} yönünde kullanmayı seçersen: plan bu ay bu hedef için ${money(impact.allocatedThisMonth)} pay gösteriyor; hedefin kalan tutarı ${money(impact.gap)}.`;
+      if(impact.projectedMonthsAtThisAllocation != null && isFinite(impact.projectedMonthsAtThisAllocation)){
+        txt += en
+          ? ` At this monthly share, the goal would be complete in about ${impact.projectedMonthsAtThisAllocation} months.`
+          : ` Bu aylık payla devam edilirse hedef yaklaşık ${impact.projectedMonthsAtThisAllocation} ayda tamamlanır.`;
+      }
+      parts.push(txt);
+    }
+  }
+
+  // C — Borç ek ödeme (borç var VE motor gerçekten bir debt_reduction kalemi ürettiyse)
+  if(totalDebtTL() > 0){
+    const debtLines = allocations.filter(a => a.type === 'debt_reduction' && a.amount > 0);
+    if(debtLines.length){
+      const first = debtLines[0];   // GCAE bu kalemleri faiz oranına göre (yüksekten düşüğe) sıralı üretir
+      let txt = en
+        ? `If you choose an extra debt payment: the plan shows room for a ${money(first.amount)} extra payment this month on a debt whose rate is above deposit returns; that balance would go down by this amount.`
+        : `Borçta ek ödemeyi seçersen: plan, faizi mevduat getirisinin üzerinde olan borç için bu ay ${money(first.amount)} ek ödeme alanı gösteriyor; o borcun bakiyesi bu tutar kadar azalır.`;
+      if(debtLines.length > 1){
+        txt += en
+          ? ` The plan has ${debtLines.length - 1} more line(s) like this.`
+          : ` Planda bu türden ${debtLines.length - 1} kalem daha var.`;
+      }
+      parts.push(txt);
+    }
+  }
+
+  parts.push(en
+    ? "This isn't a ranking. Which one fits you is your decision."
+    : 'Bu bir sıralama değil. Hangisinin sana uyduğu kararı sana ait.');
+  return parts.join('\n\n');
+}
 function answerGoalFaster(){
   const en = currentLang==='en';
   const primary = pickPrimaryGoal();
@@ -15568,6 +15664,7 @@ function answerTemplateQuestion(question){
      ÖNCEYE konuldu: yukarıdaki TÜM mevcut desenler önce eşleşme şansını kullanır, hiçbir
      çalışan eşleşme değişmez. Hepsi ZATEN VAR OLAN cevap fonksiyonlarına yönlendirir —
      yeni bir finansal hesap/şablon yazılmadı. */
+  if(/nasil kullan|nasil degerlendir|how (could|should|would|do|can) i use/.test(q)) return howToUsePlannable();
   if(/ne anlama gel|ne demek oluyor|what does this .{0,20}mean|what.{0,15}does it mean/.test(q)) return answerOverallStatus();
   if(/(hedef).{0,30}(ne kadar kaldi|ne kadar var|kalan)|(ne kadar kaldi).{0,30}hedef|how (much|far).{0,30}goal|goal.{0,30}(how much|how far)/.test(q)) return answerGoalRemaining();
   if(/durumu(mu)? ozetle|ozetle.{0,15}durum|summari[sz]e my (situation|finances|financial)/.test(q)) return answerOverallStatus();
@@ -21611,9 +21708,30 @@ function syncAuthThemeIcons(){
     messages.querySelectorAll('.fc-quick-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         if(typeof aiRequestInFlight !== 'undefined' && aiRequestInFlight) return;
+        if(btn.dataset.fcContext === '1' && ctx && typeof ctx.answer === 'function'){
+          fcAskDeterministic(btn.textContent, ctx.answer);
+          return;
+        }
         askCoach(btn.textContent);
       });
     });
+  }
+
+  /* DETERMİNİSTİK ÇİP CEVABI — yalnızca çözücünün `answer` bildirdiği bağlamsal çip için (bugün:
+     Home "Bu ₺X'i nasıl kullanayım?" → howToUsePlannable()). Cevap canlı motor çıktısının
+     çevirisidir; AI backend açık olsa bile ona GÖNDERİLMEZ ve model tarafından yeniden yazılmaz.
+     Aynı tek sohbet geçmişi (aiChatHistory) ve aynı çizim (renderAiChatLog) kullanılır; analitik
+     sinyali askCoach() ile aynıdır. Serbest sorular ve diğer tüm çipler askCoach() akışında kalır. */
+  function fcAskDeterministic(question, answerFn){
+    const q = String(question || '').trim();
+    if(!q) return;
+    try{ analytics.track(ANALYTICS_EVENTS.AI_COACH_QUESTION_SENT); }catch(e){}
+    let text;
+    try{ text = answerFn(); }catch(e){ text = null; }
+    if(!text){ askCoach(q); return; }   // çeviri üretilemezse normal akışa düş (cevapsız kalmaz)
+    aiChatHistory.push({role:'user', text:q});
+    aiChatHistory.push({role:'assistant', text});
+    renderAiChatLog();
   }
 
   /* aiChatHistory'yi (TEK gerçek kaynak) panelin kendi baloncuk/tipografi
